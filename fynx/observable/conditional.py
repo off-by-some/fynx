@@ -9,7 +9,7 @@ from typing import TypeVar
 
 from .base import Observable
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ConditionalObservable(Observable[T]):
@@ -20,7 +20,9 @@ class ConditionalObservable(Observable[T]):
     conditional reactive computations.
     """
 
-    def __init__(self, source_observable: Observable[T], *condition_observables: Observable[bool]) -> None:
+    def __init__(
+        self, source_observable: Observable[T], *condition_observables: Observable[bool]
+    ) -> None:
         """
         Create a conditional observable.
 
@@ -49,20 +51,24 @@ class ConditionalObservable(Observable[T]):
             """Called when condition observables change."""
             # Update our cached condition state
             old_conditions_met = self._conditions_met
-            self._conditions_met = all(cond.value for cond in self._condition_observables)
+            self._conditions_met = all(
+                cond.value for cond in self._condition_observables
+            )
 
             # If conditions just became met, emit current source value
             if self._conditions_met and not old_conditions_met:
                 current_value = self._source_observable.value
                 self.set(current_value)
-            # If conditions became unmet or stayed the same, don't emit
+            # If conditions became unmet, update internal state but don't notify
+            elif not self._conditions_met and old_conditions_met:
+                self._value = None  # Update internal value without notifying
 
         # Subscribe to all observables
         source_observable.add_observer(update_from_source)
         for cond_obs in condition_observables:
             cond_obs.add_observer(update_from_conditions)
 
-    def __and__(self, condition: Observable[bool]) -> 'ConditionalObservable[T]':
+    def __and__(self, condition: Observable[bool]) -> "ConditionalObservable[T]":
         """
         Add another condition to this conditional observable.
 
@@ -72,4 +78,6 @@ class ConditionalObservable(Observable[T]):
         Returns:
             A new ConditionalObservable with the additional condition
         """
-        return ConditionalObservable(self._source_observable, *self._condition_observables, condition)
+        return ConditionalObservable(
+            self._source_observable, *self._condition_observables, condition
+        )

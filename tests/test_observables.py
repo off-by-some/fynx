@@ -1,7 +1,8 @@
 """Tests for basic observable functionality."""
 
 import pytest
-from fynx import Observable, observable, computed
+
+from fynx import Observable, computed, observable
 
 
 def test_observable_creation_with_initial_value():
@@ -289,15 +290,15 @@ def test_zero_value_observable():
 def test_extreme_values_in_observables():
     """Test observables with extreme values."""
     # Very large numbers
-    obs = Observable("large", float('inf'))
-    assert obs.value == float('inf')
+    obs = Observable("large", float("inf"))
+    assert obs.value == float("inf")
 
     # Very small numbers
-    obs.set(float('-inf'))
-    assert obs.value == float('-inf')
+    obs.set(float("-inf"))
+    assert obs.value == float("-inf")
 
     # NaN
-    obs.set(float('nan'))
+    obs.set(float("nan"))
     assert obs.value != obs.value  # NaN != NaN
 
 

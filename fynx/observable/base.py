@@ -20,22 +20,16 @@ The Observable class forms the foundation of Fynx's reactivity system, providing
 transparent dependency tracking and automatic change propagation.
 """
 
-from contextlib import contextmanager
-from types import TracebackType
-from typing import (
-    Generic,
-    List,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-)
-import sys
+from typing import TYPE_CHECKING, Callable, Generic, List, Optional, Set, Type, TypeVar
+
+if TYPE_CHECKING:
+    from .merged import MergedObservable
+    from .conditional import ConditionalObservable
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
 from .descriptors import SubscriptableDescriptor
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ReactiveContext:
@@ -60,21 +54,32 @@ class ReactiveContext:
         observable operations. Direct instantiation is usually not needed.
     """
 
-    def __init__(self, func: callable, original_func: callable = None, subscribed_observable: 'Observable' = None) -> None:
+    def __init__(
+        self,
+        func: Callable,
+        original_func: Optional[Callable] = None,
+        subscribed_observable: Optional["Observable"] = None,
+    ) -> None:
         self.func = func
-        self.original_func = original_func or func  # Store the original user function for unsubscribe
-        self.subscribed_observable = subscribed_observable  # The observable this context is subscribed to
-        self.dependencies: Set['Observable'] = set()
+        self.original_func = (
+            original_func or func
+        )  # Store the original user function for unsubscribe
+        self.subscribed_observable = (
+            subscribed_observable  # The observable this context is subscribed to
+        )
+        self.dependencies: Set["Observable"] = set()
         self.is_running = False
         # For merged observables, we need to remove the observer from the merged observable,
         # not from the automatically tracked source observables
         self._observer_to_remove_from = subscribed_observable
+        # For store subscriptions, keep track of all store observables
+        self._store_observables: Optional[List["Observable"]] = None
 
     def run(self) -> None:
         """Run the reactive function, tracking dependencies."""
         old_context = Observable._current_context
         Observable._current_context = self
-        
+
         # Push this context onto the stack
         Observable._context_stack.append(self)
 
@@ -88,7 +93,7 @@ class ReactiveContext:
             # Pop this context from the stack
             Observable._context_stack.pop()
 
-    def add_dependency(self, observable: 'Observable') -> None:
+    def add_dependency(self, observable: "Observable") -> None:
         """Add an observable as a dependency of this context."""
         # Simply add the dependency - cycle detection happens during set()
         self.dependencies.add(observable)
@@ -99,7 +104,9 @@ class ReactiveContext:
         if self._observer_to_remove_from is not None:
             # For single observables or merged observables
             self._observer_to_remove_from.remove_observer(self.run)
-        elif hasattr(self, '_store_observables'):
+        elif (
+            hasattr(self, "_store_observables") and self._store_observables is not None
+        ):
             # For store-level subscriptions, remove from all store observables
             for observable in self._store_observables:
                 observable.remove_observer(self.run)
@@ -150,10 +157,10 @@ class Observable(Generic[T]):
     """
 
     # Class variable to track the current reactive context
-    _current_context: Optional['ReactiveContext'] = None
-    
+    _current_context: Optional["ReactiveContext"] = None
+
     # Stack of reactive contexts being computed (for proper cycle detection)
-    _context_stack: List['ReactiveContext'] = []
+    _context_stack: List["ReactiveContext"] = []
 
     def __init__(self, key: str, initial_value: Optional[T] = None) -> None:
         """
@@ -165,7 +172,7 @@ class Observable(Generic[T]):
         """
         self.key = key
         self._value = initial_value
-        self._observers: Set[callable] = set()
+        self._observers: Set[Callable] = set()
 
     @property
     def value(self) -> Optional[T]:
@@ -182,15 +189,14 @@ class Observable(Generic[T]):
         Args:
             value: The new value to set
         """
-        # Check for circular dependency: check if any context in the stack
-        # is currently computing a value that depends on this observable
-        for context in Observable._context_stack:
-            # Check if this observable is in the dependencies of any running context
-            if self in context.dependencies:
-                error_msg = f"Circular dependency detected in reactive computation!\n"
-                error_msg += f"Observable '{self.key}' is being modified while computing a value that depends on it.\n"
-                error_msg += f"This creates a circular dependency."
-                raise RuntimeError(error_msg)
+        # Check for circular dependency: check if the current context
+        # is computing a value that depends on this observable
+        current_context = Observable._current_context
+        if current_context and self in current_context.dependencies:
+            error_msg = f"Circular dependency detected in reactive computation!\n"
+            error_msg += f"Observable '{self.key}' is being modified while computing a value that depends on it.\n"
+            error_msg += f"This creates a circular dependency."
+            raise RuntimeError(error_msg)
 
         # Only update and notify if the value actually changed
         if self._value != value:
@@ -207,7 +213,7 @@ class Observable(Generic[T]):
         for observer in list(self._observers):
             observer()
 
-    def add_observer(self, observer: callable) -> None:
+    def add_observer(self, observer: Callable) -> None:
         """
         Add an observer function that will be called when this observable changes.
 
@@ -216,7 +222,7 @@ class Observable(Generic[T]):
         """
         self._observers.add(observer)
 
-    def remove_observer(self, observer: callable) -> None:
+    def remove_observer(self, observer: Callable) -> None:
         """
         Remove an observer function.
 
@@ -225,7 +231,7 @@ class Observable(Generic[T]):
         """
         self._observers.discard(observer)
 
-    def subscribe(self, func: callable) -> 'Observable[T]':
+    def subscribe(self, func: Callable) -> "Observable[T]":
         """
         Subscribe a function to react to changes in this observable.
 
@@ -235,23 +241,30 @@ class Observable(Generic[T]):
         Returns:
             This observable instance for method chaining.
         """
+
         def single_reaction():
             func(self.value)
 
         self._create_subscription_context(single_reaction, func, self)
         return self
 
-    def unsubscribe(self, func: callable) -> None:
+    def unsubscribe(self, func: Callable) -> None:
         """
         Unsubscribe a function from this observable.
 
         Args:
             func: The function to unsubscribe from this observable
         """
-        self._dispose_subscription_contexts(func, lambda ctx: ctx.subscribed_observable is self)
+        self._dispose_subscription_contexts(
+            func, lambda ctx: ctx.subscribed_observable is self
+        )
 
     @staticmethod
-    def _create_subscription_context(reaction_func: callable, original_func: callable, subscribed_observable: Optional['Observable']) -> ReactiveContext:
+    def _create_subscription_context(
+        reaction_func: Callable,
+        original_func: Callable,
+        subscribed_observable: Optional["Observable"],
+    ) -> ReactiveContext:
         """Create and register a subscription context."""
         context = ReactiveContext(reaction_func, original_func, subscribed_observable)
 
@@ -267,14 +280,17 @@ class Observable(Generic[T]):
         return context
 
     @staticmethod
-    def _dispose_subscription_contexts(func: callable, filter_predicate: callable = None) -> None:
+    def _dispose_subscription_contexts(
+        func: Callable, filter_predicate: Optional[Callable] = None
+    ) -> None:
         """Dispose of subscription contexts for a function with optional filtering."""
         if func not in _func_to_contexts:
             return
 
         # Filter contexts based on predicate if provided
         contexts_to_remove = [
-            ctx for ctx in _func_to_contexts[func]
+            ctx
+            for ctx in _func_to_contexts[func]
             if filter_predicate is None or filter_predicate(ctx)
         ]
 
@@ -286,7 +302,6 @@ class Observable(Generic[T]):
         # Clean up empty function mappings
         if not _func_to_contexts[func]:
             del _func_to_contexts[func]
-
 
     # Magic methods for transparent behavior
     def __bool__(self) -> bool:
@@ -314,11 +329,19 @@ class Observable(Generic[T]):
     # Descriptor protocol for use as class attributes
     def __set_name__(self, owner: Type, name: str) -> None:
         """Called when assigned to a class attribute."""
-        # When used as a class attribute, convert to a SubscriptableDescriptor
+        # Check if owner is a Store class - if so, let StoreMeta handle the conversion
+        from .store import Store
+
+        if issubclass(owner, Store):
+            return
+
+        # For non-Store classes, convert to a SubscriptableDescriptor
         # that will create class-level observables
-        descriptor = SubscriptableDescriptor()
+        from .descriptors import SubscriptableDescriptor
+
+        descriptor: SubscriptableDescriptor[T] = SubscriptableDescriptor(self._value)
         descriptor.attr_name = name
-        descriptor._initial_value = self._value
+        descriptor._owner_class = owner
 
         # Replace this Observable instance with the descriptor on the class
         setattr(owner, name, descriptor)
@@ -326,7 +349,7 @@ class Observable(Generic[T]):
         # Remove this instance since it's being replaced
         # The descriptor will create the actual Observable when accessed
 
-    def __or__(self, other: 'Observable') -> 'MergedObservable':
+    def __or__(self, other: "Observable") -> "MergedObservable[T]":
         """
         Combine this observable with another using the | operator.
 
@@ -346,6 +369,7 @@ class Observable(Generic[T]):
             ```
         """
         from .merged import MergedObservable  # Import here to avoid circular import
+
         if isinstance(other, MergedObservable):
             # If other is already merged, combine our observable with its sources
             return MergedObservable(self, *other._source_observables)
@@ -353,7 +377,7 @@ class Observable(Generic[T]):
             # Standard case: combine two regular observables
             return MergedObservable(self, other)
 
-    def __rshift__(self, func: callable) -> 'Observable':
+    def __rshift__(self, func: Callable) -> "Observable":
         """
         Chain a transformation function to create a new computed observable using >>.
 
@@ -381,9 +405,10 @@ class Observable(Generic[T]):
             ```
         """
         from .operators import rshift_operator
+
         return rshift_operator(self, func)
 
-    def __and__(self, condition: 'Observable[bool]') -> 'ConditionalObservable':
+    def __and__(self, condition: "Observable[bool]") -> "ConditionalObservable[T]":
         """
         Create a conditional observable using the & operator.
 
@@ -406,9 +431,10 @@ class Observable(Generic[T]):
             ```
         """
         from .operators import and_operator
+
         return and_operator(self, condition)
 
-    def __invert__(self) -> 'Observable[bool]':
+    def __invert__(self) -> "Observable[bool]":
         """
         Create a negated boolean observable using the ~ operator.
 

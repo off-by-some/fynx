@@ -47,7 +47,7 @@ def test_computed_single_observable_eager_evaluation():
 def test_computed_single_observable_updates_on_change():
     """Test that computed observable updates when source changes."""
     source = Observable("source", 3)
-    squared = computed(lambda x: x ** 2, source)
+    squared = computed(lambda x: x**2, source)
 
     assert squared.value == 9
 
@@ -216,7 +216,7 @@ def test_computed_with_mixed_observable_types():
     assert upper.value == "HELLO"
 
     # Number transformation
-    squared = computed(lambda n: n ** 2, number_obs)
+    squared = computed(lambda n: n**2, number_obs)
     assert squared.value == 9
 
     # Boolean transformation

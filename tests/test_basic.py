@@ -1,7 +1,8 @@
 """Basic tests for Fynx library."""
 
 import pytest
-from fynx import Observable, Store, observable, reactive, computed, ReactiveContext
+
+from fynx import Observable, ReactiveContext, Store, computed, observable, reactive
 
 
 def test_observable_basic():
@@ -72,6 +73,7 @@ def test_chained_merged_observable():
 
 def test_store_with_observable():
     """Test Store class with observable() API."""
+
     class TestStore(Store):
         count = observable(0)
         name = observable("test")
@@ -159,6 +161,7 @@ def test_merged_observable_subscription():
 
 def test_store_subscription():
     """Test subscribing and unsubscribing from store changes."""
+
     class TestStore(Store):
         height_cm = observable(160.0)
         name = observable("Alice")
@@ -168,7 +171,9 @@ def test_store_subscription():
     callback_calls = []
 
     def on_store_change(store):
-        callback_calls.append(f"Store: height={store.height_cm}, name={store.name}, age={store.age}")
+        callback_calls.append(
+            f"Store: height={store.height_cm}, name={store.name}, age={store.age}"
+        )
 
     # Subscribe to store changes
     TestStore.subscribe(on_store_change)
@@ -196,6 +201,7 @@ def test_store_subscription():
 
 def test_reactive_store_decorator():
     """Test @reactive decorator with stores."""
+
     class TestStore(Store):
         height_cm = observable(160.0)
         name = observable("Alice")
@@ -206,7 +212,9 @@ def test_reactive_store_decorator():
 
     @reactive(TestStore)
     def on_store_change(store):
-        callback_calls.append(f"Decorator: height={store.height_cm}, name={store.name}, age={store.age}")
+        callback_calls.append(
+            f"Decorator: height={store.height_cm}, name={store.name}, age={store.age}"
+        )
 
     # Changes should trigger decorated function
     TestStore.height_cm = 170.2
@@ -223,6 +231,7 @@ def test_reactive_store_decorator():
 
 def test_reactive_multiple_observables_decorator():
     """Test @reactive decorator with multiple observables."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(30)
@@ -239,7 +248,10 @@ def test_reactive_multiple_observables_decorator():
     assert callback_calls == ["Multi: name=Alice, age=31"]
 
     TestStore.name = "Barbara"
-    assert callback_calls == ["Multi: name=Alice, age=31", "Multi: name=Barbara, age=31"]
+    assert callback_calls == [
+        "Multi: name=Alice, age=31",
+        "Multi: name=Barbara, age=31",
+    ]
 
     # Unsubscribe
     TestStore.unsubscribe(on_multi_change)
@@ -251,6 +263,7 @@ def test_reactive_multiple_observables_decorator():
 
 def test_context_manager_merged_observables():
     """Test context manager with merged observables."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(30)
@@ -262,7 +275,7 @@ def test_context_manager_merged_observables():
         callback_calls.append(f"Context: name={name}, age={age}")
 
     # Use context manager
-    with (TestStore.name | TestStore.age) as react:
+    with TestStore.name | TestStore.age as react:
         react(on_context_change)
 
         # Context manager executes callback immediately with current values
@@ -270,10 +283,17 @@ def test_context_manager_merged_observables():
 
         # Changes should trigger callback
         TestStore.name = "Bob"
-        assert callback_calls == ["Context: name=Alice, age=30", "Context: name=Bob, age=30"]
+        assert callback_calls == [
+            "Context: name=Alice, age=30",
+            "Context: name=Bob, age=30",
+        ]
 
         TestStore.age = 31
-        assert callback_calls == ["Context: name=Alice, age=30", "Context: name=Bob, age=30", "Context: name=Bob, age=31"]
+        assert callback_calls == [
+            "Context: name=Alice, age=30",
+            "Context: name=Bob, age=30",
+            "Context: name=Bob, age=31",
+        ]
 
     # Note: Context manager cleanup is not currently implemented
     # so callbacks continue after exit
@@ -289,8 +309,8 @@ def test_store_snapshot_repr():
         pass
 
     # Create snapshot manually for testing
-    snapshot = StoreSnapshot(TestStore, ['name', 'age'])
-    snapshot._snapshot_values = {'name': 'Alice', 'age': 30}
+    snapshot = StoreSnapshot(TestStore, ["name", "age"])
+    snapshot._snapshot_values = {"name": "Alice", "age": 30}
 
     # Test repr
     repr_str = repr(snapshot)
@@ -478,7 +498,9 @@ def test_watch_observable_discovery():
 
     @watch(lambda: name.value == "Bob", lambda: age.value > 20, lambda: active.value)
     def multi_condition_callback():
-        callback_calls.append(f"Name: {name.value}, Age: {age.value}, Active: {active.value}")
+        callback_calls.append(
+            f"Name: {name.value}, Age: {age.value}, Active: {active.value}"
+        )
 
     # Initially conditions not met (name != "Bob")
     assert callback_calls == []
@@ -540,8 +562,9 @@ def test_watch_initial_execution():
 
 def test_watch_error_handling():
     """Test that watch handles errors in condition evaluation gracefully."""
-    from fynx import watch
     import sys
+
+    from fynx import watch
 
     # Create observables
     value = observable(5)
@@ -558,6 +581,7 @@ def test_watch_error_handling():
     stdout_capture = io.StringIO()
 
     with redirect_stdout(stdout_capture):
+
         @watch(lambda: value.value > 3, lambda: error_obs.value.nonexistent_attribute)
         def error_callback():
             callback_calls.append(f"Value: {value.value}")

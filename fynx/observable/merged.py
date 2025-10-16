@@ -27,12 +27,12 @@ print(dimensions.value)  # (15, 20)
 ```
 """
 
-from typing import Iterator, Optional, TypeVar
-from .base import ReactiveContext
-from .base import Observable
-from ..registry import _all_reactive_contexts, _func_to_contexts
+from typing import Callable, Iterator, Optional, Tuple, TypeVar
 
-T = TypeVar('T')
+from ..registry import _all_reactive_contexts, _func_to_contexts
+from .base import Observable, ReactiveContext
+
+T = TypeVar("T")
 
 
 class MergedObservable(Observable[T]):
@@ -97,7 +97,11 @@ class MergedObservable(Observable[T]):
             ValueError: If no observables are provided
         """
         # Call parent constructor with a key and initial tuple value
-        super().__init__("merged", tuple(obs.value for obs in observables))
+        initial_tuple = tuple(obs.value for obs in observables)
+
+        # NOTE: MyPy's generics can't perfectly model this complex inheritance pattern
+        # where T represents a tuple type in the subclass but a single value in the parent
+        super().__init__("merged", initial_tuple)  # type: ignore
         self._source_observables = list(observables)
         self._cached_tuple = None  # Cache for tuple value
 
@@ -126,7 +130,8 @@ class MergedObservable(Observable[T]):
         super().set(value)
 
     def __enter__(self):
-        """Context manager entry - return reactive context like example2.py."""
+        """Context manager entry - returns reactive context ."""
+
         class ReactiveWithContext:
             def __init__(self, merged_obs):
                 self.merged_obs = merged_obs
@@ -137,8 +142,11 @@ class MergedObservable(Observable[T]):
 
             def __call__(self, block):
                 """Set up reactive execution of the block function."""
+
                 def run():
-                    values = tuple(obs.value for obs in self.merged_obs._source_observables)
+                    values = tuple(
+                        obs.value for obs in self.merged_obs._source_observables
+                    )
                     block(*values)
 
                 # Bind to all source observables
@@ -154,7 +162,7 @@ class MergedObservable(Observable[T]):
         """Context manager exit."""
         pass
 
-    def __or__(self, other: Observable) -> 'MergedObservable':
+    def __or__(self, other: Observable) -> "MergedObservable":
         """
         Chain merging with another observable.
 
@@ -178,7 +186,9 @@ class MergedObservable(Observable[T]):
 
     def __getitem__(self, index: int) -> T:
         """Allow indexing into the merged observable like a tuple."""
-        return self._value[index]
+        if self._value is None:
+            raise IndexError("MergedObservable has no value")
+        return self._value[index]  # type: ignore
 
     def __setitem__(self, index: int, value: T) -> None:
         """Allow setting values by index (updates the corresponding source observable)."""
@@ -187,7 +197,7 @@ class MergedObservable(Observable[T]):
         else:
             raise IndexError("Index out of range")
 
-    def subscribe(self, func: callable) -> 'MergedObservable':
+    def subscribe(self, func: Callable) -> "MergedObservable[T]":
         """
         Subscribe a function to react to changes in any of the merged observables.
 
@@ -202,6 +212,7 @@ class MergedObservable(Observable[T]):
         Returns:
             This merged observable instance for method chaining.
         """
+
         def multi_observable_reaction():
             # Disable automatic dependency tracking for merged observables
             # since we don't want to add observers to source observables
@@ -229,7 +240,7 @@ class MergedObservable(Observable[T]):
 
         return self
 
-    def unsubscribe(self, func: callable) -> None:
+    def unsubscribe(self, func: Callable) -> None:
         """
         Unsubscribe a function from this merged observable.
 
@@ -242,7 +253,8 @@ class MergedObservable(Observable[T]):
         if func in _func_to_contexts:
             # Filter contexts that are subscribed to this observable
             contexts_to_remove = [
-                ctx for ctx in _func_to_contexts[func]
+                ctx
+                for ctx in _func_to_contexts[func]
                 if ctx.subscribed_observable is self
             ]
 

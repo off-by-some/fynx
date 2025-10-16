@@ -5,6 +5,7 @@ from fynx import Store, observable, reactive
 
 def test_reactive_decorator_with_store():
     """Test @reactive decorator with a store class."""
+
     class TestStore(Store):
         value = observable(0)
 
@@ -57,6 +58,7 @@ def test_reactive_decorator_with_multiple_observables():
 
 def test_reactive_decorator_returns_original_function():
     """Test that @reactive decorator returns the original function."""
+
     def test_function():
         return "test"
 
@@ -68,6 +70,7 @@ def test_reactive_decorator_returns_original_function():
 
 def test_reactive_decorator_with_store_passes_snapshot():
     """Test that store reactive decorator passes snapshot to callback."""
+
     class TestStore(Store):
         counter = observable(0)
 
@@ -87,6 +90,7 @@ def test_reactive_decorator_with_store_passes_snapshot():
 
 def test_reactive_decorator_with_store_multiple_attributes():
     """Test reactive decorator with store having multiple observable attributes."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(25)
@@ -128,6 +132,7 @@ def test_reactive_decorator_no_execution_on_same_value():
 def test_reactive_decorator_mixed_observables_and_store():
     """Test reactive decorator with mix of individual observables and store."""
     obs = observable("individual")
+
     class TestStore(Store):
         store_value = observable("store")
 
@@ -170,7 +175,7 @@ def test_reactive_handler_creation():
     from fynx import reactive
 
     handler = reactive(observable(1))
-    assert hasattr(handler, '__call__')
+    assert hasattr(handler, "__call__")
 
 
 def test_reactive_handler_as_decorator():

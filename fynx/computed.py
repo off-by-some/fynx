@@ -37,10 +37,12 @@ Example:
     ```
 """
 
-from .observable import Observable, MergedObservable
+from typing import Callable
+
+from .observable import MergedObservable, Observable
 
 
-def computed(func: callable, observable) -> Observable:
+def computed(func: Callable, observable) -> Observable:
     """
     Create a computed observable that derives its value from other observables.
 
@@ -102,32 +104,32 @@ def computed(func: callable, observable) -> Observable:
     """
     if isinstance(observable, MergedObservable):
         # For merged observables, apply func to the tuple values
-        computed_obs = Observable("computed", None)
+        merged_computed_obs: Observable = Observable("computed", None)
 
-        def update_computed():
+        def update_merged_computed():
             values = tuple(obs.value for obs in observable._source_observables)
             result = func(*values)
-            computed_obs.set(result)
+            merged_computed_obs.set(result)
 
         # Initial computation
-        update_computed()
+        update_merged_computed()
 
         # Subscribe to changes in the source observable
-        observable.subscribe(lambda *args: update_computed())
+        observable.subscribe(lambda *args: update_merged_computed())
 
-        return computed_obs
+        return merged_computed_obs
     else:
         # For single observables
-        computed_obs = Observable("computed", None)
+        single_computed_obs: Observable = Observable("computed", None)
 
-        def update_computed():
+        def update_single_computed():
             result = func(observable.value)
-            computed_obs.set(result)
+            single_computed_obs.set(result)
 
         # Initial computation
-        update_computed()
+        update_single_computed()
 
         # Subscribe to changes
-        observable.subscribe(lambda val: update_computed())
+        observable.subscribe(lambda val: update_single_computed())
 
-        return computed_obs
+        return single_computed_obs

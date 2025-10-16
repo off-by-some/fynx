@@ -14,7 +14,7 @@ echo "=================================="
 
 # Build and test the image
 echo "📦 Building Docker test image..."
-if ! docker build -f "$SCRIPT_DIR/test-pypi.dockerfile" -t fynx-test . > /dev/null 2>&1; then
+if ! docker build -f "$SCRIPT_DIR/test-pypi.dockerfile" -t fynx-test .; then
     echo "❌ Docker build failed"
     echo ""
     echo "Possible issues:"
@@ -42,7 +42,7 @@ print('✅ Fynx imported successfully')
 
 # Test observable creation and reactivity
 counter = observable(0)
-double_counter = computed(lambda: counter.value * 2)
+double_counter = computed(lambda value: value * 2, counter)
 
 print('✅ Observables and computed values work')
 print('📊 Initial counter:', counter.value)
@@ -63,7 +63,7 @@ print('✅ Store functionality works')
 print('📊 Store name:', store.name)
 \""
 
-if docker run --rm fynx-test bash -c "$TEST_CMD" > /dev/null 2>&1; then
+if docker run --rm fynx-test bash -c "$TEST_CMD"; then
     echo "✅ All functionality tests passed"
     echo ""
     echo "📦 Package Status: VERIFIED"

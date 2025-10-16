@@ -22,10 +22,10 @@ dependency tracking and automatic change propagation.
 """
 
 from .base import Observable, ReactiveContext
-from .merged import MergedObservable
 from .conditional import ConditionalObservable
 from .descriptors import SubscriptableDescriptor
-from .operators import rshift_operator, and_operator
+from .merged import MergedObservable
+from .operators import and_operator, rshift_operator
 
 __all__ = [
     "Observable",

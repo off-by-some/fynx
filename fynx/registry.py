@@ -21,10 +21,10 @@ for managing subscriptions and ensuring proper cleanup when reactive contexts
 are no longer needed.
 """
 
-from typing import Dict, Set
+from typing import Callable, Dict, Set
 
 # Global registry of all active reactive contexts for unsubscribe functionality
 _all_reactive_contexts: Set = set()
 
 # Mapping from functions to their reactive contexts for O(1) unsubscribe
-_func_to_contexts: Dict[callable, list] = {}
+_func_to_contexts: Dict[Callable, list] = {}

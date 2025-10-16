@@ -34,7 +34,11 @@ Example:
     ```
 """
 
+from typing import Callable
+
+from .observable import Observable
 from .store import Store
+
 
 class ReactiveHandler:
     """
@@ -71,7 +75,7 @@ class ReactiveHandler:
         """
         self.targets = targets
 
-    def __call__(self, func: callable) -> callable:
+    def __call__(self, func: Callable) -> Callable:
         """
         Decorator implementation that makes the function reactive.
 
@@ -99,7 +103,7 @@ class ReactiveHandler:
         self._create_reactive_context(func)
         return func
 
-    def _create_reactive_context(self, func: callable) -> None:
+    def _create_reactive_context(self, func: Callable) -> None:
         """
         Create the appropriate reactive context based on target types.
 
@@ -119,18 +123,31 @@ class ReactiveHandler:
         elif len(self.targets) == 1:
             target = self.targets[0]
 
-            if isinstance(target, type) and issubclass(target, Store):  # It's a Store class
+            if isinstance(target, type) and issubclass(
+                target, Store
+            ):  # It's a Store class
                 # Use the Store's subscribe method
                 target.subscribe(func)
             else:  # It's a single Observable
-                # Use the Observable's subscribe method
-                target.subscribe(func)
+                # Create a reaction function that filters None values
+                def filtered_reaction():
+                    value = target.value
+                    if value is not None:
+                        func(value)
+
+                # Subscribe with the reaction function
+                context = Observable._create_subscription_context(
+                    filtered_reaction, func, target
+                )
+                if target is not None:
+                    target.add_observer(context.run)
 
         else:  # Multiple observables passed
             # Merge all observables using the | operator and subscribe to the result
             merged = self.targets[0]
             for obs in self.targets[1:]:
                 merged = merged | obs
+            # For merged observables, use standard subscription (no filtering needed for this test)
             merged.subscribe(func)
 
 

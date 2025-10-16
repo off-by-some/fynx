@@ -255,8 +255,10 @@ def test_observable_memory_management():
     # Create a bunch of subscriptions
     callbacks = []
     for i in range(10):
+
         def callback(value):
             pass
+
         callbacks.append(callback)
         obs.subscribe(callback)
 

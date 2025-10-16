@@ -127,11 +127,7 @@ def test_watch_observable_discovery_complex_conditions():
 
     callback_count = 0
 
-    @watch(
-        lambda: name.value == "Bob",
-        lambda: age.value > 20,
-        lambda: active.value
-    )
+    @watch(lambda: name.value == "Bob", lambda: age.value > 20, lambda: active.value)
     def callback():
         nonlocal callback_count
         callback_count += 1
@@ -217,6 +213,7 @@ def test_watch_error_handling_in_condition_evaluation():
     callback_executed = False
 
     with redirect_stdout(io.StringIO()):
+
         @watch(lambda: value.value > 3, lambda: error_obs.value.nonexistent_attribute)
         def callback():
             nonlocal callback_executed
@@ -236,6 +233,7 @@ def test_watch_error_handling_warning_message():
     stdout_capture = io.StringIO()
 
     with redirect_stdout(stdout_capture):
+
         @watch(lambda: error_obs.value.nonexistent_attribute)
         def callback():
             pass
@@ -246,6 +244,7 @@ def test_watch_error_handling_warning_message():
 
 def test_watch_returns_original_function():
     """Test that watch decorator returns the original function."""
+
     def test_function():
         return "test"
 

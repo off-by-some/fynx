@@ -1,8 +1,10 @@
 """
 Test for circular dependency detection in complex reactive chains.
 """
+
 import pytest
-from fynx import Store, observable, computed
+
+from fynx import Store, computed, observable
 
 
 class TestStore(Store):
@@ -18,16 +20,17 @@ def test_circular_dependency_with_conditional_chains():
     age_obs = observable(25)
 
     # Create validation computed observables
-    is_valid_email = computed(lambda email: '@' in email and '.' in email.split('@')[1], email_obs)
+    is_valid_email = computed(
+        lambda email: "@" in email and "." in email.split("@")[1], email_obs
+    )
     is_valid_age = computed(lambda age: 0 <= age <= 150, age_obs)
 
     # Create conditional observable chain
-    profile_is_valid = (is_valid_email & is_valid_age)
+    profile_is_valid = is_valid_email & is_valid_age
 
     # Create a computed observable that depends on the conditional observable
     validation_status = computed(
-        lambda valid: "valid" if valid else "invalid",
-        profile_is_valid
+        lambda valid: "valid" if valid else "invalid", profile_is_valid
     )
 
     # This should not cause a circular dependency
@@ -53,17 +56,16 @@ def test_circular_dependency_with_complex_chains():
     """Test more complex chains that were causing circular dependencies in the example."""
 
     # Simulate the pattern from advanced_user_profile.py
-    is_valid_email = computed(lambda email: '@' in email and '.' in email.split('@')[1], TestStore.email)
+    is_valid_email = computed(
+        lambda email: "@" in email and "." in email.split("@")[1], TestStore.email
+    )
     is_valid_age = computed(lambda age: 0 <= age <= 150, TestStore.age)
 
     # Conditional chain
-    profile_is_valid = (is_valid_email & is_valid_age)
+    profile_is_valid = is_valid_email & is_valid_age
 
     # Another computed that depends on the conditional
-    can_access_feature = computed(
-        lambda valid: valid,
-        profile_is_valid
-    )
+    can_access_feature = computed(lambda valid: valid, profile_is_valid)
 
     # This change should trigger updates through the chain without circular dependency
     TestStore.email = "new@example.com"

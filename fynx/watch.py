@@ -44,10 +44,12 @@ Example:
     ```
 """
 
+from typing import Callable
+
 from .observable import Observable
 
 
-def watch(*conditions) -> callable:
+def watch(*conditions) -> Callable:
     """
     Decorator for conditional reactive functions that run only when conditions are met.
 
@@ -128,15 +130,17 @@ def watch(*conditions) -> callable:
         reactive: For unconditional reactive functions
         computed: For derived reactive values
     """
+
     def decorator(func):
         # Track which observables are accessed during condition evaluation
         accessed_observables = set()
 
         class TrackingContext:
             """Context manager to track observable access during condition evaluation."""
+
             def __init__(self):
                 self.subscribed_observable = None  # No observable being computed
-                
+
             def __enter__(self):
                 self._old_context = Observable._current_context
                 self._accessed = accessed_observables
@@ -182,7 +186,6 @@ def watch(*conditions) -> callable:
                     # we'll still track the accessed observables
                     print(f"Warning: condition evaluation failed during discovery: {e}")
                     pass
-
 
         # Subscribe to all discovered observables
         for obs in accessed_observables:

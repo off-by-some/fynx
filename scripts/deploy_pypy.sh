@@ -13,7 +13,14 @@ if [ ! -f "pyproject.toml" ]; then
     exit 1
 fi
 
+# Run linting and type checking
+./scripts/lint.sh
 
+# Run tests
 poetry run pytest -q
+
+# Build the package
 poetry build
+
+# Publish the package to the PyPI repository
 poetry publish

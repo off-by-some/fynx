@@ -17,137 +17,68 @@ automatically notify subscribers when any observable attribute changes.
 """
 
 from typing import (
+    Any,
+    Callable,
     Dict,
     List,
     Optional,
+    Type,
     TypeVar,
     Union,
+    get_type_hints,
 )
 
 from .observable import Observable, SubscriptableDescriptor
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 # Type alias for session state values (used for serialization)
-SessionValue = Union[None, str, int, float, bool, Dict[str, 'SessionValue'], List['SessionValue']]
+SessionValue = Union[
+    None, str, int, float, bool, Dict[str, "SessionValue"], List["SessionValue"]
+]
 
 
 class StoreSnapshot:
     """
     Immutable snapshot of store observable values at a specific point in time.
-
-    StoreSnapshot captures the current values of all observable attributes in a Store
-    class and provides read-only access to those values. This is useful for:
-
-    - Logging or debugging store state
-    - Comparing store states over time
-    - Serializing store state for persistence
-    - Creating undo/redo functionality
-
-    The snapshot behaves like a read-only version of the store, allowing attribute
-    access to both observable values and non-observable class attributes.
-
-    Example:
-        ```python
-        class MyStore(Store):
-            count = observable(0)
-            name = observable("test")
-
-        # Take a snapshot
-        snapshot = MyStore.snapshot()
-        print(snapshot.count)  # 0
-        print(snapshot.name)   # "test"
-
-        # Changes to store don't affect snapshot
-        MyStore.count = 5
-        print(snapshot.count)  # Still 0
-        ```
     """
 
-    def __init__(self, store_class: type, observable_attrs: List[str]):
-        """
-        Initialize a store snapshot.
-
-        Args:
-            store_class: The Store class to snapshot
-            observable_attrs: List of attribute names that are observables
-        """
+    def __init__(self, store_class: Type, observable_attrs: List[str]):
         self._store_class = store_class
         self._observable_attrs = observable_attrs
         self._snapshot_values: Dict[str, SessionValue] = {}
         self._take_snapshot()
 
     def _take_snapshot(self) -> None:
-        """
-        Capture current values of all observable attributes.
-
-        This method reads the current .value of each observable attribute
-        and stores it in the snapshot for later retrieval. If an attribute
-        doesn't exist or isn't an observable, it's skipped.
-        """
+        """Capture current values of all observable attributes."""
         for attr_name in self._observable_attrs:
             try:
                 attr_value = getattr(self._store_class, attr_name)
-                if hasattr(attr_value, 'value'):  # It's an observable
+                if hasattr(attr_value, "value"):  # It's an ObservableValue
                     self._snapshot_values[attr_name] = attr_value.value
             except AttributeError:
-                # Attribute doesn't exist - skip it (useful for testing)
                 continue
 
-    def __getattr__(self, name: str):
-        """
-        Provide attribute access to snapshot values.
-
-        Args:
-            name: Attribute name to access
-
-        Returns:
-            The snapshot value for observable attributes, or the current
-            class attribute value for non-observable attributes.
-
-        Raises:
-            AttributeError: If the attribute doesn't exist on the store class
-        """
+    def __getattr__(self, name: str) -> Any:
+        """Access snapshot values or fall back to class attributes."""
         if name in self._snapshot_values:
             return self._snapshot_values[name]
-
-        # Fallback to store class attributes for non-observable attributes
         return getattr(self._store_class, name)
 
     def __repr__(self) -> str:
-        """
-        Return a string representation of the snapshot.
-
-        Shows the snapshot values in a format similar to a named tuple,
-        making it easy to inspect the captured state.
-        """
         if not self._snapshot_values:
             return "StoreSnapshot()"
-
-        # Format each field as name=value
-        fields = []
-        for name in self._observable_attrs:
-            if name in self._snapshot_values:
-                value = self._snapshot_values[name]
-                fields.append(f"{name}={value!r}")
-
+        fields = [
+            f"{name}={self._snapshot_values[name]!r}"
+            for name in self._observable_attrs
+            if name in self._snapshot_values
+        ]
         return f"StoreSnapshot({', '.join(fields)})"
 
-def observable(initial_value: Optional[T] = None) -> Observable[T]:
+
+def observable(initial_value: Optional[T] = None) -> Any:
     """
-    Create an observable with an initial value.
-
-    This function creates observable instances that can be used standalone or as class attributes.
-
-    Examples:
-        ```python
-        # Standalone observable
-        name = observable("Alice")
-
-        # Class attribute - when used in a class, it gets converted to a descriptor
-        class MyStore(Store):
-            age = observable(30)
-        ```
+    Create an observable with an initial value, used as a descriptor in Store classes.
     """
     return Observable("standalone", initial_value)
 
@@ -157,21 +88,50 @@ Subscriptable = SubscriptableDescriptor[Optional[T]]
 
 
 class StoreMeta(type):
-    """Metaclass for Store to intercept class attribute assignment."""
+    """
+    Metaclass for Store to automatically convert observable attributes to descriptors
+    and adjust type hints for mypy compatibility.
+    """
 
-    def __setattr__(cls, name: str, value: object) -> None:
+    def __new__(mcs, name: str, bases: tuple, namespace: dict) -> Type:
+        # Process annotations and replace observable instances with descriptors
+        annotations = namespace.get("__annotations__", {})
+        new_namespace = namespace.copy()
+        for attr_name, attr_value in namespace.items():
+            if isinstance(attr_value, Observable):
+                initial_value = attr_value.value
+                new_namespace[attr_name] = SubscriptableDescriptor(
+                    initial_value=initial_value
+                )
+                # Update type hint to the value type if it's Optional[T] or T
+                if attr_name in annotations:
+                    # If it's already Optional[T], keep it; otherwise make it Optional
+                    type_hint = annotations[attr_name]
+                    if (
+                        hasattr(type_hint, "__origin__")
+                        and type_hint.__origin__ is Union
+                    ):
+                        # Already Optional or Union, keep as is
+                        pass
+                    else:
+                        # Make it Optional[T]
+                        annotations[attr_name] = Optional[type_hint]
+        new_namespace["__annotations__"] = annotations
+        return super().__new__(mcs, name, bases, new_namespace)
+
+    def __setattr__(cls, name: str, value: Any) -> None:
         """Intercept class attribute assignment for observables."""
-        # Check if this attribute has an observable
-        obs_attr = f'_{name}_observable'
-        if hasattr(cls, obs_attr):
-            observable = getattr(cls, obs_attr)
-            if isinstance(observable, Observable):
-                # Set the value on the observable
-                observable.set(value)
-                return
-
-        # Regular attribute assignment
-        super().__setattr__(name, value)
+        # Check if this is an observable attribute
+        attr_value = getattr(cls, name, None)
+        if (
+            attr_value is not None
+            and hasattr(attr_value, "set")
+            and hasattr(attr_value, "value")
+        ):
+            # It's an ObservableValue, set the value
+            attr_value.set(value)
+        else:
+            super().__setattr__(name, value)
 
 
 class Store(metaclass=StoreMeta):
@@ -214,128 +174,32 @@ class Store(metaclass=StoreMeta):
     """
 
     @classmethod
-    def _get_observables(cls) -> Dict[str, Observable]:
-        """
-        Get all observable attributes defined on this store class.
-
-        Returns:
-            Dictionary mapping attribute names to their Observable instances
-        """
-        observables = {}
-        for attr_name in dir(cls):
-            if not attr_name.startswith('_'):
-                attr_value = getattr(cls, attr_name)
-                if isinstance(attr_value, Observable):
-                    observables[attr_name] = attr_value
-        return observables
-
-    @classmethod
-    def to_dict(cls) -> Dict[str, SessionValue]:
-        """
-        Serialize all observable values in this store to a dictionary.
-
-        This method creates a snapshot of all current observable values and returns
-        them as a dictionary suitable for JSON serialization or persistence.
-
-        Returns:
-            Dictionary mapping observable attribute names to their current values
-
-        Example:
-            ```python
-            class MyStore(Store):
-                count = observable(5)
-                name = observable("test")
-
-            state = MyStore.to_dict()
-            # {'count': 5, 'name': 'test'}
-            ```
-        """
-        return {obs.key: obs.value for obs in cls._get_observables().values()}
-
-    @classmethod
-    def load_state(cls, state_dict: Dict[str, SessionValue]) -> None:
-        """
-        Load state from a dictionary into the store's observables.
-
-        This method deserializes state that was previously saved using `to_dict()`,
-        restoring the observable values to their previous state. Only observables
-        that exist in both the store and the state dictionary will be updated.
-
-        Args:
-            state_dict: Dictionary mapping observable attribute names to values,
-                       typically created by a previous call to `to_dict()`
-
-        Example:
-            ```python
-            class MyStore(Store):
-                count = observable(0)
-                name = observable("")
-
-            # Save state
-            saved_state = MyStore.to_dict()
-
-            # Modify state
-            MyStore.count = 10
-            MyStore.name = "modified"
-
-            # Restore state
-            MyStore.load_state(saved_state)
-            # count is back to 0, name is back to ""
-            ```
-        """
-        for obs in cls._get_observables().values():
-            if obs.key in state_dict:
-                obs.set(state_dict[obs.key])
-
-    @classmethod
     def _get_observable_attrs(cls) -> List[str]:
         """Get observable attribute names in definition order."""
         return [
             attr_name
             for attr_name, attr_value in cls.__dict__.items()
-            if not attr_name.startswith('_') and isinstance(attr_value, SubscriptableDescriptor)
+            if isinstance(attr_value, SubscriptableDescriptor)
         ]
 
     @classmethod
-    def subscribe(cls, func: callable) -> None:
-        """
-        Subscribe a function to react to all observable changes in this store.
+    def to_dict(cls) -> Dict[str, SessionValue]:
+        """Serialize all observable values to a dictionary."""
+        return {
+            attr_name: getattr(cls, attr_name).value
+            for attr_name in cls._get_observable_attrs()
+        }
 
-        The subscribed function will be called whenever any observable attribute in the
-        store changes, receiving a StoreSnapshot object that provides read-only access
-        to the current values of all observables. This provides a convenient way to
-        react to any change in the store's state.
+    @classmethod
+    def load_state(cls, state_dict: Dict[str, SessionValue]) -> None:
+        """Load state from a dictionary into the store's observables."""
+        for attr_name, value in state_dict.items():
+            if attr_name in cls._get_observable_attrs():
+                getattr(cls, attr_name).set(value)
 
-        Args:
-            func: The function to call when observables change. It will receive a
-                  StoreSnapshot object containing the current values of all observables
-                  in the store. The function signature should be `func(snapshot)`.
-
-        Note:
-            The function is called immediately when subscription is created (to provide
-            initial state), and then again whenever any observable in the store changes.
-
-        Example:
-            ```python
-            class TodoStore(Store):
-                items = observable([])
-                filter = observable("all")
-
-            @TodoStore.subscribe
-            def on_store_change(snapshot):
-                print(f"Store changed: {len(snapshot.items)} items, filter: {snapshot.filter}")
-                # React to changes (e.g., update UI, save to disk, etc.)
-
-            TodoStore.items = ["task1", "task2"]  # Triggers reaction
-            TodoStore.filter = "completed"        # Triggers reaction
-            ```
-
-        See Also:
-            unsubscribe(): Remove a subscription
-            StoreSnapshot: The snapshot object passed to subscribers
-        """
-        from .observable import Observable  # Import here to avoid circular imports
-
+    @classmethod
+    def subscribe(cls, func: Callable[[StoreSnapshot], None]) -> None:
+        """Subscribe a function to react to all observable changes."""
         observable_attrs = cls._get_observable_attrs()
         snapshot = StoreSnapshot(cls, observable_attrs)
 
@@ -344,46 +208,16 @@ class Store(metaclass=StoreMeta):
             func(snapshot)
 
         context = Observable._create_subscription_context(store_reaction, func, None)
-        context._store_observables = [getattr(cls, attr) for attr in observable_attrs]
+        context._store_observables = [
+            getattr(cls, attr)._observable for attr in observable_attrs
+        ]
 
-        # Attach observers to all store observables (since the helper doesn't handle this for multi-observable cases)
         for observable in context._store_observables:
             observable.add_observer(context.run)
 
+        store_reaction()  # Initial call with current state
+
     @classmethod
-    def unsubscribe(cls, func: callable) -> None:
-        """
-        Unsubscribe a reactive function from all observables in this store.
-
-        This method removes all subscriptions for the given function from all
-        observables in the store, stopping it from being called when observables
-        change. This is the counterpart to the `subscribe()` method.
-
-        Args:
-            func: The function that was previously subscribed using `subscribe()`.
-                  Must be the same function object that was passed to subscribe.
-
-        Note:
-            After unsubscribing, the function will no longer be called when
-            observables in this store change. If the function was subscribed
-            multiple times, all subscriptions are removed.
-
-        Example:
-            ```python
-            def on_change(snapshot):
-                print("Store changed!")
-
-            # Subscribe
-            TodoStore.subscribe(on_change)
-            TodoStore.items = ["new item"]  # Prints: "Store changed!"
-
-            # Unsubscribe
-            TodoStore.unsubscribe(on_change)
-            TodoStore.items = ["another item"]  # No output
-            ```
-
-        See Also:
-            subscribe(): Subscribe to store changes
-        """
-        from .observable import Observable  # Import here to avoid circular imports
+    def unsubscribe(cls, func: Callable) -> None:
+        """Unsubscribe a function from all observables."""
         Observable._dispose_subscription_contexts(func)

@@ -1,6 +1,6 @@
 """Tests for store functionality and store-related features."""
 
-from fynx import Store, observable, Observable
+from fynx import Observable, Store, observable
 
 
 def test_store_creation():
@@ -23,6 +23,7 @@ def test_store_with_observable_attributes():
 
 def test_store_observable_attribute_updates():
     """Test that store observable attributes can be updated."""
+
     class TestStore(Store):
         counter = observable(0)
 
@@ -33,6 +34,7 @@ def test_store_observable_attribute_updates():
 
 def test_store_observable_attribute_type_preservation():
     """Test that different types are preserved in store observables."""
+
     class TestStore(Store):
         text = observable("hello")
         number = observable(42)
@@ -48,6 +50,7 @@ def test_store_observable_attribute_type_preservation():
 
 def test_store_subscription_to_observable_changes():
     """Test that store can subscribe to changes in its observables."""
+
     class TestStore(Store):
         value = observable(10)
 
@@ -71,6 +74,7 @@ def test_store_subscription_to_observable_changes():
 
 def test_store_subscription_returns_none():
     """Test that store subscribe method doesn't return a value for chaining."""
+
     class TestStore(Store):
         test = observable("value")
 
@@ -80,6 +84,7 @@ def test_store_subscription_returns_none():
 
 def test_store_multiple_observables_subscription():
     """Test that store subscription works with multiple observables."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(25)
@@ -101,6 +106,7 @@ def test_store_multiple_observables_subscription():
 
 def test_store_unsubscribe_removes_callbacks():
     """Test that store unsubscribe removes callback functions."""
+
     class TestStore(Store):
         value = observable(0)
 
@@ -128,6 +134,7 @@ def test_store_unsubscribe_removes_callbacks():
 
 def test_store_unsubscribe_nonexistent_callback():
     """Test that unsubscribing non-existent callback doesn't cause errors."""
+
     class TestStore(Store):
         value = observable("test")
 
@@ -140,6 +147,7 @@ def test_store_unsubscribe_nonexistent_callback():
 
 def test_store_snapshot_contains_current_values():
     """Test that store snapshot contains current observable values."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(25)
@@ -161,6 +169,7 @@ def test_store_snapshot_contains_current_values():
 
 def test_store_snapshot_attribute_access():
     """Test attribute access on store snapshots."""
+
     class TestStore(Store):
         counter = observable(5)
 
@@ -180,6 +189,7 @@ def test_store_snapshot_attribute_access():
 
 def test_store_snapshot_repr():
     """Test string representation of store snapshots."""
+
     class TestStore(Store):
         x = observable(1)
         y = observable(2)
@@ -204,7 +214,7 @@ def test_store_snapshot_repr():
 def test_store_snapshot_empty_repr():
     """Test repr of empty snapshot."""
     # Create a snapshot with no observable attrs
-    snapshot = type('TestSnapshot', (), {'_observable_attrs': []})()
+    snapshot = type("TestSnapshot", (), {"_observable_attrs": []})()
     snapshot._snapshot_values = {}
 
     repr_str = repr(snapshot)
@@ -214,6 +224,7 @@ def test_store_snapshot_empty_repr():
 
 def test_store_to_dict_serializes_observables():
     """Test that store to_dict method serializes observable values."""
+
     class TestStore(Store):
         name = observable("Alice")
         age = observable(25)
@@ -222,16 +233,13 @@ def test_store_to_dict_serializes_observables():
     store = TestStore()
     data = store.to_dict()
 
-    expected = {
-        "name": "Alice",
-        "age": 25,
-        "active": True
-    }
+    expected = {"name": "Alice", "age": 25, "active": True}
     assert data == expected
 
 
 def test_store_to_dict_ignores_non_observables():
     """Test that to_dict only includes observable attributes."""
+
     class TestStore(Store):
         observable_value = observable("observable")
         regular_value = "not observable"
@@ -246,16 +254,14 @@ def test_store_to_dict_ignores_non_observables():
 
 def test_store_load_state_updates_observables():
     """Test that load_state updates observable values from dict."""
+
     class TestStore(Store):
         name = observable("initial")
         count = observable(0)
 
     store = TestStore()
 
-    state = {
-        "name": "updated",
-        "count": 42
-    }
+    state = {"name": "updated", "count": 42}
 
     store.load_state(state)
 
@@ -265,15 +271,13 @@ def test_store_load_state_updates_observables():
 
 def test_store_load_state_ignores_unknown_keys():
     """Test that load_state ignores keys that don't correspond to observables."""
+
     class TestStore(Store):
         value = observable("initial")
 
     store = TestStore()
 
-    state = {
-        "value": "updated",
-        "unknown_key": "ignored"
-    }
+    state = {"value": "updated", "unknown_key": "ignored"}
 
     store.load_state(state)
     assert store.value.value == "updated"
@@ -281,6 +285,7 @@ def test_store_load_state_ignores_unknown_keys():
 
 def test_store_load_state_partial_update():
     """Test that load_state only updates specified observables."""
+
     class TestStore(Store):
         a = observable(1)
         b = observable(2)
@@ -289,18 +294,13 @@ def test_store_load_state_partial_update():
     store = TestStore()
 
     # Only update a and c
-    partial_state = {
-        "a": 10,
-        "c": 30
-    }
+    partial_state = {"a": 10, "c": 30}
 
     store.load_state(partial_state)
 
     assert store.a.value == 10
     assert store.b.value == 2  # Unchanged
     assert store.c.value == 30
-
-
 
 
 def test_circular_dependency_prevention():
