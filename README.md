@@ -5,23 +5,17 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/fynx/">
-    <img src="https://img.shields.io/pypi/v/fynx.svg?color=4b8bbe&label=PyPI" alt="PyPI Version">
-  </a>
-  <a href="https://pypistats.org/packages/fynx">
-    <img src="https://img.shields.io/pypi/dm/fynx.svg?color=blue" alt="PyPI Downloads">
-  </a>
   <a href="https://github.com/off-by-some/fynx/actions/workflows/test.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI" alt="Build Status">
   </a>
   <a href="https://codecov.io/github/off-by-some/fynx" >
     <img src="https://codecov.io/github/off-by-some/fynx/graph/badge.svg?token=NX2QHA8V8L"/>
   </a>
+  <a href="https://pypi.org/project/fynx/">
+    <img src="https://img.shields.io/pypi/v/fynx.svg?color=4b8bbe&label=PyPI" alt="PyPI Version">
+  </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/pypi/pyversions/fynx.svg?label=Python&color=3776AB" alt="Python Versions">
-  </a>
-  <a href="https://github.com/psf/black">
-    <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Code Style: Black">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
@@ -341,9 +335,7 @@ Fynx maintains comprehensive test coverage tracked through Codecov. Here are vis
   <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram"/>
 </p>
 
-_The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage._
-
-
+*The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage.*
 
 ## License
 
