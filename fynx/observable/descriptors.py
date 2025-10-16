@@ -44,6 +44,14 @@ class ObservableValue(Generic[T]):
     def subscribe(self, func) -> "Observable[T]":
         return self._observable.subscribe(func)
 
+    def __or__(self, other):
+        """Support merging observables with | operator."""
+        from .merged import MergedObservable
+
+        if hasattr(other, "_observable"):
+            return MergedObservable(self._observable, other._observable)
+        return MergedObservable(self._observable, other)
+
     def __getattr__(self, name: str):
         return getattr(self._observable, name)
 

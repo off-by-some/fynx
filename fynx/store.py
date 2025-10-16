@@ -215,8 +215,6 @@ class Store(metaclass=StoreMeta):
         for observable in context._store_observables:
             observable.add_observer(context.run)
 
-        store_reaction()  # Initial call with current state
-
     @classmethod
     def unsubscribe(cls, func: Callable) -> None:
         """Unsubscribe a function from all observables."""

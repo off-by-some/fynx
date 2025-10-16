@@ -237,9 +237,13 @@ If you're curious about the theory powering Fynx, here's the core insight: obser
 
 The `>>` operator implements functorial mapping, satisfying the functor laws. For any morphism $f: A \to B$, we get a lifted morphism $\mathcal{O}(f): \mathcal{O}(A) \to \mathcal{O}(B)$, ensuring that:
 
-$\mathcal{O}(\text{id}_A) = \text{id}_{\mathcal{O}(A)}$
+$$
+\mathcal{O}(\text{id}_A) = \text{id}_{\mathcal{O}(A)}
+$$
 
-$\mathcal{O}(g \circ f) = \mathcal{O}(g) \circ \mathcal{O}(f)$
+$$
+\mathcal{O}(g \circ f) = \mathcal{O}(g) \circ \mathcal{O}(f)
+$$
 
 The `|` operator constructs Cartesian products in the observable category, giving us $\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$. This isomorphism means combining observables is equivalent to observing tuples—a property that ensures composition remains well-behaved.
 
