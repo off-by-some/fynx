@@ -1,7 +1,7 @@
 # Fynx
 
 <p align="center">
-  <img src="./docs/fynx.png" alt="Fynx Logo"  height="400px">
+  <img src="https://github.com/off-by-some/fynx/raw/main/docs/fynx.png" alt="Fynx Logo"  height="400px">
 </p>
 
 <p align="center">
