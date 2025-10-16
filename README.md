@@ -42,20 +42,39 @@ Install Fynx with a single command:
 pip install fynx
 ```
 
-Here's what reactive state management looks like in practice. Imagine you're tracking temperature and want to display it in Fahrenheit. With Fynx, the conversion happens automatically whenever the temperature changes:
+Here's what reactive state management looks like in practice.
+
+For example, imagine you're building a shopping cart and want to display the total price. With Fynx, the calculation happens automatically whenever the cart contents change:
 
 ```python
-from fynx import observable
+from fynx import Store, observable
 
-temperature = observable(20)
+# Define a store for a shopping cart
+class CartStore(Store):
+    item_count = observable(1)
+    price_per_item = observable(10.0)
 
-fahrenheit = temperature >> (lambda c: c * 9/5 + 32)
-fahrenheit.subscribe(lambda f: print(f"Temperature: {f}°F"))
+def update_ui(total: float):
+    print(f">>> Cart Total: ${total:.2f}")
 
-temperature.set(25)  # Temperature: 77.0°F
-temperature.set(30)  # Temperature: 86.0°F
+# Link item_count and price_per_item to auto-calculate total_price
+combined_observables = CartStore.item_count | CartStore.price_per_item
+
+# The >> operator takes any observable and passes the value(s) to the right.
+total_price = combined_observables >> (lambda count, price: count * price)
+total_price.subscribe(update_ui) # Subscribe and update the UI when it changes
+
+print("=" * 50)
+
+# Now whenever we change the cart state, total_price updates automatically,
+# and the UI is updated accordingly.
+CartStore.item_count = 2
+CartStore.price_per_item = 15
+
+# ==================================================
+# >>> Cart Total: $20.00
+# >>> Cart Total: $30.00
 ```
-
 That's the essence of Fynx. Define your relationships once, and the library ensures everything stays synchronized. You never write update code again—just describe what should be true, and Fynx makes it so.
 
 ## Where Fynx Shines
@@ -179,7 +198,7 @@ def process_eligible_user():
 
 Fynx provides four core operators that compose into sophisticated reactive systems. The `>>` operator transforms values through functions. The `|` operator combines multiple observables into tuples. The `&` operator filters based on boolean conditions. The `~` operator negates those conditions. Together, these operators form a complete algebra for reactive data flow.
 
-Consider `temp >> (lambda c: c * 9/5 + 32)` for transformations, `(first | last) >> (lambda f, l: f"{f} {l}")` for combinations, `file & is_valid & (~is_processing)` for conditional filtering, and `~(is_processing)` for negation. Each operation produces a new observable that you can transform, combine, or filter further.
+Consider `total_price >> (lambda t: f"${t:.2f}")` for transformations, `(first | last) >> (lambda f, l: f"{f} {l}")` for combinations, `file & is_valid & (~is_processing)` for conditional filtering, and `~(is_processing)` for negation. Each operation produces a new observable that you can transform, combine, or filter further.
 
 ## A Complete Example
 

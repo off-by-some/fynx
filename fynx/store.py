@@ -103,19 +103,6 @@ class StoreMeta(type):
                 new_namespace[attr_name] = SubscriptableDescriptor(
                     initial_value=initial_value
                 )
-                # Update type hint to the value type if it's Optional[T] or T
-                if attr_name in annotations:
-                    # If it's already Optional[T], keep it; otherwise make it Optional
-                    type_hint = annotations[attr_name]
-                    if (
-                        hasattr(type_hint, "__origin__")
-                        and type_hint.__origin__ is Union
-                    ):
-                        # Already Optional or Union, keep as is
-                        pass
-                    else:
-                        # Make it Optional[T]
-                        annotations[attr_name] = Optional[type_hint]
         new_namespace["__annotations__"] = annotations
         return super().__new__(mcs, name, bases, new_namespace)
 
