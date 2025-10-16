@@ -11,8 +11,8 @@
   <a href="https://pypistats.org/packages/fynx">
     <img src="https://img.shields.io/pypi/dm/fynx.svg?color=blue" alt="PyPI Downloads">
   </a>
-  <a href="https://github.com/off-by-some/fynx/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/ci.yml?branch=main&label=CI" alt="Build Status">
+  <a href="https://github.com/off-by-some/fynx/actions/workflows/test.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI" alt="Build Status">
   </a>
   <a href="https://codecov.io/github/off-by-some/fynx">
     <img src="https://codecov.io/github/off-by-some/fynx/coverage.svg?branch=main" alt="Coverage Status">
