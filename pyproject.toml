@@ -1,21 +1,19 @@
-[project]
+[tool.poetry]
 name = "fynx"
 version = "0.0.1"
 description = "Python reactive state management library inspired by MobX"
+authors = ["Cassidy Bridges <cassidybridges@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
+license = "MIT"
+homepage = "https://github.com/off-by-some/fynx"
+repository = "https://github.com/off-by-some/fynx"
 keywords = ["reactive", "state-management", "observable", "functional-programming", "mobx"]
-authors = [
-    {name = "Cassidy Bridges", email = "cassidybridges@gmail.com"}
-]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -24,39 +22,27 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
-maintainers = [
-    {name = "Cassidy Bridges", email = "cassidybridges@gmail.com"}
-]
-dependencies = []
+packages = [{include = "fynx"}]
 
-[project.optional-dependencies]
-docs = [
-    "sphinx (>=4.0.0)",
-    "sphinx-rtd-theme (>=1.0.0)",
-    "myst-parser (>=0.18.0)",
-]
-dev = [
-    "pytest (>=8.4.2,<9.0.0)",
-    "pytest-cov (>=4.0.0)",
-    "black (>=22.0.0)",
-    "isort (>=5.10.0)",
-    "mypy (>=1.0.0)",
-    "pre-commit (>=2.20.0)",
-]
-test = [
-    "pytest (>=8.4.2,<9.0.0)",
-    "pytest-cov (>=4.0.0)",
-]
+[tool.poetry.dependencies]
+python = ">=3.9"
 
-[project.urls]
-Homepage = "https://github.com/off-by-some/fynx"
-Repository = "https://github.com/off-by-some/fynx"
-Issues = "https://github.com/off-by-some/fynx/issues"
+[tool.poetry.group.docs.dependencies]
+sphinx = ">=4.0.0"
+sphinx-rtd-theme = ">=1.0.0"
+myst-parser = ">=0.18.0"
 
-[dependency-groups]
-dev = [
-    "pytest (>=8.4.2,<9.0.0)"
-]
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.4.2,<9.0.0"
+pytest-cov = ">=4.0.0"
+black = ">=22.0.0"
+isort = ">=5.10.0"
+mypy = ">=1.0.0"
+pre-commit = ">=2.20.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=8.4.2,<9.0.0"
+pytest-cov = ">=4.0.0"
 
 
 [build-system]

@@ -15,7 +15,7 @@
     <img src="https://codecov.io/github/off-by-some/fynx/coverage.svg?branch=main" alt="Coverage">
   </a>
   <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/badge/python-3.8+-blue.svg" alt="Python 3.8+">
+    <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
@@ -27,7 +27,7 @@
 
 **Fynx** is a lightweight reactive runtime for Python — a system where state isn’t just stored, it *flows*. 
 
-Inspired by MobX and functional reactive programming, Fynx turns plain Python objects into living, observable structures. You don’t “manage” updates; you describe relationships, and Fynx takes care of the rest. When one value changes, everything depending on it simply reconfigures itself — transparently, predictably, beautifully.
+Inspired by [MobX](https://github.com/mobxjs/mobx) and [functional reactive programming](https://en.wikipedia.org/wiki/Functional_reactive_programming), Fynx turns plain Python objects into living, observable structures. You don’t “manage” updates; you describe relationships, and Fynx takes care of the rest. When one value changes, everything depending on it simply reconfigures itself — transparently, predictably, beautifully.
 
 ## Table of Contents
 
@@ -286,7 +286,7 @@ Contributions are welcome! This project uses Poetry for dependency management an
 
 ```bash
 # Install dependencies
-poetry install
+poetry install -with dev --with test
 
 # Run tests
 poetry run pytest
