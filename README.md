@@ -286,7 +286,7 @@ Contributions are welcome! This project uses Poetry for dependency management an
 
 ```bash
 # Install dependencies
-poetry install -with dev --with test
+poetry install --with dev --with test
 
 # Run tests
 poetry run pytest
