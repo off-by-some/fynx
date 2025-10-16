@@ -1,0 +1,64 @@
+[project]
+name = "fynx"
+version = "0.0.1"
+description = "Python reactive state management library inspired by MobX"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["reactive", "state-management", "observable", "functional-programming", "mobx"]
+authors = [
+    {name = "Cassidy Bridges", email = "cassidybridges@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+maintainers = [
+    {name = "Cassidy Bridges", email = "cassidybridges@gmail.com"}
+]
+dependencies = []
+
+[project.optional-dependencies]
+docs = [
+    "sphinx (>=4.0.0)",
+    "sphinx-rtd-theme (>=1.0.0)",
+    "myst-parser (>=0.18.0)",
+]
+dev = [
+    "pytest (>=8.4.2,<9.0.0)",
+    "pytest-cov (>=4.0.0)",
+    "black (>=22.0.0)",
+    "isort (>=5.10.0)",
+    "mypy (>=1.0.0)",
+    "pre-commit (>=2.20.0)",
+]
+test = [
+    "pytest (>=8.4.2,<9.0.0)",
+    "pytest-cov (>=4.0.0)",
+]
+
+[project.urls]
+Homepage = "https://github.com/off-by-some/fynx"
+Repository = "https://github.com/off-by-some/fynx"
+Issues = "https://github.com/off-by-some/fynx/issues"
+
+[dependency-groups]
+dev = [
+    "pytest (>=8.4.2,<9.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
