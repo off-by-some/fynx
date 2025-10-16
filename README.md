@@ -14,8 +14,8 @@
   <a href="https://github.com/off-by-some/fynx/actions/workflows/test.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI" alt="Build Status">
   </a>
-  <a href="https://codecov.io/github/off-by-some/fynx">
-    <img src="https://codecov.io/github/off-by-some/fynx/coverage.svg?branch=main" alt="Coverage Status">
+  <a href="https://codecov.io/github/off-by-some/fynx" >
+    <img src="https://codecov.io/github/off-by-some/fynx/graph/badge.svg?token=NX2QHA8V8L"/>
   </a>
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/pypi/pyversions/fynx.svg?label=Python&color=3776AB" alt="Python Versions">
@@ -317,7 +317,33 @@ The pre-commit hooks run automatically on each commit, checking code formatting 
 
 To verify your changes pass all tests and coverage requirements, run `poetry run pytest --cov=fynx`. The linting script at `./scripts/lint.sh` checks for issues, and `./scripts/lint.sh --fix` automatically fixes formatting and import problems.
 
+
 When contributing, fork the repository and create a feature branch with a descriptive name like `feature/amazing-feature`. Make your changes, add comprehensive tests, and ensure the test suite passes. Submit a pull request with a clear description of what you've changed and why.
+
+### Visualizing Current Test Coverage
+
+Fynx maintains comprehensive test coverage tracked through Codecov. Here are visual representations of our current coverage:
+
+#### Sunburst Diagram
+<p align="center">
+  <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram"/>
+</p>
+*The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage.*
+
+#### Grid Diagram
+<p align="center">
+  <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram"/>
+</p>
+*Each block represents a file. Size and color indicate statement count and coverage percentage.*
+
+#### Icicle Diagram
+<p align="center">
+  <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram"/>
+</p>
+
+_The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage._
+
+
 
 ## License
 
