@@ -322,12 +322,14 @@ Fynx maintains comprehensive test coverage tracked through Codecov. Here are vis
 <p align="center">
   <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram"/>
 </p>
-*The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage.*
+
+_The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage._
 
 #### Grid Diagram
 <p align="center">
   <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram"/>
 </p>
+
 *Each block represents a file. Size and color indicate statement count and coverage percentage.*
 
 #### Icicle Diagram
