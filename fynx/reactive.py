@@ -1,5 +1,5 @@
 """
-Fynx Reactive - Reactive Decorators and Utilities
+FynX Reactive - Reactive Decorators and Utilities
 =================================================
 
 This module provides decorators and utilities for creating reactive relationships

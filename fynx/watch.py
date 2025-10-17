@@ -1,5 +1,5 @@
 """
-Fynx Watch - Conditional Reactive Utilities
+FynX Watch - Conditional Reactive Utilities
 ===========================================
 
 This module provides the `watch` decorator for creating conditional reactive

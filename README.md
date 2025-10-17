@@ -1,9 +1,9 @@
-# Fynx
+# FynX
 
 <p align="center">
-  <img src="https://github.com/off-by-some/fynx/raw/main/docs/fynx.png" alt="Fynx Logo" height="400px">
+  <img src="https://github.com/off-by-some/fynx/raw/main/docs/fynx.png" alt="FynX Logo" height="400px">
 </p>
-
+  <p align="center"><i>FynX ("Finks") = Functional Yielding Observable Networks</i></p>
 <p align="center">
   <a href="https://github.com/off-by-some/fynx/actions/workflows/test.yml">
     <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI" alt="Build Status">
@@ -22,15 +22,16 @@
   </a>
 </p>
 
----
+***
 
-**Fynx** is a lightweight reactive state management library for Python that makes your data flow effortlessly. Inspired by [MobX](https://github.com/mobxjs/mobx) and similar [functional reactive programming](https://wiki.haskell.org/Functional_Reactive_Programming) frameworks, Fynx transforms plain Python objects into reactive observables that update automatically. You define how your data relates—Fynx handles the synchronization with zero boilerplate.
+**FynX** is a lightweight reactive state management library for Python that makes your data flow effortlessly.
+Inspired by [MobX](https://github.com/mobxjs/mobx) and similar [functional reactive programming](https://wiki.haskell.org/Functional_Reactive_Programming) frameworks, FynX transforms plain Python objects into reactive observables that update automatically. You define how your data relates—FynX handles the synchronization with zero boilerplate.
 
-Whether you're building interactive Streamlit dashboards or crafting data-driven UIs, Fynx ensures that changes propagate smoothly, predictably, and elegantly through your application. When one value changes, everything that depends on it updates automatically. No manual wiring, no stale state, no hassle.
+Whether you're building interactive [Streamlit](https://streamlit.io/) dashboards or crafting data-driven UIs, this library ensures that all changes propagate smoothly, predictably, and elegantly throughout your application. When one value changes, everything that depends on it updates automatically. No manual wiring, no stale state, no hassle.
 
 ## Getting Started
 
-Install Fynx with a single command:
+Install FynX  with a single command:
 
 ```bash
 pip install fynx
@@ -38,7 +39,7 @@ pip install fynx
 
 Here's what reactive state management looks like in practice.
 
-For example, imagine you're building a shopping cart and want to display the total price. With Fynx, the calculation happens automatically whenever the cart contents change:
+For example, imagine you're building a shopping cart and want to display the total price. With FynX, the calculation happens automatically whenever the cart contents change:
 
 ```python
 from fynx import Store, observable
@@ -69,17 +70,20 @@ CartStore.price_per_item = 15
 # >>> Cart Total: $20.00
 # >>> Cart Total: $30.00
 ```
-That's the essence of Fynx. Define your relationships once, and the library ensures everything stays synchronized. You never write update code again—just describe what should be true, and Fynx makes it so.
 
-## Where Fynx Shines
+That's the essence of FynX. Define your relationships once, and the library ensures everything stays synchronized. You never write update code again—just describe what should be true, and FynX makes it so.
 
-Fynx excels in scenarios where data flows through transformations and multiple components need to stay in sync. Consider Streamlit applications where widgets depend on shared state, or data pipelines where computed values must recalculate when their inputs change. Analytics dashboards that visualize live data, forms with interdependent validation rules, or any system where state coordination becomes complex—these are Fynx's natural habitat.
+## Where FynX Shines
+
+FynX excels in scenarios where data flows through transformations and multiple components need to stay in sync. Consider Streamlit applications where widgets depend on shared state, or data pipelines where computed values must recalculate when their inputs change. Analytics dashboards that visualize live data, forms with interdependent validation rules, or any system where state coordination becomes complex—these are FynX's natural habitat.
 
 The library frees you from the tedious work of tracking dependencies and triggering updates. Instead of thinking about *when* to update state, you focus purely on *what* relationships should hold. The rest happens automatically.
 
+Be sure to check out the [examples](./examples/).
+
 ## Understanding Observables
 
-At the heart of Fynx lies the [observable](https://medium.com/@davidjtomczyk/introduction-to-observable-85a5122bf260): a value that changes over time and notifies interested parties when it does. You can create standalone observables or organize them into Stores for related state:
+At the heart of FynX lies the [observable](https://medium.com/@davidjtomczyk/introduction-to-observable-85a5122bf260): a value that changes over time and notifies interested parties when it does. You can create standalone observables or organize them into Stores for related state:
 
 ```python
 from fynx import observable, Store
@@ -126,7 +130,7 @@ step2 = computed(lambda x: x + 10, step1)
 result = computed(lambda x: f"Result: {x}", step2)
 ```
 
-No matter how you write them, these transformations compose naturally. You can chain them indefinitely, and Fynx ensures the data flows correctly through each stage.
+No matter how you write them, these transformations compose naturally. You can chain them indefinitely, and FynX ensures the data flows correctly through each stage.
 
 ## Combining Multiple Streams
 
@@ -159,7 +163,7 @@ The `preview_ready` observable only has a value when a file exists, it's valid, 
 
 ## Reacting to Changes
 
-Fynx offers multiple ways to react to observable changes, letting you choose the style that fits each situation. Decorators provide clean syntax for dedicated reaction functions:
+FynX offers multiple ways to react to observable changes, letting you choose the style that fits each situation. Decorators provide clean syntax for dedicated reaction functions:
 
 ```python
 @reactive(preview_ready)
@@ -190,7 +194,14 @@ def process_eligible_user():
 
 ## The Reactive Operators
 
-Fynx provides four core operators that compose into sophisticated reactive systems. The `>>` operator transforms values through functions. The `|` operator combines multiple observables into tuples. The `&` operator filters based on boolean conditions. The `~` operator negates those conditions. Together, these operators form a complete algebra for reactive data flow.
+FynX provides four core operators that compose into sophisticated reactive systems.
+
+1. The `>>` operator transforms values through functions.
+2. The `|` operator combines multiple observables into tuples.
+3. The `&` operator filters based on boolean conditions.
+4. The `~` operator negates those conditions.
+
+Together, these operators form a complete algebra for reactive data flow.
 
 Consider `total_price >> (lambda t: f"${t:.2f}")` for transformations, `(first | last) >> (lambda f, l: f"{f} {l}")` for combinations, `file & is_valid & (~is_processing)` for conditional filtering, and `~(is_processing)` for negation. Each operation produces a new observable that you can transform, combine, or filter further.
 
@@ -227,7 +238,7 @@ The preview function triggers automatically, but only when all conditions align.
 
 ## Going Deeper
 
-Fynx supports more sophisticated patterns for complex applications. Store-level reactions give you snapshots of all observables whenever anything changes, perfect for logging or persistence:
+FynX supports more sophisticated patterns for complex applications. Store-level reactions give you snapshots of all observables whenever anything changes, perfect for logging or persistence:
 
 ```python
 @reactive(UserProfile)
@@ -242,11 +253,22 @@ state_dict = UserProfile.to_dict()
 UserProfile.load_state(state_dict)
 ```
 
-For more examples showing how observables compose into sophisticated reactive systems, explore the [`examples/`](./examples/) directory. The UserProfile example demonstrates store-level reactions, multiple subscription patterns, and building complex transformations from simpler components. Additional examples cover reactive forms, real-time dashboards, and integration with popular frameworks.
+## Examples
+
+Explore the [`examples/`](./examples/) directory for demonstrations of FynX's capabilities:
+
+| File | Description |
+|------|-------------|
+| [`basics.py`](./examples/basics.py) | Core FynX concepts: observables, subscriptions, computed properties, stores, reactive decorators, and conditional logic |
+| [`cart_checkout.py`](./examples/cart_checkout.py) | Shopping cart with reactive total calculation using merged observables and subscriptions |
+| [`advanced_user_profile.py`](./examples/advanced_user_profile.py) | Complex reactive system demonstrating validation, notifications, state persistence, and sophisticated computed properties |
+| [`streamlit/store.py`](./examples/streamlit/store.py) | Custom StreamlitStore implementation with automatic session state synchronization |
+| [`streamlit/todo_app.py`](./examples/streamlit/todo_app.py) | Complete reactive todo list application with Streamlit UI, showcasing real-time updates and automatic persistence |
+| [`streamlit/todo_store.py`](./examples/streamlit/todo_store.py) | Todo list store with computed properties, filtering, and bulk operations |
 
 ## The Mathematical Foundation
 
-If you're curious about the theory powering Fynx, the core insight is that observables form a functor in the category-theoretic sense. An `Observable<T>` represents a time-varying value—formally, a continuous function $\mathcal{T} \to T$ where $\mathcal{T}$ denotes the temporal domain. This construction naturally forms an endofunctor $\mathcal{O}: \mathbf{Type} \to \mathbf{Type}$ on the category of Python types.
+If you're curious about the theory powering FynX, the core insight is that observables form a functor in the category-theoretic sense. An `Observable<T>` represents a time-varying value—formally, a continuous function $\mathcal{T} \to T$ where $\mathcal{T}$ denotes the temporal domain. This construction naturally forms an endofunctor $\mathcal{O}: \mathbf{Type} \to \mathbf{Type}$ on the category of Python types.
 
 The `>>` operator implements functorial mapping, satisfying the functor laws. For any morphism $f: A \to B$, we get a lifted morphism $\mathcal{O}(f): \mathcal{O}(A) \to \mathcal{O}(B)$, ensuring that:
 
@@ -256,7 +278,6 @@ $$
 \mathcal{O}(g \circ f) &= \mathcal{O}g \circ \mathcal{O}f
 \end{align*}
 $$
-
 
 The `|` operator constructs Cartesian products in the observable category, giving us $\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$. This isomorphism means combining observables is equivalent to observing tuples—a property that ensures composition remains well-behaved.
 
@@ -268,26 +289,25 @@ $$
 
 This isn't merely academic terminology. These mathematical properties guarantee that reactive graphs compose predictably through universal constructions. Functoriality ensures transformations preserve structure: if $f$ and $g$ compose in the base category, their lifted versions $\mathcal{O}(f)$ and $\mathcal{O}(g)$ compose identically in the observable category. The pullback construction for filtering ensures that combining filters behaves associatively and commutatively—no matter how you nest your conditions with `&`, the semantics remain consistent.
 
-Category theory provides formal proof that Fynx's behavior is correct and composable. The functor laws guarantee that chaining transformations never produces unexpected behavior. The product structure ensures that combining observables remains symmetric and associative. These aren't implementation details—they're mathematical guarantees that follow from the categorical structure itself.
+Category theory provides formal proof that FynX's behavior is correct and composable. The functor laws guarantee that chaining transformations never produces unexpected behavior. The product structure ensures that combining observables remains symmetric and associative. These aren't implementation details—they're mathematical guarantees that follow from the categorical structure itself.
 
-But what are the practical benefits of this? Ultimately, it's that changes flow through your reactive graph transparently because the mathematics proves they must. Fynx handles all dependency tracking and propagation automatically, and the categorical foundation ensures there are no edge cases or surprising interactions. You describe what you want declaratively, and the underlying mathematics—specifically the universal properties of functors, products, and pullbacks—ensures it behaves correctly in all circumstances.
-
+But what are the practical benefits of this? Ultimately, it's that changes flow through your reactive graph transparently because the mathematics proves they must. FynX handles all dependency tracking and propagation automatically, and the categorical foundation ensures there are no edge cases or surprising interactions. You describe what you want declaratively, and the underlying mathematics—specifically the universal properties of functors, products, and pullbacks—ensures it behaves correctly in all circumstances.
 
 ## Design Philosophy
 
-Fynx embodies a simple principle: mathematical rigor shouldn't compromise usability. The library builds on category theory but exposes that power through Pythonic interfaces. Observables behave like normal values—you read and write them naturally—while reactivity happens behind the scenes. Method chaining flows naturally: `observable(42).subscribe(print)` reads like plain English.
+FynX embodies a simple principle: mathematical rigor shouldn't compromise usability. The library builds on category theory but exposes that power through Pythonic interfaces. Observables behave like normal values—you read and write them naturally—while reactivity happens behind the scenes. Method chaining flows naturally: `observable(42).subscribe(print)` reads like plain English.
 
 Composability runs through every aspect of the design. Transform with `>>`, combine with `|`, filter with `&`. Each operation produces new observables that you can transform further. Complex reactive systems emerge from simple, reusable pieces. This compositional approach mirrors how mathematicians think about functions and morphisms, but you don't need to know category theory to benefit from its guarantees.
 
-Fynx offers multiple APIs because different situations call for different tools. Use decorators for convenience, direct calls for control, or context managers for scoped reactions. The library adapts to your style rather than forcing one approach.
+FynX offers multiple APIs because different situations call for different tools. Use decorators for convenience, direct calls for control, or context managers for scoped reactions. The library adapts to your style rather than forcing one approach.
 
-Framework agnosticism matters. Fynx works with Streamlit, FastAPI, Flask, or any Python framework. The core library has zero dependencies and integrates cleanly with existing tools. Whether you're building web applications, data pipelines, or desktop software, Fynx fits naturally into your stack.
+Framework agnosticism matters. FynX works with Streamlit, FastAPI, Flask, or any Python framework. The core library has zero dependencies and integrates cleanly with existing tools. Whether you're building web applications, data pipelines, or desktop software, FynX fits naturally into your stack.
 
 ## API Reference
 
 **Core Functions**
 
-`observable(initial_value)` creates a reactive value that notifies subscribers when changed. This forms the foundation of reactive state in Fynx.
+`observable(initial_value)` creates a reactive value that notifies subscribers when changed. This forms the foundation of reactive state in FynX.
 
 `reactive(observable)` provides a decorator that reacts to observable changes, executing the decorated function whenever the observable emits a new value.
 
@@ -299,7 +319,7 @@ Framework agnosticism matters. Fynx works with Streamlit, FastAPI, Flask, or any
 
 ## Contributing
 
-We welcome contributions to Fynx. The project uses Poetry for dependency management and pytest for testing. To get started:
+We welcome contributions to FynX. The project uses Poetry for dependency management and pytest for testing. To get started:
 
 ```bash
 poetry install --with dev --with test
@@ -311,34 +331,16 @@ The pre-commit hooks run automatically on each commit, checking code formatting 
 
 To verify your changes pass all tests and coverage requirements, run `poetry run pytest --cov=fynx`. The linting script at `./scripts/lint.sh` checks for issues, and `./scripts/lint.sh --fix` automatically fixes formatting and import problems.
 
-
 When contributing, fork the repository and create a feature branch with a descriptive name like `feature/amazing-feature`. Make your changes, add comprehensive tests, and ensure the test suite passes. Submit a pull request with a clear description of what you've changed and why.
 
 ### Visualizing Current Test Coverage
 
-Fynx maintains comprehensive test coverage tracked through Codecov. Here are visual representations of our current coverage:
+FynX maintains comprehensive test coverage tracked through Codecov. Here are visual representations of our current coverage:
 
-#### Sunburst Diagram
-<p align="center">
-  <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram"/>
-</p>
-
-_The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage._
-
-#### Grid Diagram
-<p align="center">
-  <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram"/>
-</p>
-
-*Each block represents a file. Size and color indicate statement count and coverage percentage.*
-
-#### Icicle Diagram
-<p align="center">
-  <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram"/>
-</p>
-
-*The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage.*
+| Sunburst Diagram | Grid Diagram | Icicle Diagram |
+|---|---|---|
+| <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram"/><br>*The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram"/><br>*Each block represents a file. Size and color indicate statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram"/><br>*The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage.* |
 
 ## License
 
-Fynx is licensed under the MIT License. See the [LICENSE](./LICENSE) file for complete details.
+FynX is licensed under the MIT License. See the [LICENSE](./LICENSE) file for complete details.

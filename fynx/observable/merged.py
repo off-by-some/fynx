@@ -1,5 +1,5 @@
 """
-Fynx MergedObservable - Combined Reactive Values
+FynX MergedObservable - Combined Reactive Values
 ================================================
 
 This module provides the MergedObservable class, which combines multiple individual

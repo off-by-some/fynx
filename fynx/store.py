@@ -1,8 +1,8 @@
 """
-Fynx Store - Reactive State Management Components
+FynX Store - Reactive State Management Components
 =================================================
 
-This module provides the core components for reactive state management in Fynx:
+This module provides the core components for reactive state management in FynX:
 
 - **Store**: A base class for creating reactive state containers that group related
   observables together and provide convenient subscription methods.
@@ -29,6 +29,7 @@ from typing import (
 )
 
 from .observable import Observable, SubscriptableDescriptor
+from .observable.computed import ComputedObservable
 
 T = TypeVar("T")
 
@@ -52,12 +53,19 @@ class StoreSnapshot:
     def _take_snapshot(self) -> None:
         """Capture current values of all observable attributes."""
         for attr_name in self._observable_attrs:
-            try:
-                attr_value = getattr(self._store_class, attr_name)
-                if hasattr(attr_value, "value"):  # It's an ObservableValue
-                    self._snapshot_values[attr_name] = attr_value.value
-            except AttributeError:
-                continue
+            if attr_name in self._store_class._observables:
+                observable = self._store_class._observables[attr_name]
+                self._snapshot_values[attr_name] = observable.value
+            else:
+                # For attributes that exist in the class but aren't observables,
+                # get their value directly from the class
+                try:
+                    self._snapshot_values[attr_name] = getattr(
+                        self._store_class, attr_name
+                    )
+                except AttributeError:
+                    # If attribute doesn't exist at all, store None
+                    self._snapshot_values[attr_name] = None
 
     def __getattr__(self, name: str) -> Any:
         """Access snapshot values or fall back to class attributes."""
@@ -97,26 +105,32 @@ class StoreMeta(type):
         # Process annotations and replace observable instances with descriptors
         annotations = namespace.get("__annotations__", {})
         new_namespace = namespace.copy()
+        observable_attrs = []
+
         for attr_name, attr_value in namespace.items():
             if isinstance(attr_value, Observable):
+                observable_attrs.append(attr_name)
+                # Wrap all observables (including computed ones) in descriptors
                 initial_value = attr_value.value
                 new_namespace[attr_name] = SubscriptableDescriptor(
-                    initial_value=initial_value
+                    initial_value=initial_value, original_observable=attr_value
                 )
+
         new_namespace["__annotations__"] = annotations
-        return super().__new__(mcs, name, bases, new_namespace)
+        cls = super().__new__(mcs, name, bases, new_namespace)
+
+        # Cache observable attributes and their instances for efficient access
+        cls._observable_attrs = list(observable_attrs)
+        # Store the original observables from the namespace before they get replaced
+        cls._observables = {attr: namespace[attr] for attr in observable_attrs}
+
+        return cls
 
     def __setattr__(cls, name: str, value: Any) -> None:
         """Intercept class attribute assignment for observables."""
-        # Check if this is an observable attribute
-        attr_value = getattr(cls, name, None)
-        if (
-            attr_value is not None
-            and hasattr(attr_value, "set")
-            and hasattr(attr_value, "value")
-        ):
-            # It's an ObservableValue, set the value
-            attr_value.set(value)
+        if hasattr(cls, "_observables") and name in getattr(cls, "_observables", {}):
+            # It's a known observable, delegate to its set method
+            getattr(cls, "_observables")[name].set(value)
         else:
             super().__setattr__(name, value)
 
@@ -160,45 +174,48 @@ class Store(metaclass=StoreMeta):
         `Store.attr = value` syntax to work seamlessly with observables.
     """
 
+    # Class attributes set by metaclass
+    _observable_attrs: List[str]
+    _observables: Dict[str, Observable]
+
     @classmethod
     def _get_observable_attrs(cls) -> List[str]:
         """Get observable attribute names in definition order."""
+        return list(cls._observable_attrs)
+
+    @classmethod
+    def _get_primitive_observable_attrs(cls) -> List[str]:
+        """Get primitive (non-computed) observable attribute names for persistence."""
         return [
-            attr_name
-            for attr_name, attr_value in cls.__dict__.items()
-            if isinstance(attr_value, SubscriptableDescriptor)
+            attr
+            for attr in cls._observable_attrs
+            if not isinstance(cls._observables[attr], ComputedObservable)
         ]
 
     @classmethod
     def to_dict(cls) -> Dict[str, SessionValue]:
         """Serialize all observable values to a dictionary."""
-        return {
-            attr_name: getattr(cls, attr_name).value
-            for attr_name in cls._get_observable_attrs()
-        }
+        return {attr: observable.value for attr, observable in cls._observables.items()}
 
     @classmethod
     def load_state(cls, state_dict: Dict[str, SessionValue]) -> None:
         """Load state from a dictionary into the store's observables."""
         for attr_name, value in state_dict.items():
-            if attr_name in cls._get_observable_attrs():
-                getattr(cls, attr_name).set(value)
+            if attr_name in cls._observables:
+                cls._observables[attr_name].set(value)
 
     @classmethod
     def subscribe(cls, func: Callable[[StoreSnapshot], None]) -> None:
         """Subscribe a function to react to all observable changes."""
-        observable_attrs = cls._get_observable_attrs()
-        snapshot = StoreSnapshot(cls, observable_attrs)
+        snapshot = StoreSnapshot(cls, cls._observable_attrs)
 
         def store_reaction():
             snapshot._take_snapshot()
             func(snapshot)
 
         context = Observable._create_subscription_context(store_reaction, func, None)
-        context._store_observables = [
-            getattr(cls, attr)._observable for attr in observable_attrs
-        ]
-
+        # Subscribe to all observables (including computed ones)
+        context._store_observables = list(cls._observables.values())
         for observable in context._store_observables:
             observable.add_observer(context.run)
 

@@ -9,7 +9,7 @@ set -e
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🐳 Fynx TestPyPI Verification"
+echo "🐳 FynX TestPyPI Verification"
 echo "=================================="
 
 # Build and test the image
@@ -27,7 +27,7 @@ if ! docker build -f "$SCRIPT_DIR/test-pypi.dockerfile" -t fynx-test .; then
 fi
 
 echo "✅ Docker build successful"
-echo "🎉 Fynx installs correctly from TestPyPI"
+echo "🎉 FynX installs correctly from TestPyPI"
 
 # Run functional tests
 echo ""
@@ -38,7 +38,7 @@ import fynx
 from fynx import observable, computed
 
 # Test basic observables
-print('✅ Fynx imported successfully')
+print('✅ FynX imported successfully')
 
 # Test observable creation and reactivity
 counter = observable(0)

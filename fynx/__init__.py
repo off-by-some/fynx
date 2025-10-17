@@ -1,8 +1,8 @@
 """
-Fynx - Python Reactive State Management Library
+FynX - Python Reactive State Management Library
 ===============================================
 
-Fynx is a lightweight, transparent reactive state management library for Python,
+FynX is a lightweight, transparent reactive state management library for Python,
 inspired by MobX. It enables reactive programming patterns where state changes
 automatically propagate through your application, eliminating the need for manual
 state synchronization.

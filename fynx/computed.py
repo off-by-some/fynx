@@ -1,5 +1,5 @@
 """
-Fynx Computed - Computed Observable Utilities
+FynX Computed - Computed Observable Utilities
 ============================================
 
 This module provides the `computed` function for creating derived observables
@@ -39,10 +39,11 @@ Example:
 
 from typing import Callable
 
-from .observable import MergedObservable, Observable
+from .observable import MergedObservable
+from .observable.computed import ComputedObservable
 
 
-def computed(func: Callable, observable) -> Observable:
+def computed(func: Callable, observable) -> ComputedObservable:
     """
     Create a computed observable that derives its value from other observables.
 
@@ -61,7 +62,7 @@ def computed(func: Callable, observable) -> Observable:
                    or a MergedObservable (created with the `|` operator).
 
     Returns:
-        A new Observable containing the computed values. The observable will
+        A new ComputedObservable containing the computed values. The observable will
         automatically update whenever the source observable(s) change.
 
     Examples:
@@ -99,17 +100,17 @@ def computed(func: Callable, observable) -> Observable:
 
     See Also:
         observable: Create basic observables
-        Observable: The returned observable type
+        ComputedObservable: The returned observable type
         MergedObservable: For combining multiple observables
     """
     if isinstance(observable, MergedObservable):
         # For merged observables, apply func to the tuple values
-        merged_computed_obs: Observable = Observable("computed", None)
+        merged_computed_obs: ComputedObservable = ComputedObservable(None, None)
 
         def update_merged_computed():
             values = tuple(obs.value for obs in observable._source_observables)
             result = func(*values)
-            merged_computed_obs.set(result)
+            merged_computed_obs._set_computed_value(result)
 
         # Initial computation
         update_merged_computed()
@@ -120,11 +121,11 @@ def computed(func: Callable, observable) -> Observable:
         return merged_computed_obs
     else:
         # For single observables
-        single_computed_obs: Observable = Observable("computed", None)
+        single_computed_obs: ComputedObservable = ComputedObservable(None, None)
 
         def update_single_computed():
             result = func(observable.value)
-            single_computed_obs.set(result)
+            single_computed_obs._set_computed_value(result)
 
         # Initial computation
         update_single_computed()

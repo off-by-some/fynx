@@ -1,5 +1,5 @@
 """
-Fynx Operators - Operator implementations for observables.
+FynX Operators - Operator implementations for observables.
 
 This module provides operator implementations. Imports are done lazily to avoid circular dependencies.
 """

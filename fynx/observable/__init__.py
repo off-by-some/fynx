@@ -1,8 +1,8 @@
 """
-Fynx Observable Module - Core Reactive Classes
+FynX Observable Module - Core Reactive Classes
 ==============================================
 
-This module contains the fundamental classes that implement Fynx's reactive
+This module contains the fundamental classes that implement FynX's reactive
 programming system. These classes provide the building blocks for creating
 observable values and managing their dependencies.
 
@@ -17,11 +17,12 @@ Operators:
 - **rshift_operator**: Implements the `>>` operator for computed observables
 - **and_operator**: Implements the `&` operator for conditional observables
 
-This module forms the foundation of Fynx's reactivity system, providing transparent
+This module forms the foundation of FynX's reactivity system, providing transparent
 dependency tracking and automatic change propagation.
 """
 
 from .base import Observable, ReactiveContext
+from .computed import ComputedObservable
 from .conditional import ConditionalObservable
 from .descriptors import SubscriptableDescriptor
 from .merged import MergedObservable
@@ -29,6 +30,7 @@ from .operators import and_operator, rshift_operator
 
 __all__ = [
     "Observable",
+    "ComputedObservable",
     "MergedObservable",
     "ConditionalObservable",
     "ReactiveContext",

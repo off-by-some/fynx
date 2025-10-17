@@ -1,7 +1,7 @@
 """
 Advanced UserProfile Example - Demonstrating Complex Reactive Systems
 
-This example shows how Fynx enables building sophisticated reactive applications
+This example shows how FynX enables building sophisticated reactive applications
 through store-level reactions, multiple subscription patterns, and composable
 transformations. It models a user profile system with validation, notifications,
 and state persistence.
@@ -399,13 +399,3 @@ print("\nTesting complex reactive chains...")
 print(f"Engagement score: {engagement_factors.value:.2f}")
 print(f"Auto-upgrade eligible: {can_auto_upgrade.value}")
 print(f"Advanced features access: {advanced_features_access.value}")
-
-print("\n" + "=" * 100)
-print("🎉 Advanced UserProfile Example Complete!")
-print("=" * 100)
-print("\nThis example demonstrated:")
-print("• Store-level reactions (@reactive(UserProfile))")
-print("• Multiple subscription patterns (individual, combined, conditional)")
-print("• Building transformations from simpler components (computed properties)")
-print("• Complex reactive systems (validation, notifications, state persistence)")
-print("• Composable operators (>>, |, &) for sophisticated logic")

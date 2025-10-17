@@ -1,1 +1,1 @@
-# Tests for Fynx library
+# Tests for FynX library

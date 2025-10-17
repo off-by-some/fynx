@@ -1,8 +1,8 @@
 """
-Fynx Observable - Core Reactive Value Implementation
+FynX Observable - Core Reactive Value Implementation
 ====================================================
 
-This module provides the fundamental building blocks for reactive programming in Fynx:
+This module provides the fundamental building blocks for reactive programming in FynX:
 
 - **Observable**: The core class representing a reactive value that can be observed
   for changes and automatically notifies dependents.
@@ -16,18 +16,26 @@ This module provides the fundamental building blocks for reactive programming in
 - **ConditionalObservable**: Creates observables that only trigger reactions under
   specific conditions.
 
-The Observable class forms the foundation of Fynx's reactivity system, providing
+The Observable class forms the foundation of FynX's reactivity system, providing
 transparent dependency tracking and automatic change propagation.
 """
 
-from typing import TYPE_CHECKING, Callable, Generic, List, Optional, Set, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+)
 
 if TYPE_CHECKING:
     from .merged import MergedObservable
     from .conditional import ConditionalObservable
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
-from .descriptors import SubscriptableDescriptor
 
 T = TypeVar("T")
 
@@ -50,7 +58,7 @@ class ReactiveContext:
     ensuring that dependencies are tracked correctly even in complex scenarios.
 
     Note:
-        This class is typically managed automatically by Fynx's decorators and
+        This class is typically managed automatically by FynX's decorators and
         observable operations. Direct instantiation is usually not needed.
     """
 
@@ -118,7 +126,7 @@ class Observable(Generic[T]):
     """
     A reactive value that automatically notifies dependents when it changes.
 
-    Observable is the core primitive of Fynx's reactivity system. It wraps a value
+    Observable is the core primitive of FynX's reactivity system. It wraps a value
     and provides transparent reactive behavior - when the value changes, all
     dependent computations and reactions are automatically notified and updated.
 
@@ -162,15 +170,18 @@ class Observable(Generic[T]):
     # Stack of reactive contexts being computed (for proper cycle detection)
     _context_stack: List["ReactiveContext"] = []
 
-    def __init__(self, key: str, initial_value: Optional[T] = None) -> None:
+    def __init__(
+        self, key: Optional[str] = None, initial_value: Optional[T] = None
+    ) -> None:
         """
         Initialize an observable value.
 
         Args:
-            key: A unique identifier for this observable (used for serialization)
+            key: A unique identifier for this observable (used for serialization).
+                 If None, will be set to "<unnamed>" and updated in __set_name__.
             initial_value: The initial value to store
         """
-        self.key = key
+        self.key = key or "<unnamed>"
         self._value = initial_value
         self._observers: Set[Callable] = set()
 
@@ -329,11 +340,27 @@ class Observable(Generic[T]):
     # Descriptor protocol for use as class attributes
     def __set_name__(self, owner: Type, name: str) -> None:
         """Called when assigned to a class attribute."""
-        # Check if owner is a Store class - if so, let StoreMeta handle the conversion
-        from .store import Store
+        # Update key if it was defaulted to "<unnamed>"
+        if self.key == "<unnamed>":
+            # Check if this is a computed observable by checking for the _is_computed attribute
+            if getattr(self, "_is_computed", False):
+                self.key = f"<computed:{name}>"
+            else:
+                self.key = name
 
-        if issubclass(owner, Store):
+        # Skip processing for computed observables - they should remain as-is
+        if getattr(self, "_is_computed", False):
             return
+
+        # Check if owner is a Store class - if so, let StoreMeta handle the conversion
+        try:
+            from .store import Store
+
+            if issubclass(owner, Store):
+                return
+        except ImportError:
+            # If store module is not available, continue with normal processing
+            pass
 
         # For non-Store classes, convert to a SubscriptableDescriptor
         # that will create class-level observables

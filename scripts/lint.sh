@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Fynx Linting Script
+# FynX Linting Script
 # Runs code quality checks including formatting, import sorting, and type checking
 #
 # Usage:
@@ -14,9 +14,9 @@ set -e
 FIX_MODE=false
 if [[ "$1" == "--fix" ]]; then
     FIX_MODE=true
-    echo "🔧 Running Fynx code quality checks with auto-fix..."
+    echo "🔧 Running FynX code quality checks with auto-fix..."
 else
-    echo "🔍 Running Fynx code quality checks..."
+    echo "🔍 Running FynX code quality checks..."
 fi
 echo "======================================"
 

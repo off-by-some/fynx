@@ -1,5 +1,5 @@
 """
-Fynx ConditionalObservable - Conditional reactive computations.
+FynX ConditionalObservable - Conditional reactive computations.
 
 This module provides the ConditionalObservable class for filtering reactive
 streams based on boolean conditions.

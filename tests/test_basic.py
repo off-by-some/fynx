@@ -1,4 +1,4 @@
-"""Basic tests for Fynx library."""
+"""Basic tests for FynX library."""
 
 import pytest
 

@@ -1,10 +1,10 @@
 """
-Fynx Registry - Global Reactive Context Management
+FynX Registry - Global Reactive Context Management
 ==================================================
 
 This module provides global registries that track reactive contexts and their
 relationships. These registries enable efficient subscription management and
-cleanup across the entire Fynx reactive system.
+cleanup across the entire FynX reactive system.
 
 Global Registries:
 - **_all_reactive_contexts**: Set of all active ReactiveContext instances
