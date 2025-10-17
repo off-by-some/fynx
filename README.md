@@ -6,19 +6,19 @@
   <p align="center"><i>FynX ("Finks") = Functional Yielding Observable Networks</i></p>
 <p align="center">
   <a href="https://github.com/off-by-some/fynx/actions/workflows/test.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI" alt="Build Status">
+    <img src="https://img.shields.io/github/actions/workflow/status/off-by-some/fynx/test.yml?branch=main&label=CI&color=2E8B57" alt="Build Status">
   </a>
   <a href="https://codecov.io/github/off-by-some/fynx" >
     <img src="https://codecov.io/github/off-by-some/fynx/graph/badge.svg?token=NX2QHA8V8L"/>
   </a>
   <a href="https://pypi.org/project/fynx/">
-    <img src="https://img.shields.io/pypi/v/fynx.svg?color=4b8bbe&label=PyPI" alt="PyPI Version">
+    <img src="https://img.shields.io/pypi/v/fynx.svg?color=4169E1&label=PyPI" alt="PyPI Version">
   </a>
   <a href="https://www.python.org/downloads/">
-    <img src="https://img.shields.io/pypi/pyversions/fynx.svg?label=Python&color=3776AB" alt="Python Versions">
+    <img src="https://img.shields.io/pypi/pyversions/fynx.svg?label=Python&color=1E90FF" alt="Python Versions">
   </a>
   <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+    <img src="https://img.shields.io/badge/License-MIT-FF6B35.svg" alt="License: MIT">
   </a>
 </p>
 
@@ -27,7 +27,7 @@
 **FynX** is a lightweight reactive state management library for Python that makes your data flow effortlessly.
 Inspired by [MobX](https://github.com/mobxjs/mobx) and similar [functional reactive programming](https://wiki.haskell.org/Functional_Reactive_Programming) frameworks, FynX transforms plain Python objects into reactive observables that update automatically. You define how your data relates—FynX handles the synchronization with zero boilerplate.
 
-Whether you're building interactive [Streamlit](https://streamlit.io/) dashboards or crafting data-driven UIs, this library ensures that all changes propagate smoothly, predictably, and elegantly throughout your application. When one value changes, everything that depends on it updates automatically. No manual wiring, no stale state, no hassle.
+Whether you're building interactive [Streamlit](https://streamlit.io/) dashboards or crafting reactive applications, this library ensures that all changes propagate smoothly, predictably, and elegantly throughout your application. When one value changes, everything that depends on it updates automatically. No manual wiring, no stale state, no hassle.
 
 ## Getting Started
 
@@ -197,7 +197,7 @@ def process_eligible_user():
 FynX provides four core operators that compose into sophisticated reactive systems.
 
 1. The `>>` operator transforms values through functions.
-2. The `|` operator combines multiple observables into tuples.
+2. The `|` operator combines multiple observables into tuples. **Note**: This will be changing to `@` soon. `|` will become OR soon after.
 3. The `&` operator filters based on boolean conditions.
 4. The `~` operator negates those conditions.
 
@@ -318,8 +318,12 @@ Framework agnosticism matters. FynX works with Streamlit, FastAPI, Flask, or any
 `Store` serves as a base class for organizing related observables with built-in serialization support. Stores provide structure for complex state management and enable persistence patterns.
 
 ## Contributing
+> This project uses **Poetry** for dependency management and **pytest** for testing.
+> To learn more about the vision and goals for version 1.0, see the [**1.0 Product Specification**](./docs/1.0_TODO.md).
 
-We welcome contributions to FynX. The project uses Poetry for dependency management and pytest for testing. To get started:
+I always welcome contributions to FynX.
+
+To get started:
 
 ```bash
 poetry install --with dev --with test
@@ -339,7 +343,7 @@ FynX maintains comprehensive test coverage tracked through Codecov. Here are vis
 
 | Sunburst Diagram | Grid Diagram | Icicle Diagram |
 |---|---|---|
-| <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram"/><br>*The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram"/><br>*Each block represents a file. Size and color indicate statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram"/><br>*The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage.* |
+| <img src="https://codecov.io/github/off-by-some/fynx/graphs/sunburst.svg?token=NX2QHA8V8L" alt="Sunburst Coverage Diagram" height="200"/><br>*The inner-most circle represents the entire project, with folders and files radiating outward. Size and color represent statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/tree.svg?token=NX2QHA8V8L" alt="Grid Coverage Diagram" height="200"/><br>*Each block represents a file. Size and color indicate statement count and coverage percentage.* | <img src="https://codecov.io/github/off-by-some/fynx/graphs/icicle.svg?token=NX2QHA8V8L" alt="Icicle Coverage Diagram" height="200"/><br>*The top section represents the entire project, with folders and files below. Size and color represent statement count and coverage percentage.* |
 
 ## License
 
