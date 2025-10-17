@@ -24,10 +24,30 @@
 
 ***
 
-**FynX** is a lightweight reactive state management library for Python that makes your data flow effortlessly.
-Inspired by [MobX](https://github.com/mobxjs/mobx) and similar [functional reactive programming](https://wiki.haskell.org/Functional_Reactive_Programming) frameworks, FynX transforms plain Python objects into reactive observables that update automatically. You define how your data relates—FynX handles the synchronization with zero boilerplate.
+**FynX** eliminates state management complexity in Python applications. Inspired by [MobX](https://github.com/mobxjs/mobx) and functional reactive programming, FynX makes your data reactive with zero boilerplate—just declare relationships, and watch automatic updates cascade through your entire application.
 
-Whether you're building interactive [Streamlit](https://streamlit.io/) dashboards or crafting reactive applications, this library ensures that all changes propagate smoothly, predictably, and elegantly throughout your application. When one value changes, everything that depends on it updates automatically. No manual wiring, no stale state, no hassle.
+Stop wrestling with manual state synchronization. Whether you're building real-time [Streamlit](https://streamlit.io/) dashboards, complex data pipelines, or interactive applications, FynX ensures that when one value changes, everything that depends on it updates instantly and predictably. No more stale UI, no more forgotten dependencies, no more synchronization headaches.
+
+**Define relationships once. Updates flow automatically. Your application stays in sync—effortlessly.**
+
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Where FynX Shines](#where-fynx-shines)
+- [Understanding Observables](#understanding-observables)
+- [Transforming Data](#transforming-data)
+- [Combining Multiple Streams](#combining-multiple-streams)
+- [Filtering with Conditions](#filtering-with-conditions)
+- [Reacting to Changes](#reacting-to-changes)
+- [The Reactive Operators](#the-reactive-operators)
+- [A Complete Example](#a-complete-example)
+- [Going Deeper](#going-deeper)
+- [Examples](#examples)
+- [The Mathematical Foundation](#the-mathematical-foundation)
+- [Design Philosophy](#design-philosophy)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Getting Started
 
@@ -75,11 +95,9 @@ That's the essence of FynX. Define your relationships once, and the library ensu
 
 ## Where FynX Shines
 
-FynX excels in scenarios where data flows through transformations and multiple components need to stay in sync. Consider Streamlit applications where widgets depend on shared state, or data pipelines where computed values must recalculate when their inputs change. Analytics dashboards that visualize live data, forms with interdependent validation rules, or any system where state coordination becomes complex—these are FynX's natural habitat.
+FynX excels in scenarios where data flows through transformations and multiple components need to stay in sync. Consider Streamlit applications where widgets depend on shared state ([example](./examples/streamlit/todo_app.py)), or data pipelines where computed values must recalculate when their inputs change. Analytics dashboards that visualize live data, forms with interdependent validation rules, or any system where state coordination becomes complex—these are FynX's natural habitat.
 
 The library frees you from the tedious work of tracking dependencies and triggering updates. Instead of thinking about *when* to update state, you focus purely on *what* relationships should hold. The rest happens automatically.
-
-Be sure to check out the [examples](./examples/).
 
 ## Understanding Observables
 
@@ -132,7 +150,7 @@ result = computed(lambda x: f"Result: {x}", step2)
 
 No matter how you write them, these transformations compose naturally. You can chain them indefinitely, and FynX ensures the data flows correctly through each stage.
 
-## Combining Multiple Streams
+## Combining Observables
 
 When you need to work with multiple observables together, the `|` operator combines them into reactive tuples. Change any component, and the combined observable updates:
 
@@ -197,13 +215,21 @@ def process_eligible_user():
 FynX provides four core operators that compose into sophisticated reactive systems.
 
 1. The `>>` operator transforms values through functions.
-2. The `|` operator combines multiple observables into tuples. **Note**: This will be changing to `@` soon. `|` will become OR soon after.
+2. The `|` operator combines multiple observables into tuples.
+    *  **Note**: This will be changing to `@` soon. `|` will become OR after that.
 3. The `&` operator filters based on boolean conditions.
 4. The `~` operator negates those conditions.
 
 Together, these operators form a complete algebra for reactive data flow.
 
-Consider `total_price >> (lambda t: f"${t:.2f}")` for transformations, `(first | last) >> (lambda f, l: f"{f} {l}")` for combinations, `file & is_valid & (~is_processing)` for conditional filtering, and `~(is_processing)` for negation. Each operation produces a new observable that you can transform, combine, or filter further.
+| Operator | Purpose | Example |
+|----------|---------|---------|
+| `>>` | **Transform** values through functions | `total_price >> (lambda t: f"${t:.2f}")` |
+| `\|` | **Combine** multiple observables into tuples | `(first \| last) >> (lambda f, l: f"{f} {l}")` |
+| `&` | **Filter** based on boolean conditions | `file & is_valid & (~is_processing)` |
+| `~` | **Negate** conditions | `~is_processing` |
+
+**Each operation creates a new observable that you can chain indefinitely—transform, combine, and filter with complete freedom.**
 
 ## A Complete Example
 
@@ -318,10 +344,9 @@ Framework agnosticism matters. FynX works with Streamlit, FastAPI, Flask, or any
 `Store` serves as a base class for organizing related observables with built-in serialization support. Stores provide structure for complex state management and enable persistence patterns.
 
 ## Contributing
-> This project uses **Poetry** for dependency management and **pytest** for testing.
+> I always welcome contributions to FynX. This project uses **Poetry** for dependency management and **pytest** for testing.
 > To learn more about the vision and goals for version 1.0, see the [**1.0 Product Specification**](./docs/1.0_TODO.md).
 
-I always welcome contributions to FynX.
 
 To get started:
 
