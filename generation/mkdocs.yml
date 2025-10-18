@@ -13,6 +13,7 @@ nav:
   - API Reference:
       - Overview: generation/markdown/api.md
       - Core API: generation/markdown/core-api.md
+      - Stores: generation/markdown/stores.md
       - Observable Types:
           - Observable: generation/markdown/observable.md
           - ComputedObservable: generation/markdown/computed-observable.md
