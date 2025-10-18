@@ -1,0 +1,1556 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Python Reactive State Management Library">
+      
+      
+      
+        <link rel="canonical" href="https://off-by-some.github.io/fynx/generation/markdown/conditional-observable/">
+      
+      
+        <link rel="prev" href="../merged-observable/">
+      
+      
+        <link rel="next" href="../observable-descriptors/">
+      
+      
+      <link rel="icon" href="../../../images/fynx_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>ConditionalObservable - FynX</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#conditionalobservable" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="FynX" class="md-header__button md-logo" aria-label="FynX" data-md-component="logo">
+      
+  <img src="../../../images/icon_350x350.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            FynX
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ConditionalObservable
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="blue"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="FynX" class="md-nav__button md-logo" aria-label="FynX" data-md-component="logo">
+      
+  <img src="../../../images/icon_350x350.png" alt="logo">
+
+    </a>
+    FynX
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../core-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Core API
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Observable Types
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            Observable Types
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observable/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Observable
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../computed-observable/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ComputedObservable
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../merged-observable/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MergedObservable
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    ConditionalObservable
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    ConditionalObservable
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional" class="md-nav__link">
+    <span class="md-ellipsis">
+      conditional
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations" class="md-nav__link">
+    <span class="md-ellipsis">
+      FynX ConditionalObservable - Conditional Reactive Computations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FynX ConditionalObservable - Conditional Reactive Computations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--when-to-use-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      When to Use Conditional Observables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How It Works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--creating-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Conditional Observables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--key-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Concepts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--performance-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Benefits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--common-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Patterns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional.ConditionalObservable" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConditionalObservable
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ConditionalObservable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __and__
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observable-descriptors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Observable Descriptors
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observable-operators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Observable Operators
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reactive Decorators
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reactive Decorators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../computed-decorator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    @computed
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reactive-decorator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    @reactive
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../watch-decorator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    @watch
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../store/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Store & @observable
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Roadmap
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Roadmap
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../specs/v1.0-roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    v1.0 Roadmap
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional" class="md-nav__link">
+    <span class="md-ellipsis">
+      conditional
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations" class="md-nav__link">
+    <span class="md-ellipsis">
+      FynX ConditionalObservable - Conditional Reactive Computations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="FynX ConditionalObservable - Conditional Reactive Computations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--when-to-use-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      When to Use Conditional Observables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How It Works
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--creating-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Conditional Observables
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--key-concepts" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Concepts
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--performance-benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Performance Benefits
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--common-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Patterns
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See Also
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fynx.observable.conditional.ConditionalObservable" class="md-nav__link">
+    <span class="md-ellipsis">
+      ConditionalObservable
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ConditionalObservable">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __and__
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="conditionalobservable">ConditionalObservable<a class="headerlink" href="#conditionalobservable" title="Permanent link">&para;</a></h1>
+<p>Observables that only emit values when specific conditions are met.</p>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="fynx.observable.conditional"></a>
+    <div class="doc doc-contents first">
+
+        <h2 id="fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations">FynX ConditionalObservable - Conditional Reactive Computations<a class="headerlink" href="#fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations" title="Permanent link">&para;</a></h2>
+<p>This module provides the ConditionalObservable class, which enables filtering
+reactive streams based on boolean conditions. Conditional observables only emit
+values from a source observable when all specified conditions are satisfied.</p>
+<h3 id="fynx.observable.conditional--when-to-use-conditional-observables">When to Use Conditional Observables<a class="headerlink" href="#fynx.observable.conditional--when-to-use-conditional-observables" title="Permanent link">&para;</a></h3>
+<p>Conditional observables are perfect for scenarios where you need to react to data
+changes only under specific circumstances:</p>
+<ul>
+<li><strong>Guarded Updates</strong>: Only reacting to changes when prerequisites are met</li>
+<li><strong>State Machines</strong>: Different behavior based on application state</li>
+<li><strong>Resource Optimization</strong>: Avoiding unnecessary computations when conditions aren't met</li>
+<li><strong>Event Filtering</strong>: Processing events only under specific circumstances</li>
+<li><strong>Permission Checks</strong>: Only updating UI when user has appropriate permissions</li>
+</ul>
+<h3 id="fynx.observable.conditional--how-it-works">How It Works<a class="headerlink" href="#fynx.observable.conditional--how-it-works" title="Permanent link">&para;</a></h3>
+<p>Conditional observables work by maintaining an internal cache of condition states.
+They only emit values when:</p>
+<ol>
+<li><strong>All conditions become True</strong> (after previously being False)</li>
+<li><strong>Source value changes</strong> while all conditions remain True</li>
+</ol>
+<p>This prevents unnecessary updates when conditions aren't met and provides precise
+control over when reactive effects occur.</p>
+<h3 id="fynx.observable.conditional--creating-conditional-observables">Creating Conditional Observables<a class="headerlink" href="#fynx.observable.conditional--creating-conditional-observables" title="Permanent link">&para;</a></h3>
+<p>Conditional behavior is created using the <code>&amp;</code> operator:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Source data</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;temp&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">humidity</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;humidity&quot;</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Conditions</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">is_heating_on</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;heating&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">is_dry</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;dry&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Conditional observable - only emits when heating is on AND it&#39;s dry</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">smart_humidity</span> <span class="o">=</span> <span class="n">humidity</span> <span class="o">&amp;</span> <span class="n">is_heating_on</span> <span class="o">&amp;</span> <span class="n">is_dry</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">smart_humidity</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">h</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adjusting humidity: </span><span class="si">{</span><span class="n">h</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Only prints when ALL conditions are True</span>
+</code></pre></div>
+<h3 id="fynx.observable.conditional--key-concepts">Key Concepts<a class="headerlink" href="#fynx.observable.conditional--key-concepts" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Condition Chaining</strong>: Multiple conditions combine with logical AND</li>
+<li><strong>Transition-Based</strong>: Only triggers on false→true condition transitions</li>
+<li><strong>Value Filtering</strong>: Source values only pass through when conditions are met</li>
+<li><strong>Immutable Composition</strong>: Each <code>&amp;</code> creates a new conditional observable</li>
+</ul>
+<h3 id="fynx.observable.conditional--performance-benefits">Performance Benefits<a class="headerlink" href="#fynx.observable.conditional--performance-benefits" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Lazy Evaluation</strong>: Conditions only re-evaluated when dependencies change</li>
+<li><strong>Efficient Filtering</strong>: Prevents unnecessary reactive updates</li>
+<li><strong>Memory Conscious</strong>: Minimal overhead for condition tracking</li>
+<li><strong>Composable</strong>: Build complex conditions from simple boolean observables</li>
+</ul>
+<h3 id="fynx.observable.conditional--common-patterns">Common Patterns<a class="headerlink" href="#fynx.observable.conditional--common-patterns" title="Permanent link">&para;</a></h3>
+<p><strong>Feature Flags</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">data</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="p">[])</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">feature_enabled</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;feature&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">user_premium</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;premium&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">premium_data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&amp;</span> <span class="n">feature_enabled</span> <span class="o">&amp;</span> <span class="n">user_premium</span>
+</code></pre></div></p>
+<p><strong>Form Validation</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">email</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;email&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">is_valid_email</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;valid&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">user_consented</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;consent&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">submittable_data</span> <span class="o">=</span> <span class="n">email</span> <span class="o">&amp;</span> <span class="n">is_valid_email</span> <span class="o">&amp;</span> <span class="n">user_consented</span>
+</code></pre></div></p>
+<p><strong>Resource Availability</strong>:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">updates</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;updates&quot;</span><span class="p">,</span> <span class="p">[])</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">network_available</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;network&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">battery_ok</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;battery&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">sync_updates</span> <span class="o">=</span> <span class="n">updates</span> <span class="o">&amp;</span> <span class="n">network_available</span> <span class="o">&amp;</span> <span class="n">battery_ok</span>
+</code></pre></div></p>
+<h3 id="fynx.observable.conditional--see-also">See Also<a class="headerlink" href="#fynx.observable.conditional--see-also" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>fynx.watch</code>: For conditional reactive functions (alternative approach)</li>
+<li><code>fynx.observable</code>: Core observable classes and operators</li>
+<li><code>fynx.computed</code>: For derived reactive values</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="fynx.observable.conditional.ConditionalObservable" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ConditionalObservable</span>
+
+
+<a href="#fynx.observable.conditional.ConditionalObservable" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ConditionalObservable</span><span class="p">(</span><span class="n">source_observable</span><span class="p">,</span> <span class="o">*</span><span class="n">condition_observables</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+        <p>An observable that filters values from a source observable based on boolean conditions.</p>
+<p>ConditionalObservable creates a reactive stream that only emits values when ALL
+specified conditions are True. This enables precise control over when reactive
+updates occur, preventing unnecessary computations and side effects.</p>
+<p>The conditional observable maintains an internal cache of the current condition
+state and only notifies subscribers when conditions transition from unmet to met,
+or when the source value changes while conditions remain met.</p>
+<p>Key Features:
+- <strong>Condition Filtering</strong>: Only emits when all conditions are satisfied
+- <strong>State Transitions</strong>: Triggers on condition state changes
+- <strong>Composable</strong>: Can chain multiple conditions with additional <code>&amp;</code> operators
+- <strong>Memory Efficient</strong>: Internal caching prevents redundant evaluations</p>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Source observable</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;temp&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Condition observables</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">is_heating_enabled</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;heating&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">is_cold</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;cold_check&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># Conditional observable - only emits when heating is enabled AND it&#39;s cold</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">heating_trigger</span> <span class="o">=</span> <span class="n">temperature</span> <span class="o">&amp;</span> <span class="n">is_heating_enabled</span> <span class="o">&amp;</span> <span class="n">is_cold</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Subscribe to conditional updates</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">activate_heating</span><span class="p">(</span><span class="n">temp</span><span class="p">):</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Activating heating at </span><span class="si">{</span><span class="n">temp</span><span class="si">}</span><span class="s2">°C&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">heating_trigger</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">activate_heating</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Only triggers when ALL conditions become true</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">temperature</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>        <span class="c1"># No trigger (heating not enabled)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">is_heating_enabled</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># No trigger (not marked as cold yet)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">is_cold</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>          <span class="c1"># Triggers: &quot;Activating heating at 15°C&quot;</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">temperature</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>        <span class="c1"># Triggers: &quot;Activating heating at 10°C&quot;</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">is_heating_enabled</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># Stops triggering</span>
+</code></pre></div>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>The conditional observable starts with <code>None</code> as its value if conditions
+are not initially met. It only takes on the source observable's value when
+all conditions become True.</p>
+</details>
+
+<details class="see-also" open>
+  <summary>See Also</summary>
+  <p>Observable: Base observable class
+MergedObservable: For combining multiple observables
+fynx.watch: For conditional reactive functions</p>
+</details>
+        <p>Create a conditional observable that filters values based on boolean conditions.</p>
+<p>The conditional observable will only emit values from the source observable
+when ALL condition observables are True. If no conditions are provided,
+the conditional observable behaves identically to the source observable.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>source_observable</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The observable whose values will be conditionally emitted.
+              This is the primary data source for the conditional stream.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>*condition_observables</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="bool">bool</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Variable number of boolean observables that act as
+                   conditions. ALL conditions must be True for the source
+                   value to be emitted. Can be empty for unconditional behavior.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">data</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;hello&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">is_ready</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;ready&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">user_enabled</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;enabled&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Only emits when is_ready AND user_enabled are both True</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">conditional_data</span> <span class="o">=</span> <span class="n">ConditionalObservable</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">is_ready</span><span class="p">,</span> <span class="n">user_enabled</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">conditional_data</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Received: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Initially: no output (is_ready is False)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">is_ready</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Now prints: &quot;Received: hello&quot;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">data</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;world&quot;</span><span class="p">)</span>   <span class="c1"># Prints: &quot;Received: world&quot;</span>
+</code></pre></div>
+</details>
+
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="fynx.observable.conditional.ConditionalObservable.__and__" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">__and__</span>
+
+
+<a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__and__</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Chain an additional condition using the <code>&amp;</code> operator.</p>
+<p>This method enables fluent composition of multiple conditions. The resulting
+conditional observable will only emit values when ALL conditions (including
+the new one) are True.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>condition</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="bool">bool</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An additional boolean observable condition that must also be
+      True for values to be emitted. This condition is combined with
+      all existing conditions using logical AND.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ConditionalObservable (fynx.observable.conditional.ConditionalObservable)" href="#fynx.observable.conditional.ConditionalObservable">ConditionalObservable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A new ConditionalObservable instance with the additional condition.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ConditionalObservable (fynx.observable.conditional.ConditionalObservable)" href="#fynx.observable.conditional.ConditionalObservable">ConditionalObservable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The original conditional observable remains unchanged.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;temp&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">is_heating_on</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;heating&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">is_user_present</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;present&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Chain conditions fluently</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">smart_heating</span> <span class="o">=</span> <span class="n">temperature</span> <span class="o">&amp;</span> <span class="n">is_heating_on</span> <span class="o">&amp;</span> <span class="n">is_user_present</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># This is equivalent to:</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># smart_heating = ConditionalObservable(temperature, is_heating_on, is_user_present)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">smart_heating</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Smart heating: </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">°C&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Only triggers when ALL conditions are met</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">is_heating_on</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Now triggers: &quot;Smart heating: 20°C&quot;</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">temperature</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">22</span><span class="p">)</span>      <span class="c1"># Triggers: &quot;Smart heating: 22°C&quot;</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">is_user_present</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># Stops triggering</span>
+</code></pre></div>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>This method returns a new ConditionalObservable rather than modifying
+the existing one, enabling immutable composition of conditions.</p>
+</details>
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2024 Cassidy Bridges |
+<a href="#__consent">Change cookie settings</a>
+
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/off-by-some/fynx" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/fynx/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["content.code.copy", "content.code.select", "navigation.instant", "navigation.tracking", "search.highlight", "search.share", "search.suggest"], "search": "../../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
