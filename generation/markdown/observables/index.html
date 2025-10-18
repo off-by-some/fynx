@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#observables-the-heart-of-reactive-programming" class="md-skip">
+        <a href="#observables-the-foundation-of-reactivity" class="md-skip">
           Skip to content
         </a>
       
@@ -380,58 +380,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-are-observables" class="md-nav__link">
+  <a href="#creating-your-first-observable" class="md-nav__link">
     <span class="md-ellipsis">
-      What are Observables?
+      Creating Your First Observable
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-observables" class="md-nav__link">
+  <a href="#reading-observable-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Creating Observables
+      Reading Observable Values
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Creating Observables">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#basic-observable-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Observable Creation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reading-and-writing-observable-values" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reading and Writing Observable Values
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#reactivity-fundamentals" class="md-nav__link">
+  <a href="#writing-observable-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Reactivity Fundamentals
+      Writing Observable Values
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Reactivity Fundamentals">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#subscribing-to-changes" class="md-nav__link">
     <span class="md-ellipsis">
       Subscribing to Changes
@@ -439,315 +414,67 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#reactive-context-management" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#unsubscribing" class="md-nav__link">
     <span class="md-ellipsis">
-      Reactive Context Management
+      Unsubscribing
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#combining-observables" class="md-nav__link">
+  <a href="#observables-vs-regular-variables" class="md-nav__link">
     <span class="md-ellipsis">
-      Combining Observables
+      Observables vs. Regular Variables
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Combining Observables">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#merging-with-the-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merging with the | Operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-computed-values-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Creating Computed Values with &gt;&gt;
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#conditional-filtering-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conditional Filtering with &amp;
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#negation-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Negation with ~
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-observable-patterns" class="md-nav__link">
+  <a href="#what-observables-enable" class="md-nav__link">
     <span class="md-ellipsis">
-      Advanced Observable Patterns
+      What Observables Enable
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Advanced Observable Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#chained-transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Chained Transformations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multiple-subscriptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multiple Subscriptions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observable-cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Observable Cleanup
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#observable-types-in-fynx" class="md-nav__link">
+  <a href="#when-to-use-observables" class="md-nav__link">
     <span class="md-ellipsis">
-      Observable Types in FynX
+      When to Use Observables
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Observable Types in FynX">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#regular-observables-observable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Regular Observables (Observable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#computed-observables-computedobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Computed Observables (ComputedObservable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#merged-observables-mergedobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merged Observables (MergedObservable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#conditional-observables-conditionalobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conditional Observables (ConditionalObservable)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#common-observable-patterns" class="md-nav__link">
+  <a href="#when-to-use-value-and-when-not-to" class="md-nav__link">
     <span class="md-ellipsis">
-      Common Observable Patterns
+      When to Use .value (and When Not To)
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Common Observable Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#state-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      State Management
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#form-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Form Validation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-state" class="md-nav__link">
-    <span class="md-ellipsis">
-      API State
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#event-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Event Handling
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
+  <a href="#observable-limitations" class="md-nav__link">
     <span class="md-ellipsis">
-      Best Practices
+      Observable Limitations
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Best Practices">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-use-meaningful-names" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Use Meaningful Names
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-handle-edge-cases-in-transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Handle Edge Cases in Transformations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-clean-up-subscriptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Clean Up Subscriptions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-prefer-over-manual-computed" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Prefer &gt;&gt; Over Manual computed()
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-chain-computations-thoughtfully" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Chain Computations Thoughtfully
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-considerations" class="md-nav__link">
+  <a href="#whats-next" class="md-nav__link">
     <span class="md-ellipsis">
-      Performance Considerations
+      What's Next
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Performance Considerations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#lazy-evaluation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Lazy Evaluation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#dependency-tracking" class="md-nav__link">
-    <span class="md-ellipsis">
-      Dependency Tracking
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      Memory Management
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -790,12 +517,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../decorators/" class="md-nav__link">
+      <a href="../using-reactive/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Decorators
+    Using @reactive
     
   </span>
   
@@ -1276,58 +1003,33 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-are-observables" class="md-nav__link">
+  <a href="#creating-your-first-observable" class="md-nav__link">
     <span class="md-ellipsis">
-      What are Observables?
+      Creating Your First Observable
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#creating-observables" class="md-nav__link">
+  <a href="#reading-observable-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Creating Observables
+      Reading Observable Values
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Creating Observables">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#basic-observable-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Observable Creation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#reading-and-writing-observable-values" class="md-nav__link">
-    <span class="md-ellipsis">
-      Reading and Writing Observable Values
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#reactivity-fundamentals" class="md-nav__link">
+  <a href="#writing-observable-values" class="md-nav__link">
     <span class="md-ellipsis">
-      Reactivity Fundamentals
+      Writing Observable Values
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Reactivity Fundamentals">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
+</li>
+      
+        <li class="md-nav__item">
   <a href="#subscribing-to-changes" class="md-nav__link">
     <span class="md-ellipsis">
       Subscribing to Changes
@@ -1335,315 +1037,67 @@
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#reactive-context-management" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#unsubscribing" class="md-nav__link">
     <span class="md-ellipsis">
-      Reactive Context Management
+      Unsubscribing
     </span>
   </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#combining-observables" class="md-nav__link">
+  <a href="#observables-vs-regular-variables" class="md-nav__link">
     <span class="md-ellipsis">
-      Combining Observables
+      Observables vs. Regular Variables
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Combining Observables">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#merging-with-the-operator" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merging with the | Operator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#creating-computed-values-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Creating Computed Values with &gt;&gt;
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#conditional-filtering-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conditional Filtering with &amp;
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#negation-with" class="md-nav__link">
-    <span class="md-ellipsis">
-      Negation with ~
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#advanced-observable-patterns" class="md-nav__link">
+  <a href="#what-observables-enable" class="md-nav__link">
     <span class="md-ellipsis">
-      Advanced Observable Patterns
+      What Observables Enable
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Advanced Observable Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#chained-transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Chained Transformations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multiple-subscriptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multiple Subscriptions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#observable-cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Observable Cleanup
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#observable-types-in-fynx" class="md-nav__link">
+  <a href="#when-to-use-observables" class="md-nav__link">
     <span class="md-ellipsis">
-      Observable Types in FynX
+      When to Use Observables
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Observable Types in FynX">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#regular-observables-observable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Regular Observables (Observable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#computed-observables-computedobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Computed Observables (ComputedObservable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#merged-observables-mergedobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Merged Observables (MergedObservable)
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#conditional-observables-conditionalobservable" class="md-nav__link">
-    <span class="md-ellipsis">
-      Conditional Observables (ConditionalObservable)
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#common-observable-patterns" class="md-nav__link">
+  <a href="#when-to-use-value-and-when-not-to" class="md-nav__link">
     <span class="md-ellipsis">
-      Common Observable Patterns
+      When to Use .value (and When Not To)
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Common Observable Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#state-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      State Management
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#form-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Form Validation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-state" class="md-nav__link">
-    <span class="md-ellipsis">
-      API State
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#event-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Event Handling
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
+  <a href="#observable-limitations" class="md-nav__link">
     <span class="md-ellipsis">
-      Best Practices
+      Observable Limitations
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Best Practices">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-use-meaningful-names" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Use Meaningful Names
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-handle-edge-cases-in-transformations" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Handle Edge Cases in Transformations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-clean-up-subscriptions" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Clean Up Subscriptions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-prefer-over-manual-computed" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Prefer &gt;&gt; Over Manual computed()
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-chain-computations-thoughtfully" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Chain Computations Thoughtfully
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-considerations" class="md-nav__link">
+  <a href="#whats-next" class="md-nav__link">
     <span class="md-ellipsis">
-      Performance Considerations
+      What's Next
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Performance Considerations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#lazy-evaluation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Lazy Evaluation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#dependency-tracking" class="md-nav__link">
-    <span class="md-ellipsis">
-      Dependency Tracking
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      Memory Management
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1663,340 +1117,237 @@
 
 
 
-<h1 id="observables-the-heart-of-reactive-programming">Observables - The Heart of Reactive Programming<a class="headerlink" href="#observables-the-heart-of-reactive-programming" title="Permanent link">&para;</a></h1>
-<p>Observables are the fundamental building blocks of reactive programming in FynX. They represent values that can change over time and automatically notify anything that depends on them. Think of observables as "reactive variables" that trigger updates throughout your application whenever their values change.</p>
-<h2 id="what-are-observables">What are Observables?<a class="headerlink" href="#what-are-observables" title="Permanent link">&para;</a></h2>
-<p>At their core, observables are containers for values that:</p>
-<ul>
-<li><strong>Hold data</strong> that can change over time</li>
-<li><strong>Notify subscribers</strong> when their values change</li>
-<li><strong>Enable reactive relationships</strong> between different parts of your application</li>
-<li><strong>Support composition</strong> through operators like <code>|</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, and <code>~</code></li>
-</ul>
-<p>Unlike regular variables, observables create a reactive graph where changes propagate automatically through your entire application.</p>
-<h2 id="creating-observables">Creating Observables<a class="headerlink" href="#creating-observables" title="Permanent link">&para;</a></h2>
-<h3 id="basic-observable-creation">Basic Observable Creation<a class="headerlink" href="#basic-observable-creation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Create observables with initial values</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">user_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">is_online</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<h1 id="observables-the-foundation-of-reactivity">Observables: The Foundation of Reactivity<a class="headerlink" href="#observables-the-foundation-of-reactivity" title="Permanent link">&para;</a></h1>
+<p>An observable is a value that changes over time and tells you when it changes. That's it. Everything else in FynX—every operator, every decorator, every pattern—builds on this simple idea.</p>
+<p>Think of a regular Python variable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">count</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">count</span> <span class="o">=</span> <span class="mi">2</span>
 </code></pre></div>
-<h3 id="reading-and-writing-observable-values">Reading and Writing Observable Values<a class="headerlink" href="#reading-and-writing-observable-values" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Reading values - use .value property</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">current_name</span> <span class="o">=</span> <span class="n">user_name</span><span class="o">.</span><span class="n">value</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">current_age</span> <span class="o">=</span> <span class="n">age</span><span class="o">.</span><span class="n">value</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Writing values - direct assignment</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>  <span class="c1"># Triggers reactivity</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">age</span> <span class="o">=</span> <span class="mi">31</span>           <span class="c1"># Triggers reactivity</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">is_online</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># Triggers reactivity</span>
+<p>When <code>count</code> changes, nothing happens. The value updates silently, and any code that depends on <code>count</code> has no idea. You have to manually check for changes, manually update dependent state, manually keep everything synchronized.</p>
+<p>Now think of an observable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">count</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
-<h2 id="reactivity-fundamentals">Reactivity Fundamentals<a class="headerlink" href="#reactivity-fundamentals" title="Permanent link">&para;</a></h2>
-<h3 id="subscribing-to-changes">Subscribing to Changes<a class="headerlink" href="#subscribing-to-changes" title="Permanent link">&para;</a></h3>
-<p>Observables notify subscribers whenever their values change:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_name_change</span><span class="p">(</span><span class="n">new_name</span><span class="p">):</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Name changed to: </span><span class="si">{</span><span class="n">new_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Subscribe to changes</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">user_name</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_name_change</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Charlie&quot;</span>  <span class="c1"># Prints: &quot;Name changed to: Charlie&quot;</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Diana&quot;</span>    <span class="c1"># Prints: &quot;Name changed to: Diana&quot;</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Unsubscribe when no longer needed</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">user_name</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">on_name_change</span><span class="p">)</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Eve&quot;</span>  <span class="c1"># No output - unsubscribed</span>
+<p>When an observable changes, it notifies anyone who's listening. Dependent computations recalculate automatically. UI updates happen without explicit instructions. The reactive graph maintains its own consistency.</p>
+<p>This is the fundamental shift: from <strong>telling your code when to update</strong> to <strong>declaring what should be true</strong>. FynX handles the rest.</p>
+<h2 id="creating-your-first-observable">Creating Your First Observable<a class="headerlink" href="#creating-your-first-observable" title="Permanent link">&para;</a></h2>
+<p>Start by importing the <code>observable</code> function and giving it an initial value:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Create observables with initial values of any type</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">scores</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">85</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">78</span><span class="p">])</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">user</span> <span class="o">=</span> <span class="n">observable</span><span class="p">({</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;active&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>
 </code></pre></div>
-<h3 id="reactive-context-management">Reactive Context Management<a class="headerlink" href="#reactive-context-management" title="Permanent link">&para;</a></h3>
-<p>Observables track which code depends on them during execution:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># This function creates a dependency on user_name</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">greet_user</span><span class="p">():</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">user_name</span><span class="o">.</span><span class="n">value</span>  <span class="c1"># Creates dependency</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Hello, </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">!&quot;</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># The function will automatically re-run when user_name changes</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Frank&quot;</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># greet_user() would now return &quot;Hello, Frank!&quot; if called again</span>
+<p>The initial value can be anything—strings, numbers, lists, dictionaries, custom objects, even <code>None</code>. FynX doesn't care about the type. It just wraps the value and makes it reactive.</p>
+<h2 id="reading-observable-values">Reading Observable Values<a class="headerlink" href="#reading-observable-values" title="Permanent link">&para;</a></h2>
+<p>To read what's inside an observable, use the <code>.value</code> property:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># &quot;Alice&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>   <span class="c1"># 30</span>
 </code></pre></div>
-<h2 id="combining-observables">Combining Observables<a class="headerlink" href="#combining-observables" title="Permanent link">&para;</a></h2>
-<h3 id="merging-with-the-operator">Merging with the <code>|</code> Operator<a class="headerlink" href="#merging-with-the-operator" title="Permanent link">&para;</a></h3>
-<p>Combine multiple observables into reactive tuples:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Merge two observables</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">name_and_age</span> <span class="o">=</span> <span class="n">user_name</span> <span class="o">|</span> <span class="n">age</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_user_data_change</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">age</span><span class="p">):</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Subscribe to the merged observable</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">name_and_age</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_user_data_change</span><span class="p">)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Grace&quot;</span>  <span class="c1"># Prints: &quot;User: Grace, Age: 31&quot;</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">age</span> <span class="o">=</span> <span class="mi">32</span>            <span class="c1"># Prints: &quot;User: Grace, Age: 32&quot;</span>
+<p>This looks like extra syntax compared to regular variables, and it is. But that <code>.value</code> access does something important: it registers that your code depends on this observable. When you read <code>.value</code> inside a reactive context (we'll get to those soon), FynX automatically tracks the dependency and ensures your code re-runs when the observable changes.</p>
+<h2 id="writing-observable-values">Writing Observable Values<a class="headerlink" href="#writing-observable-values" title="Permanent link">&para;</a></h2>
+<p>To change what's inside an observable, use the <code>.set()</code> method:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">name</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;Bob&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># &quot;Bob&quot;</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">name</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;Charlie&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># &quot;Charlie&quot;</span>
 </code></pre></div>
-<h3 id="creating-computed-values-with">Creating Computed Values with <code>&gt;&gt;</code><a class="headerlink" href="#creating-computed-values-with" title="Permanent link">&para;</a></h3>
-<p>Transform observable values reactively:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Create derived values</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">full_name</span> <span class="o">=</span> <span class="p">(</span><span class="n">user_name</span> <span class="o">|</span> <span class="n">age</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="k">lambda</span> <span class="n">name</span><span class="p">,</span> <span class="n">age_val</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (age </span><span class="si">{</span><span class="n">age_val</span><span class="si">}</span><span class="s2">)&quot;</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="p">)</span>
+<p>Each call to <code>.set()</code> does two things:</p>
+<ol>
+<li>Updates the internal value</li>
+<li>Notifies all subscribers that the value changed</li>
+</ol>
+<p>This notification is what makes observables reactive. Without it, they'd just be awkward wrappers around regular values.</p>
+<h2 id="subscribing-to-changes">Subscribing to Changes<a class="headerlink" href="#subscribing-to-changes" title="Permanent link">&para;</a></h2>
+<p>The real power of observables emerges when you subscribe to them. A subscription is a function that runs whenever the observable changes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">greet</span><span class="p">(</span><span class="n">new_name</span><span class="p">):</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello, </span><span class="si">{</span><span class="n">new_name</span><span class="si">}</span><span class="s2">!&quot;</span><span class="p">)</span>
 <a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">is_adult</span> <span class="o">=</span> <span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">)</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">is_senior</span> <span class="o">=</span> <span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">65</span><span class="p">)</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="c1"># Subscribe to changes</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">name</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">greet</span><span class="p">)</span>
 <a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Subscribe to computed values</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">full_name</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Full name: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">is_adult</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Is adult: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
-<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">user_name</span> <span class="o">=</span> <span class="s2">&quot;Henry&quot;</span>
-<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">age</span> <span class="o">=</span> <span class="mi">25</span>
-<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="c1"># Output:</span>
-<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="c1"># Full name: Henry (age 25)</span>
-<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># Is adult: True</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Now changes trigger the subscriber</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">name</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;Bob&quot;</span><span class="p">)</span>      <span class="c1"># Prints: &quot;Hello, Bob!&quot;</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="n">name</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;Charlie&quot;</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Hello, Charlie!&quot;</span>
 </code></pre></div>
-<h3 id="conditional-filtering-with">Conditional Filtering with <code>&amp;</code><a class="headerlink" href="#conditional-filtering-with" title="Permanent link">&para;</a></h3>
-<p>Only emit values when conditions are met:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">messages</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">user_online</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Only notify when user is online AND has messages</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">should_notify</span> <span class="o">=</span> <span class="n">messages</span> <span class="o">&amp;</span> <span class="n">user_online</span>
+<p>Your subscriber function receives the new value as its argument. The function runs immediately when you call <code>.set()</code>, after the value updates but before <code>.set()</code> returns.</p>
+<p>You can subscribe multiple functions to the same observable:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Double: </span><span class="si">{</span><span class="n">n</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Square: </span><span class="si">{</span><span class="n">n</span><span class="w"> </span><span class="o">**</span><span class="w"> </span><span class="mi">2</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">send_notification</span><span class="p">(</span><span class="n">count</span><span class="p">):</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📬 Sending </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2"> messages!&quot;</span><span class="p">)</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">should_notify</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">send_notification</span><span class="p">)</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="n">messages</span> <span class="o">=</span> <span class="mi">3</span>        <span class="c1"># No notification - user offline</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="n">user_online</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Now notifies: &quot;📬 Sending 3 messages!&quot;</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="n">messages</span> <span class="o">=</span> <span class="mi">5</span>        <span class="c1"># Notifies again: &quot;📬 Sending 5 messages!&quot;</span>
-<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="n">user_online</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># No more notifications</span>
-<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="n">messages</span> <span class="o">=</span> <span class="mi">10</span>       <span class="c1"># Still no notification - user offline</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="c1"># Output:</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="c1"># Count: 5</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Double: 10</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># Square: 25</span>
 </code></pre></div>
-<h3 id="negation-with">Negation with <code>~</code><a class="headerlink" href="#negation-with" title="Permanent link">&para;</a></h3>
-<p>Invert boolean observables:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">is_loading</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">is_idle</span> <span class="o">=</span> <span class="o">~</span><span class="n">is_loading</span>  <span class="c1"># True when not loading</span>
+<p>All subscribers receive the same value, and they run in the order you subscribed them.</p>
+<h2 id="unsubscribing">Unsubscribing<a class="headerlink" href="#unsubscribing" title="Permanent link">&para;</a></h2>
+<p>When you no longer need to listen to an observable, unsubscribe to prevent memory leaks:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">logger</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">is_idle</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">idle</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Idle: </span><span class="si">{</span><span class="n">idle</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">is_loading</span> <span class="o">=</span> <span class="kc">True</span>   <span class="c1"># Prints: &quot;Idle: False&quot;</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">is_loading</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># Prints: &quot;Idle: True&quot;</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Value: 1&quot;</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="c1"># Unsubscribe when done</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">counter</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># No output - logger no longer subscribed</span>
 </code></pre></div>
-<h2 id="advanced-observable-patterns">Advanced Observable Patterns<a class="headerlink" href="#advanced-observable-patterns" title="Permanent link">&para;</a></h2>
-<h3 id="chained-transformations">Chained Transformations<a class="headerlink" href="#chained-transformations" title="Permanent link">&para;</a></h3>
-<p>Build complex data pipelines:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">raw_scores</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">65</span><span class="p">,</span> <span class="mi">72</span><span class="p">,</span> <span class="mi">88</span><span class="p">,</span> <span class="mi">91</span><span class="p">,</span> <span class="mi">77</span><span class="p">])</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># Chain multiple transformations</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">average_score</span> <span class="o">=</span> <span class="n">raw_scores</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="k">lambda</span> <span class="n">scores</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="k">if</span> <span class="n">scores</span> <span class="k">else</span> <span class="mi">0</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">grade_letter</span> <span class="o">=</span> <span class="n">average_score</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="k">lambda</span> <span class="n">avg</span><span class="p">:</span> <span class="s2">&quot;A&quot;</span> <span class="k">if</span> <span class="n">avg</span> <span class="o">&gt;=</span> <span class="mi">90</span> <span class="k">else</span> <span class="s2">&quot;B&quot;</span> <span class="k">if</span> <span class="n">avg</span> <span class="o">&gt;=</span> <span class="mi">80</span> <span class="k">else</span> <span class="s2">&quot;C&quot;</span> <span class="k">if</span> <span class="n">avg</span> <span class="o">&gt;=</span> <span class="mi">70</span> <span class="k">else</span> <span class="s2">&quot;F&quot;</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">)</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="n">letter_count</span> <span class="o">=</span> <span class="n">grade_letter</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">lambda</span> <span class="n">grade</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">grade</span><span class="p">)</span>  <span class="c1"># Always 1 for our grades</span>
-<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">)</span>
-<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>
-<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="c1"># Subscribe to see the full pipeline in action</span>
-<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="n">average_score</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average: </span><span class="si">{</span><span class="n">val</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="n">grade_letter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Grade: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a>
-<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="n">raw_scores</span> <span class="o">=</span> <span class="p">[</span><span class="mi">85</span><span class="p">,</span> <span class="mi">92</span><span class="p">,</span> <span class="mi">78</span><span class="p">,</span> <span class="mi">96</span><span class="p">,</span> <span class="mi">88</span><span class="p">]</span>
-<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="c1"># Output:</span>
-<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="c1"># Average: 87.8</span>
-<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="c1"># Grade: B</span>
+<p>You must pass the exact same function reference to <code>unsubscribe()</code> that you passed to <code>subscribe()</code>. This is why lambda functions can be tricky—you can't easily unsubscribe them later. For cleanup-critical code, use named functions.</p>
+<h2 id="observables-vs-regular-variables">Observables vs. Regular Variables<a class="headerlink" href="#observables-vs-regular-variables" title="Permanent link">&para;</a></h2>
+<p>Let's make the difference concrete. Here's state management without observables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Traditional approach</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">ShoppingCart</span><span class="p">:</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">add_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">)</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">update_ui</span><span class="p">()</span>  <span class="c1"># Manual synchronization</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">save_to_storage</span><span class="p">()</span>  <span class="c1"># Manual synchronization</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">notify_analytics</span><span class="p">()</span>  <span class="c1"># Manual synchronization</span>
 </code></pre></div>
-<h3 id="multiple-subscriptions">Multiple Subscriptions<a class="headerlink" href="#multiple-subscriptions" title="Permanent link">&para;</a></h3>
-<p>One observable can have many subscribers:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># Multiple subscribers to the same observable</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Counter: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;📊 Analytics: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;🔥 Hot value: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># Output:</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># Counter: 1</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># 📊 Analytics: 1</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># 🔥 Hot value: 1</span>
+<p>Every time you modify state, you must remember to update everything that depends on it. Miss one call and your application falls out of sync.</p>
+<p>Here's the same thing with observables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Reactive approach</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([])</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">item_list</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">item_list</span><span class="p">))</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">update_ui</span><span class="p">)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">save_to_storage</span><span class="p">)</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">notify_analytics</span><span class="p">)</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># Now just update the observable</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">items</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">items</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Widget&#39;</span><span class="p">,</span> <span class="s1">&#39;price&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}])</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># All three functions run automatically</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># total recalculates automatically</span>
 </code></pre></div>
-<h3 id="observable-cleanup">Observable Cleanup<a class="headerlink" href="#observable-cleanup" title="Permanent link">&para;</a></h3>
-<p>Properly manage subscriptions to prevent memory leaks:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup_reactions</span><span class="p">():</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">log_changes</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value changed: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="c1"># Always store subscription references for cleanup</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="n">subscription</span> <span class="o">=</span> <span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">log_changes</span><span class="p">)</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="c1"># Later, when you no longer need the subscription</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">counter</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">log_changes</span><span class="p">)</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="c1"># or</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">counter</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">subscription</span><span class="p">)</span>
+<p>You declare the relationships once. Changes propagate automatically. There's no way to forget a synchronization step because there are no synchronization steps—just state changes.</p>
+<h2 id="what-observables-enable">What Observables Enable<a class="headerlink" href="#what-observables-enable" title="Permanent link">&para;</a></h2>
+<p>Observables are containers, but they're programmable containers. They carry their dependencies with them. When you build reactive systems, you're constructing graphs where nodes (observables) automatically update when their upstream dependencies change.</p>
+<p>Consider a simple example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">base_price</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">quantity</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># This creates a computed observable (we&#39;ll explore these deeply in the next section)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="n">base_price</span> <span class="o">|</span> <span class="n">quantity</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">price</span><span class="p">,</span> <span class="n">qty</span><span class="p">:</span> <span class="n">price</span> <span class="o">*</span> <span class="n">qty</span><span class="p">)</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">total</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total: $</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">base_price</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">150</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Total: $300&quot;</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">quantity</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>      <span class="c1"># Prints: &quot;Total: $450&quot;</span>
 </code></pre></div>
-<h2 id="observable-types-in-fynx">Observable Types in FynX<a class="headerlink" href="#observable-types-in-fynx" title="Permanent link">&para;</a></h2>
-<p>FynX provides several specialized observable types:</p>
-<h3 id="regular-observables-observable">Regular Observables (<code>Observable</code>)<a class="headerlink" href="#regular-observables-observable" title="Permanent link">&para;</a></h3>
-<p>The basic type for reactive values:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="c1"># Direct instantiation (less common)</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">name_obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">name_obs</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Name: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<p>Notice what didn't happen: you never manually recalculated <code>total</code>. You never explicitly called the subscriber. The reactive graph did all that work for you. You just changed the base values and watched the effects cascade.</p>
+<p>This is what observables enable: <strong>declarative state management</strong>. You describe what relationships should exist, and FynX ensures they hold.</p>
+<h2 id="when-to-use-observables">When to Use Observables<a class="headerlink" href="#when-to-use-observables" title="Permanent link">&para;</a></h2>
+<p>Observables shine in situations where:</p>
+<ul>
+<li><strong>Multiple things depend on the same state</strong> — One change needs to update several downstream systems</li>
+<li><strong>State changes frequently</strong> — User interactions, real-time data, animated values</li>
+<li><strong>Dependencies are complex</strong> — Value A depends on B and C, which depend on D and E</li>
+<li><strong>You want to avoid manual synchronization</strong> — Eliminating update code reduces bugs</li>
+</ul>
+<p>Observables add overhead compared to plain variables. For simple scripts or one-off calculations, that overhead isn't worth it. But for interactive applications, data pipelines, or anything with non-trivial state management, observables pay for themselves quickly.</p>
+<h2 id="when-to-use-value-and-when-not-to">When to Use .value (and When Not To)<a class="headerlink" href="#when-to-use-value-and-when-not-to" title="Permanent link">&para;</a></h2>
+<p>Understanding when to access <code>.value</code> versus passing the observable itself is crucial for writing effective reactive code.</p>
+<p><strong>Use <code>.value</code> when you need the actual data:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Reading for immediate use</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Current user: </span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">, age </span><span class="si">{</span><span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="n">name_obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="s2">&quot;Bob&quot;</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Name: Bob&quot;</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Passing to non-reactive functions</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">some_function</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># Conditionals based on current state</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="k">if</span> <span class="n">age</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">:</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Adult user&quot;</span><span class="p">)</span>
 </code></pre></div>
-<h3 id="computed-observables-computedobservable">Computed Observables (<code>ComputedObservable</code>)<a class="headerlink" href="#computed-observables-computedobservable" title="Permanent link">&para;</a></h3>
-<p>Values derived from other observables:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">computed</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Using the computed function</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">total</span> <span class="o">=</span> <span class="n">computed</span><span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">,</span> <span class="n">x</span> <span class="o">|</span> <span class="n">y</span><span class="p">)</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1"># Or using the &gt;&gt; operator (recommended)</span>
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">|</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span>
+<p>When you access <code>.value</code>, you're saying "I need this data right now for a calculation or decision." This is perfect for one-time reads, immediate computations, or interfacing with code that doesn't understand observables.</p>
+<p><strong>Don't use <code>.value</code> when building reactive relationships:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Bad: Reads .value immediately, loses reactivity</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span>  <span class="c1"># Just a number, won&#39;t update</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Good: Keeps reactivity by transforming the observable</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">item_list</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item_list</span><span class="p">))</span>  <span class="c1"># Updates when items changes</span>
 </code></pre></div>
-<h3 id="merged-observables-mergedobservable">Merged Observables (<code>MergedObservable</code>)<a class="headerlink" href="#merged-observables-mergedobservable" title="Permanent link">&para;</a></h3>
-<p>Combinations of multiple observables:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Created with the | operator</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">coordinates</span> <span class="o">=</span> <span class="n">x</span> <span class="o">|</span> <span class="n">y</span> <span class="o">|</span> <span class="n">z</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_position_change</span><span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">,</span> <span class="n">z_val</span><span class="p">):</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Position: (</span><span class="si">{</span><span class="n">x_val</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">y_val</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">z_val</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">coordinates</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_position_change</span><span class="p">)</span>
+<p>The moment you call <code>.value</code>, you extract the data and break the reactive chain. If you're building something that should update automatically when the source changes, work with the observable itself, not its value.</p>
+<p><strong>Pass observables to reactive operators:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># These operators expect observables, not values</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">derived</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>           <span class="c1"># Pass count, not count.value</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">merged</span> <span class="o">=</span> <span class="n">first_name</span> <span class="o">|</span> <span class="n">last_name</span>                <span class="c1"># Pass observables, not .value</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&amp;</span> <span class="n">is_valid</span>                    <span class="c1"># Pass observables, not .value</span>
 </code></pre></div>
-<h3 id="conditional-observables-conditionalobservable">Conditional Observables (<code>ConditionalObservable</code>)<a class="headerlink" href="#conditional-observables-conditionalobservable" title="Permanent link">&para;</a></h3>
-<p>Filtered reactive streams:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Created with the &amp; operator</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">valid_input</span> <span class="o">=</span> <span class="n">user_input</span> <span class="o">&amp;</span> <span class="n">is_valid_length</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">valid_input</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">val</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Valid: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<p>The operators (<code>&gt;&gt;</code>, <code>|</code>, <code>&amp;</code>, <code>~</code>) are designed to work with observables and maintain reactivity. When you pass <code>.value</code> to them, you're passing a static snapshot instead of a reactive stream.</p>
+<p><strong>Inside subscribers and reactive functions, <code>.value</code> is fine:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># The function receives the value directly as an argument</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">count</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># But if you need to read OTHER observables inside, use .value</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">count</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Double count: </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 </code></pre></div>
-<h2 id="common-observable-patterns">Common Observable Patterns<a class="headerlink" href="#common-observable-patterns" title="Permanent link">&para;</a></h2>
-<h3 id="state-management">State Management<a class="headerlink" href="#state-management" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AppState</span><span class="p">:</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">current_user</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">is_authenticated</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">theme</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)</span>
+<p>When your function is already being called reactively (through a subscription or decorator), using <code>.value</code> inside it to read other observables is perfectly appropriate. You're already in a reactive context.</p>
+<p><strong>Rule of thumb:</strong> If you want something to update automatically when the observable changes, don't use <code>.value</code>. If you just need to read the current value for immediate use, <code>.value</code> is correct.</p>
+<h2 id="observable-limitations">Observable Limitations<a class="headerlink" href="#observable-limitations" title="Permanent link">&para;</a></h2>
+<p>Observables aren't magic. They have constraints:</p>
+<p><strong>Observables don't automatically detect changes to their contents:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># This does NOT trigger subscribers</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">items</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
 <a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="c1"># Reactive UI components would subscribe to these</span>
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="c1"># You must explicitly call .set()</span>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="n">items</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">items</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="p">[</span><span class="mi">4</span><span class="p">])</span>  <span class="c1"># This DOES trigger subscribers</span>
 </code></pre></div>
-<h3 id="form-validation">Form Validation<a class="headerlink" href="#form-validation" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">email</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">password</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Computed validation states</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">email_valid</span> <span class="o">=</span> <span class="n">email</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="s2">&quot;@&quot;</span> <span class="ow">in</span> <span class="n">e</span> <span class="ow">and</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="p">)</span>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">password_valid</span> <span class="o">=</span> <span class="n">password</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">8</span><span class="p">)</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># Combined form validity</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a><span class="n">form_valid</span> <span class="o">=</span> <span class="n">email_valid</span> <span class="o">&amp;</span> <span class="n">password_valid</span>
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="n">form_valid</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">valid</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Form valid: </span><span class="si">{</span><span class="n">valid</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<p>FynX can't detect mutations to the objects inside observables. When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call <code>.set()</code> with the updated value—even if it's the same object reference—to trigger reactivity.</p>
+<p><strong>Observables don't track external state:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">external_count</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># This subscriber depends on external_count, but FynX doesn&#39;t know that</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sum: </span><span class="si">{</span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">external_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">external_count</span> <span class="o">=</span> <span class="mi">10</span>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Sum: 15&quot; (uses current external_count)</span>
 </code></pre></div>
-<h3 id="api-state">API State<a class="headerlink" href="#api-state" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Loading states</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">is_loading</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">error_message</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="c1"># Computed UI states</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="n">show_loading</span> <span class="o">=</span> <span class="n">is_loading</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="n">show_error</span> <span class="o">=</span> <span class="n">error_message</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">msg</span><span class="p">:</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="n">show_data</span> <span class="o">=</span> <span class="p">(</span><span class="n">data</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">d</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">))</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">is_loading</span>
-</code></pre></div>
-<h3 id="event-handling">Event Handling<a class="headerlink" href="#event-handling" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="n">click_count</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">last_click_time</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Rate limiting</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">recent_clicks</span> <span class="o">=</span> <span class="p">(</span><span class="n">click_count</span> <span class="o">|</span> <span class="n">last_click_time</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    <span class="k">lambda</span> <span class="n">count</span><span class="p">,</span> <span class="n">time</span><span class="p">:</span> <span class="n">count</span> <span class="k">if</span> <span class="n">time</span> <span class="ow">and</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">time</span><span class="p">)</span><span class="o">.</span><span class="n">seconds</span> <span class="o">&lt;</span> <span class="mi">60</span> <span class="k">else</span> <span class="mi">0</span>
-<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="p">)</span>
-</code></pre></div>
-<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
-<h3 id="1-use-meaningful-names">1. Use Meaningful Names<a class="headerlink" href="#1-use-meaningful-names" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Good</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">user_authenticated</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">selected_items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([])</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="c1"># Avoid</span>
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="n">obs1</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="n">data</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([])</span>
-</code></pre></div>
-<h3 id="2-handle-edge-cases-in-transformations">2. Handle Edge Cases in Transformations<a class="headerlink" href="#2-handle-edge-cases-in-transformations" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># Good: Handles empty arrays</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="n">average</span> <span class="o">=</span> <span class="n">numbers</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>    <span class="k">lambda</span> <span class="n">nums</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">nums</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">nums</span><span class="p">)</span> <span class="k">if</span> <span class="n">nums</span> <span class="k">else</span> <span class="mi">0</span>
-<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="p">)</span>
-<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
-<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1"># Good: Handles None values</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="n">display_name</span> <span class="o">=</span> <span class="n">user</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a>    <span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="n">u</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">u</span> <span class="ow">and</span> <span class="s2">&quot;name&quot;</span> <span class="ow">in</span> <span class="n">u</span> <span class="k">else</span> <span class="s2">&quot;Anonymous&quot;</span>
-<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="p">)</span>
-</code></pre></div>
-<h3 id="3-clean-up-subscriptions">3. Clean Up Subscriptions<a class="headerlink" href="#3-clean-up-subscriptions" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">Component</span><span class="p">:</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>        <span class="c1"># Store subscription references</span>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>        <span class="n">sub</span> <span class="o">=</span> <span class="n">some_observable</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_on_change</span><span class="p">)</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a>
-<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">destroy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a>        <span class="c1"># Clean up all subscriptions</span>
-<a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>        <span class="k">for</span> <span class="n">sub</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="p">:</span>
-<a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a>            <span class="n">some_observable</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span>
-<a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_subscriptions</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-</code></pre></div>
-<h3 id="4-prefer-over-manual-computed">4. Prefer <code>&gt;&gt;</code> Over Manual <code>computed()</code><a class="headerlink" href="#4-prefer-over-manual-computed" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># Preferred</span>
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Less readable</span>
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">computed</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">,</span> <span class="n">a</span> <span class="o">|</span> <span class="n">b</span><span class="p">)</span>
-</code></pre></div>
-<h3 id="5-chain-computations-thoughtfully">5. Chain Computations Thoughtfully<a class="headerlink" href="#5-chain-computations-thoughtfully" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Good: Clear step-by-step transformations</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="n">processed_data</span> <span class="o">=</span> <span class="n">raw_data</span> <span class="o">&gt;&gt;</span> <span class="n">validate</span> <span class="o">&gt;&gt;</span> <span class="n">transform</span> <span class="o">&gt;&gt;</span> <span class="n">format_output</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Avoid: Overly complex single transformations</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="n">processed_data</span> <span class="o">=</span> <span class="n">raw_data</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    <span class="k">lambda</span> <span class="n">data</span><span class="p">:</span> <span class="n">format_output</span><span class="p">(</span><span class="n">transform</span><span class="p">(</span><span class="n">validate</span><span class="p">(</span><span class="n">data</span><span class="p">)))</span>
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="p">)</span>
-</code></pre></div>
-<h2 id="performance-considerations">Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permanent link">&para;</a></h2>
-<h3 id="lazy-evaluation">Lazy Evaluation<a class="headerlink" href="#lazy-evaluation" title="Permanent link">&para;</a></h3>
-<p>Observables only compute values when accessed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="n">expensive_calc</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="n">slow_computation</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="c1"># slow_computation() only runs here, when accessed</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">result</span> <span class="o">=</span> <span class="n">expensive_calc</span><span class="o">.</span><span class="n">value</span>
-</code></pre></div>
-<h3 id="dependency-tracking">Dependency Tracking<a class="headerlink" href="#dependency-tracking" title="Permanent link">&para;</a></h3>
-<p>FynX automatically tracks which observables are used:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># Only tracks observables actually accessed during computation</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">|</span> <span class="n">b</span> <span class="o">|</span> <span class="n">c</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>  <span class="c1"># Only x and y used, z ignored</span>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="p">)</span>
-<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="c1"># FynX knows result doesn&#39;t depend on c</span>
-</code></pre></div>
-<h3 id="memory-management">Memory Management<a class="headerlink" href="#memory-management" title="Permanent link">&para;</a></h3>
-<p>Unused reactive contexts are automatically cleaned up, but explicit subscription management helps:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="c1"># Always unsubscribe when components are destroyed</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="c1"># Always use context managers for temporary subscriptions</span>
-</code></pre></div>
-<p>Observables are the foundation of reactive programming in FynX. They enable you to build applications where state changes automatically propagate through your entire system, creating responsive and maintainable user interfaces and business logic. Once you understand observables, the rest of FynX's features build naturally on top of this foundation.</p>
+<p>If your subscriber depends on variables outside the observable, FynX won't track those dependencies. Changes to external state won't trigger re-subscription. Keep all reactive state inside observables for predictable behavior.</p>
+<h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
+<p>You now understand the basic observable: a value that notifies subscribers when it changes. But standalone observables with manual subscriptions are just the beginning. In the next sections, you'll learn how to:</p>
+<ul>
+<li><strong>Transform observables</strong> using the <code>&gt;&gt;</code> operator to create derived values</li>
+<li><strong>Combine observables</strong> using the <code>|</code> operator to work with multiple sources</li>
+<li><strong>Filter observables</strong> using the <code>&amp;</code> operator to apply conditional logic</li>
+<li><strong>Organize observables</strong> into Stores for cleaner application architecture</li>
+<li><strong>Automate reactions</strong> with decorators that eliminate subscription boilerplate</li>
+</ul>
+<p>Each of these builds on the foundation you've just learned. Observables are simple, but their composition creates sophisticated reactive systems.</p>
+<p>The key insight to carry forward: <strong>observables aren't just containers—they're nodes in a reactive graph</strong>. When you change one node, effects ripple through the entire structure automatically. That's the power FynX gives you.</p>
 
 
 

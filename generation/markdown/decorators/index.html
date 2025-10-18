@@ -13,10 +13,6 @@
         <link rel="canonical" href="https://off-by-some.github.io/fynx/generation/markdown/decorators/">
       
       
-        <link rel="prev" href="../stores/">
-      
-      
-        <link rel="next" href="../observable/">
       
       
       <link rel="icon" href="../../../images/fynx_icon.svg">
@@ -24,7 +20,7 @@
     
     
       
-        <title>Decorators - FynX</title>
+        <title>Decorators - Making Code Reactive - FynX</title>
       
     
     
@@ -117,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Decorators
+              Decorators - Making Code Reactive
             
           </span>
         </div>
@@ -264,20 +260,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
@@ -293,7 +287,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             API Reference
@@ -373,404 +367,20 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Decorators
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../using-reactive/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Decorators
+    Using @reactive
     
   </span>
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#function-decorators" class="md-nav__link">
-    <span class="md-ellipsis">
-      Function Decorators
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Function Decorators">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#reactive-automatic-function-execution" class="md-nav__link">
-    <span class="md-ellipsis">
-      @reactive - Automatic Function Execution
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="@reactive - Automatic Function Execution">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#basic-usage" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Usage
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#multiple-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      Multiple Dependencies
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#store-level-reactions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Store-Level Reactions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#cleanup" class="md-nav__link">
-    <span class="md-ellipsis">
-      Cleanup
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#watch-conditional-reactions" class="md-nav__link">
-    <span class="md-ellipsis">
-      @watch - Conditional Reactions
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="@watch - Conditional Reactions">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#basic-conditional-watching" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Conditional Watching
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#complex-conditions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Complex Conditions
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#real-world-example-form-validation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Real-World Example: Form Validation
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#class-decorators" class="md-nav__link">
-    <span class="md-ellipsis">
-      Class Decorators
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Class Decorators">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#observable-reactive-class-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      @observable - Reactive Class Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="@observable - Reactive Class Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#basic-usage-in-stores" class="md-nav__link">
-    <span class="md-ellipsis">
-      Basic Usage in Stores
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#computed-properties" class="md-nav__link">
-    <span class="md-ellipsis">
-      Computed Properties
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decorator-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Decorator Patterns
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Decorator Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#when-to-use-each-decorator" class="md-nav__link">
-    <span class="md-ellipsis">
-      When to Use Each Decorator
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#combining-decorators" class="md-nav__link">
-    <span class="md-ellipsis">
-      Combining Decorators
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#error-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Error Handling
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#performance-considerations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Performance Considerations
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Performance Considerations">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#lazy-vs-eager-execution" class="md-nav__link">
-    <span class="md-ellipsis">
-      Lazy vs Eager Execution
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memory-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      Memory Management
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#common-patterns" class="md-nav__link">
-    <span class="md-ellipsis">
-      Common Patterns
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Common Patterns">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ui-state-management" class="md-nav__link">
-    <span class="md-ellipsis">
-      UI State Management
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#form-handling" class="md-nav__link">
-    <span class="md-ellipsis">
-      Form Handling
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#api-integration" class="md-nav__link">
-    <span class="md-ellipsis">
-      API Integration
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      Best Practices
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Best Practices">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-use-descriptive-function-names" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Use Descriptive Function Names
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-keep-reactive-functions-focused" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Keep Reactive Functions Focused
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-handle-errors-appropriately" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Handle Errors Appropriately
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-prefer-watch-for-state-machines" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Prefer @watch for State Machines
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-document-side-effects" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Document Side Effects
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
