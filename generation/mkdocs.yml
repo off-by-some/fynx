@@ -12,20 +12,22 @@ nav:
   - Home: index.md
   - API Reference:
       - Overview: generation/markdown/api.md
-      - Core API: generation/markdown/core-api.md
+      - Observables: generation/markdown/observables.md
       - Stores: generation/markdown/stores.md
-      - Observable Types:
-          - Observable: generation/markdown/observable.md
-          - ComputedObservable: generation/markdown/computed-observable.md
-          - MergedObservable: generation/markdown/merged-observable.md
-          - ConditionalObservable: generation/markdown/conditional-observable.md
-          - Observable Descriptors: generation/markdown/observable-descriptors.md
-          - Observable Operators: generation/markdown/observable-operators.md
-      - Reactive Decorators:
-          - "@computed": generation/markdown/computed-decorator.md
-          - "@reactive": generation/markdown/reactive-decorator.md
-          - "@watch": generation/markdown/watch-decorator.md
-          - "Store & @observable": generation/markdown/store.md
+      - Decorators: generation/markdown/decorators.md
+      - Reference:
+          - Observable Types:
+              - Observable: generation/markdown/observable.md
+              - ComputedObservable: generation/markdown/computed-observable.md
+              - MergedObservable: generation/markdown/merged-observable.md
+              - ConditionalObservable: generation/markdown/conditional-observable.md
+              - Observable Descriptors: generation/markdown/observable-descriptors.md
+              - Observable Operators: generation/markdown/observable-operators.md
+          - Reactive Decorators:
+              - "@computed": generation/markdown/computed-decorator.md
+              - "@reactive": generation/markdown/reactive-decorator.md
+              - "@watch": generation/markdown/watch-decorator.md
+              - "Store & @observable": generation/markdown/store.md
   - Roadmap:
       - v1.0 Roadmap: specs/v1.0-roadmap.md
 

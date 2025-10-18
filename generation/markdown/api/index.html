@@ -16,7 +16,7 @@
         <link rel="prev" href="../../..">
       
       
-        <link rel="next" href="../stores/">
+        <link rel="next" href="../observables/">
       
       
       <link rel="icon" href="../../../images/fynx_icon.svg">
@@ -367,15 +367,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#core-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      Core API
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#observable-types" class="md-nav__link">
     <span class="md-ellipsis">
       Observable Types
@@ -501,12 +492,12 @@
   
   
     <li class="md-nav__item">
-      <a href="../core-api.md" class="md-nav__link">
+      <a href="../observables/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    Core API
+    Observables
     
   </span>
   
@@ -546,6 +537,29 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../decorators/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Decorators
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
     
@@ -555,10 +569,48 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
         
           
-          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5_1" id="__nav_2_5_1_label" tabindex="0">
             
   
   
@@ -571,8 +623,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_4">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_1">
             <span class="md-nav__icon md-icon"></span>
             Observable Types
           </label>
@@ -739,10 +791,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_5_2" id="__nav_2_5_2_label" tabindex="0">
             
   
   
@@ -755,8 +807,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_5">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_2">
             <span class="md-nav__icon md-icon"></span>
             Reactive Decorators
           </label>
@@ -849,6 +901,14 @@
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -972,15 +1032,6 @@
   
     <nav class="md-nav" aria-label="How to Navigate This Reference">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#core-api" class="md-nav__link">
-    <span class="md-ellipsis">
-      Core API
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#observable-types" class="md-nav__link">
@@ -1111,9 +1162,7 @@
 <h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
 <p>This reference provides comprehensive documentation of FynX's public API. Whether you're building your first reactive application or exploring advanced patterns, you'll find detailed explanations, type signatures, and examples for every class, decorator, and operator FynX provides.</p>
 <h2 id="how-to-navigate-this-reference">How to Navigate This Reference<a class="headerlink" href="#how-to-navigate-this-reference" title="Permanent link">&para;</a></h2>
-<p>The API documentation is organized by functional area to help you find what you need quickly. If you're new to FynX, start with the Core API and Observable pages to understand the fundamentals. If you're looking for a specific feature, use the sections below to jump directly to the relevant documentation.</p>
-<h3 id="core-api">Core API<a class="headerlink" href="#core-api" title="Permanent link">&para;</a></h3>
-<p><strong><a href="core-api.md">Core API</a></strong> - Start here for an overview of FynX's main exports and public interface. This page documents the primary functions and classes you'll import and use in your applications, along with guidance on which APIs to use for common tasks.</p>
+<p>The API documentation is organized by functional area to help you find what you need quickly. If you're new to FynX, start with the Stores and Observable pages to understand the fundamentals. If you're looking for a specific feature, use the sections below to jump directly to the relevant documentation.</p>
 <h3 id="observable-types">Observable Types<a class="headerlink" href="#observable-types" title="Permanent link">&para;</a></h3>
 <p>Observables are the building blocks of reactive systems in FynX. Each type serves a specific purpose in your reactive architecture:</p>
 <ul>
@@ -1238,7 +1287,7 @@
 </ul>
 <h2 id="where-to-go-next">Where to Go Next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Building your first reactive app?</strong> Start with <a href="core-api.md">Core API</a>, then <a href="../observable/">Observable</a> and <a href="../reactive-decorator/">@reactive</a></li>
+<li><strong>Building your first reactive app?</strong> Start with <a href="../stores/">Stores</a>, then <a href="../observable/">Observable</a> and <a href="../reactive-decorator/">@reactive</a></li>
 <li><strong>Need derived state?</strong> See <a href="../stores/">Stores</a> and <a href="../computed-observable/">ComputedObservable</a></li>
 <li><strong>Working with complex conditions?</strong> Check out <a href="../watch-decorator/">@watch</a> and <a href="../conditional-observable/">ConditionalObservable</a></li>
 <li><strong>Organizing large applications?</strong> Review <a href="../store/">Store &amp; @observable</a> for state management patterns</li>
