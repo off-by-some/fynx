@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fynx"
-version = "0.0.4"
+version = "0.0.5"
 description = "Python reactive state management library inspired by MobX"
 authors = ["Cassidy Bridges <cassidybridges@gmail.com>"]
 readme = "README.md"
@@ -32,7 +32,7 @@ mkdocs = ">=1.4.0"
 mkdocs-material = ">=9.0.0"
 mkdocstrings = {extras = ["python"], version = ">=0.20.0"}
 pydoc-markdown = {version = ">=4.8.0", python = ">=3.9,<4.0"}
-mistletoe = ">=1.0.0"
+# mistletoe = ">=1.0.0"  # Temporarily disabled due to Python version conflict
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2,<9.0.0"

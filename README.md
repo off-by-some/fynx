@@ -1,7 +1,7 @@
 # FynX
 
 <p align="center">
-  <img src="docs/images/banner.svg" alt="FynX Logo">
+  <img src="https://github.com/off-by-some/fynx/raw/main/docs/images/banner.svg" alt="FynX Logo">
 </p>
 <p align="center">
   <a href="https://pypi.org/project/fynx/">
@@ -95,7 +95,7 @@ That's the essence of FynX. Define your relationships once, and the library ensu
 
 FynX excels when data flows through transformations and multiple components need to stay in sync:
 
-- **Streamlit dashboards** where widgets depend on shared state ([see example](./examples/streamlit/todo_app.py))
+- **Streamlit dashboards** where widgets depend on shared state ([see example](https://github.com/off-by-some/fynx/blob/main/examples/streamlit/todo_app.py))
 - **Data pipelines** where computed values must recalculate when inputs change
 - **Analytics dashboards** that visualize live, streaming data
 - **Complex forms** with interdependent validation rules
@@ -275,16 +275,16 @@ UserProfile.load_state(state_dict)
 
 ## Examples
 
-Explore the [`examples/`](./examples/) directory for demonstrations of FynX's capabilities:
+Explore the [`examples/`](https://github.com/off-by-some/fynx/tree/main/examples/) directory for demonstrations of FynX's capabilities:
 
 | File | Description |
 |------|-------------|
-| [`basics.py`](./examples/basics.py) | Core FynX concepts: observables, subscriptions, computed properties, stores, reactive decorators, and conditional logic |
-| [`cart_checkout.py`](./examples/cart_checkout.py) | Shopping cart with reactive total calculation using merged observables and subscriptions |
-| [`advanced_user_profile.py`](./examples/advanced_user_profile.py) | Complex reactive system demonstrating validation, notifications, state persistence, and sophisticated computed properties |
-| [`streamlit/store.py`](./examples/streamlit/store.py) | Custom StreamlitStore implementation with automatic session state synchronization |
-| [`streamlit/todo_app.py`](./examples/streamlit/todo_app.py) | Complete reactive todo list application with Streamlit UI, showcasing real-time updates and automatic persistence |
-| [`streamlit/todo_store.py`](./examples/streamlit/todo_store.py) | Todo list store with computed properties, filtering, and bulk operations |
+| [`basics.py`](https://github.com/off-by-some/fynx/blob/main/examples/basics.py) | Core FynX concepts: observables, subscriptions, computed properties, stores, reactive decorators, and conditional logic |
+| [`cart_checkout.py`](https://github.com/off-by-some/fynx/blob/main/examples/cart_checkout.py) | Shopping cart with reactive total calculation using merged observables and subscriptions |
+| [`advanced_user_profile.py`](https://github.com/off-by-some/fynx/blob/main/examples/advanced_user_profile.py) | Complex reactive system demonstrating validation, notifications, state persistence, and sophisticated computed properties |
+| [`streamlit/store.py`](https://github.com/off-by-some/fynx/blob/main/examples/streamlit/store.py) | Custom StreamlitStore implementation with automatic session state synchronization |
+| [`streamlit/todo_app.py`](https://github.com/off-by-some/fynx/blob/main/examples/streamlit/todo_app.py) | Complete reactive todo list application with Streamlit UI, showcasing real-time updates and automatic persistence |
+| [`streamlit/todo_store.py`](https://github.com/off-by-some/fynx/blob/main/examples/streamlit/todo_store.py) | Todo list store with computed properties, filtering, and bulk operations |
 
 ## The Mathematical Foundation
 
@@ -335,7 +335,7 @@ FynX maintains comprehensive test coverage tracked through Codecov. Here are vis
 
 Contributions to FynX are always welcome! This project uses **Poetry** for dependency management and **pytest** for testing.
 
-> To learn more about the vision and goals for version 1.0, see the [**1.0 Product Specification**](./docs/1.0_TODO.md).
+> To learn more about the vision and goals for version 1.0, see the [**1.0 Product Specification**](https://github.com/off-by-some/fynx/blob/main/docs/1.0_TODO.md).
 
 ### Getting Started
 
@@ -377,12 +377,12 @@ Automatically fix formatting and import problems:
 
 ## License
 
-FynX is licensed under the MIT License. See the [LICENSE](./LICENSE) file for complete details.
+FynX is licensed under the MIT License. See the [LICENSE](https://github.com/off-by-some/fynx/blob/main/LICENSE) file for complete details.
 
 ---
 
 <p align="center">
   <a href="https://github.com/off-by-some/fynx">
-    <img src="https://img.shields.io/badge/Made%20with%20%E2%9D%A4%EF%B8%8F-red?style=for-the-badge" alt="Made with ❤️">
+    <img src="https://img.shields.io/badge/Made%20with%20%E2%9D%A4%EF%B8%8F-red?style=for-the-badge" alt="Made with ❤️ by Cassidy Bridges">
   </a>
 </p>

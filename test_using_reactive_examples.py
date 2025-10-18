@@ -60,7 +60,7 @@ def test_scattered_subscriptions():
     def update_display_name(first, last):
         results.append(f"Display: {first} {last}")
 
-    # Subscribe manually (these DO run immediately with initial values)
+    # Subscribe manually (these do NOT run immediately with initial values)
     count.subscribe(update_ui)
     count.subscribe(save_to_database)
     count.subscribe(notify_analytics)
@@ -72,16 +72,9 @@ def test_scattered_subscriptions():
     last_name = observable("Doe")
     (first_name | last_name).subscribe(lambda f, l: update_display_name(f, l))
 
-    # Initial runs (manual subscriptions run immediately)
-    expected_initial = [
-        "UI: 0",
-        "DB: 0",
-        "Analytics: 0",
-        "Greeting: Alice",
-        "Email valid: alice@example.com",
-        "Display: John Doe",
-    ]
-    assert set(results) == set(expected_initial)
+    # Manual subscriptions do NOT run immediately - only on changes
+    # So initially, results should be empty
+    assert results == []
 
     # Change count
     count.set(42)

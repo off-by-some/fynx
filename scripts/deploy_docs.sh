@@ -41,6 +41,10 @@ if [ ! -f "pyproject.toml" ] || [ ! -d "fynx" ]; then
     exit 1
 fi
 
+# Set PYTHONPATH to include the project root for mkdocstrings
+PROJECT_ROOT="$(pwd)"
+export PYTHONPATH="$PROJECT_ROOT"
+
 # Step 1: Generate HTML Documentation with MkDocs
 print_status "Step 1: Generating HTML documentation with MkDocs..."
 if poetry run python docs/generation/scripts/generate_html.py; then

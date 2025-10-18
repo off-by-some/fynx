@@ -49,11 +49,14 @@ def test_reactive_decorator_with_multiple_observables():
         nonlocal callback_count
         callback_count += 1
 
-    obs1.set("changed")
+    # Should be called immediately with initial values
     assert callback_count == 1
 
-    obs2.set("modified")
+    obs1.set("changed")
     assert callback_count == 2
+
+    obs2.set("modified")
+    assert callback_count == 3
 
 
 def test_reactive_decorator_returns_original_function():

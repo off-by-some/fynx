@@ -462,6 +462,12 @@ class ReactiveHandler:
             merged = self.targets[0]
             for obs in self.targets[1:]:
                 merged = merged | obs
+
+            # Call immediately with current values
+            current_values = merged.value
+            if current_values is not None:
+                func(*current_values)
+
             # For merged observables, use standard subscription (no filtering needed for this test)
             merged.subscribe(func)
 

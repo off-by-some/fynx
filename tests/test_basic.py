@@ -243,12 +243,16 @@ def test_reactive_multiple_observables_decorator():
     def on_multi_change(age, name):
         callback_calls.append(f"Multi: name={name}, age={age}")
 
+    # Should be called immediately with initial values
+    assert callback_calls == ["Multi: name=Alice, age=30"]
+
     # Changes should trigger decorated function
     TestStore.age = 31
-    assert callback_calls == ["Multi: name=Alice, age=31"]
+    assert callback_calls == ["Multi: name=Alice, age=30", "Multi: name=Alice, age=31"]
 
     TestStore.name = "Barbara"
     assert callback_calls == [
+        "Multi: name=Alice, age=30",
         "Multi: name=Alice, age=31",
         "Multi: name=Barbara, age=31",
     ]
@@ -258,7 +262,7 @@ def test_reactive_multiple_observables_decorator():
 
     # Changes should NOT trigger anymore
     TestStore.age = 32
-    assert len(callback_calls) == 2  # No new calls
+    assert len(callback_calls) == 3  # No new calls
 
 
 def test_context_manager_merged_observables():
