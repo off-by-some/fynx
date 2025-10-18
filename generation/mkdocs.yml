@@ -13,6 +13,7 @@ nav:
   - API Reference:
       - Overview: generation/markdown/api.md
       - Observables: generation/markdown/observables.md
+      - Conditionals: generation/markdown/conditionals.md
       - Stores: generation/markdown/stores.md
       - Using @reactive: generation/markdown/using-reactive.md
       - Using @watch: generation/markdown/using-watch.md
@@ -117,5 +118,4 @@ extra:
     - ../stylesheets/extra.css
 
 copyright: |
-  &copy; 2024 Cassidy Bridges |
-  <a href="#__consent">Change cookie settings</a>
+  &copy; 2025 Cassidy Bridges |
