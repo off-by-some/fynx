@@ -19,7 +19,7 @@
         <link rel="next" href="../conditional-observable/">
       
       
-      <link rel="icon" href="../../../images/fynx_icon.svg">
+      <link rel="icon" href="../../../images/icon_350x350.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -353,6 +353,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../derived-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Derived Observables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../conditionals/" class="md-nav__link">
         
   
@@ -455,10 +478,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" checked>
         
           
-          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="0">
             
   
   
@@ -471,8 +494,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_8">
             <span class="md-nav__icon md-icon"></span>
             Reference
           </label>
@@ -495,10 +518,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_1" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_1" checked>
         
           
-          <label class="md-nav__link" for="__nav_2_7_1" id="__nav_2_7_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_1" id="__nav_2_8_1_label" tabindex="0">
             
   
   
@@ -511,8 +534,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_1_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2_7_1">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2_8_1">
             <span class="md-nav__icon md-icon"></span>
             Observable Types
           </label>
@@ -853,10 +876,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_7_2" id="__nav_2_7_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_2" id="__nav_2_8_2_label" tabindex="0">
             
   
   
@@ -869,8 +892,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7_2">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8_2">
             <span class="md-nav__icon md-icon"></span>
             Reactive Decorators
           </label>
@@ -2064,8 +2087,7 @@ you update the source observables instead.</p>
     <div class="doc doc-contents ">
 
         <p>Subscribe a function to react to changes in any of the merged observables.</p>
-<p>The subscribed function will be called immediately with the current values
-of all merged observables, and then again whenever any source observable changes.
+<p>The subscribed function will be called whenever any source observable changes.
 This provides a way to react to coordinated changes across multiple observables.</p>
 
 
@@ -2133,7 +2155,7 @@ This provides a way to react to coordinated changes across multiple observables.
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_coords_change</span><span class="p">(</span><span class="n">x_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">):</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Coordinates: (</span><span class="si">{</span><span class="n">x_val</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">y_val</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">coords</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_coords_change</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Coordinates: (1, 2)&quot;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">coords</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_coords_change</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">x</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Coordinates: (10, 2)&quot;</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">y</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Coordinates: (10, 20)&quot;</span>
@@ -2142,9 +2164,8 @@ This provides a way to react to coordinated changes across multiple observables.
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>The function is called immediately upon subscription with current values.
-For more advanced reactive patterns, consider using the @reactive decorator
-or @watch decorator instead.</p>
+  <p>The function is called only when observables change.
+It is not called immediately upon subscription.</p>
 </details>
 
 <details class="see-also" open>
@@ -2281,7 +2302,7 @@ subscriptions remain active.</p>
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      &copy; 2025 Cassidy Bridges |
+      Cassidy Bridges &copy; 2025
 
     </div>
   

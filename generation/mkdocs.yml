@@ -13,6 +13,7 @@ nav:
   - API Reference:
       - Overview: generation/markdown/api.md
       - Observables: generation/markdown/observables.md
+      - Derived Observables: generation/markdown/derived-observables.md
       - Conditionals: generation/markdown/conditionals.md
       - Stores: generation/markdown/stores.md
       - Using @reactive: generation/markdown/using-reactive.md
@@ -35,7 +36,7 @@ nav:
 
 theme:
   name: material
-  favicon: images/fynx_icon.svg
+  favicon: images/icon_350x350.png
   logo: images/icon_350x350.png
   logo_text: FynX
   logo_text_align: center
@@ -102,7 +103,6 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
   - toc:
       permalink: true
 
@@ -118,4 +118,4 @@ extra:
     - ../stylesheets/extra.css
 
 copyright: |
-  &copy; 2025 Cassidy Bridges |
+  Cassidy Bridges &copy; 2025

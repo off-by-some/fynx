@@ -19,7 +19,7 @@
         <link rel="next" href="../using-reactive/">
       
       
-      <link rel="icon" href="../../../images/fynx_icon.svg">
+      <link rel="icon" href="../../../images/icon_350x350.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -353,6 +353,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../derived-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Derived Observables
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../conditionals/" class="md-nav__link">
         
   
@@ -612,10 +635,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" >
         
           
-          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="0">
             
   
   
@@ -628,8 +651,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8">
             <span class="md-nav__icon md-icon"></span>
             Reference
           </label>
@@ -650,10 +673,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_1" >
         
           
-          <label class="md-nav__link" for="__nav_2_7_1" id="__nav_2_7_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_1" id="__nav_2_8_1_label" tabindex="0">
             
   
   
@@ -666,8 +689,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7_1">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8_1">
             <span class="md-nav__icon md-icon"></span>
             Observable Types
           </label>
@@ -834,10 +857,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_7_2" id="__nav_2_7_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_2" id="__nav_2_8_2_label" tabindex="0">
             
   
   
@@ -850,8 +873,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7_2">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8_2">
             <span class="md-nav__icon md-icon"></span>
             Reactive Decorators
           </label>
@@ -1200,7 +1223,7 @@
 
 
 <h1 id="stores-organizing-reactive-state">Stores: Organizing Reactive State<a class="headerlink" href="#stores-organizing-reactive-state" title="Permanent link">&para;</a></h1>
-<p>You've learned how observables work—they hold values, notify subscribers, and form the foundation of reactivity. But as your application grows, managing dozens of scattered observables becomes unwieldy. Where do related observables live? How do you organize state modifications? How do you test different parts of your state in isolation?</p>
+<p>Observables form the foundation of reactivity, but scattered reactive values create chaos. As applications grow, you need structure—containers that group related state, define behaviors, and provide clean boundaries.</p>
 <p>Stores solve these problems by giving structure to your reactive state.</p>
 <h2 id="what-is-a-store">What is a Store?<a class="headerlink" href="#what-is-a-store" title="Permanent link">&para;</a></h2>
 <p>A Store is a class that groups related observables together. That's the essence. Everything else—the computed properties, the methods, the reactive behaviors—builds on this simple organizational principle.</p>
@@ -1487,7 +1510,7 @@
 <a id="__codelineno-16-28" name="__codelineno-16-28" href="#__codelineno-16-28"></a>
 <a id="__codelineno-16-29" name="__codelineno-16-29" href="#__codelineno-16-29"></a>    <span class="c1"># Computed: profile completeness</span>
 <a id="__codelineno-16-30" name="__codelineno-16-30" href="#__codelineno-16-30"></a>    <span class="n">is_complete</span> <span class="o">=</span> <span class="p">(</span><span class="n">first_name</span> <span class="o">|</span> <span class="n">last_name</span> <span class="o">|</span> <span class="n">email</span> <span class="o">|</span> <span class="n">is_email_valid</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>        <span class="k">lambda</span> <span class="n">first</span><span class="p">,</span> <span class="n">last</span><span class="p">,</span> <span class="n">email_addr</span><span class="p">,</span> <span class="n">email_valid</span><span class="p">:</span> 
+<a id="__codelineno-16-31" name="__codelineno-16-31" href="#__codelineno-16-31"></a>        <span class="k">lambda</span> <span class="n">first</span><span class="p">,</span> <span class="n">last</span><span class="p">,</span> <span class="n">email_addr</span><span class="p">,</span> <span class="n">email_valid</span><span class="p">:</span>
 <a id="__codelineno-16-32" name="__codelineno-16-32" href="#__codelineno-16-32"></a>            <span class="nb">bool</span><span class="p">(</span><span class="n">first</span> <span class="ow">and</span> <span class="n">last</span> <span class="ow">and</span> <span class="n">email_addr</span> <span class="ow">and</span> <span class="n">email_valid</span><span class="p">)</span>
 <a id="__codelineno-16-33" name="__codelineno-16-33" href="#__codelineno-16-33"></a>    <span class="p">)</span>
 <a id="__codelineno-16-34" name="__codelineno-16-34" href="#__codelineno-16-34"></a>
@@ -1734,7 +1757,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      &copy; 2025 Cassidy Bridges |
+      Cassidy Bridges &copy; 2025
 
     </div>
   

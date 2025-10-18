@@ -16,10 +16,10 @@
         <link rel="prev" href="../api/">
       
       
-        <link rel="next" href="../conditionals/">
+        <link rel="next" href="../derived-observables/">
       
       
-      <link rel="icon" href="../../../images/fynx_icon.svg">
+      <link rel="icon" href="../../../images/icon_350x350.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -452,24 +452,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#when-to-use-value-and-when-not-to" class="md-nav__link">
-    <span class="md-ellipsis">
-      When to Use .value (and When Not To)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observable-limitations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Observable Limitations
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#whats-next" class="md-nav__link">
     <span class="md-ellipsis">
       What's Next
@@ -482,6 +464,29 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../derived-observables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Derived Observables
+    
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -594,10 +599,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8" >
         
           
-          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="0">
             
   
   
@@ -610,8 +615,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8">
             <span class="md-nav__icon md-icon"></span>
             Reference
           </label>
@@ -632,10 +637,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_1" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_1" >
         
           
-          <label class="md-nav__link" for="__nav_2_7_1" id="__nav_2_7_1_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_1" id="__nav_2_8_1_label" tabindex="0">
             
   
   
@@ -648,8 +653,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7_1">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8_1">
             <span class="md-nav__icon md-icon"></span>
             Observable Types
           </label>
@@ -816,10 +821,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_8_2" >
         
           
-          <label class="md-nav__link" for="__nav_2_7_2" id="__nav_2_7_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_2_8_2" id="__nav_2_8_2_label" tabindex="0">
             
   
   
@@ -832,8 +837,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_7_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7_2">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_8_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8_2">
             <span class="md-nav__icon md-icon"></span>
             Reactive Decorators
           </label>
@@ -1121,24 +1126,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#when-to-use-value-and-when-not-to" class="md-nav__link">
-    <span class="md-ellipsis">
-      When to Use .value (and When Not To)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observable-limitations" class="md-nav__link">
-    <span class="md-ellipsis">
-      Observable Limitations
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#whats-next" class="md-nav__link">
     <span class="md-ellipsis">
       What's Next
@@ -1316,79 +1303,12 @@
 <li><strong>You want to avoid manual synchronization</strong> — Eliminating update code reduces bugs</li>
 </ul>
 <p>Observables add overhead compared to plain variables. For simple scripts or one-off calculations, that overhead isn't worth it. But for interactive applications, data pipelines, or anything with non-trivial state management, observables pay for themselves quickly.</p>
-<h2 id="when-to-use-value-and-when-not-to">When to Use .value (and When Not To)<a class="headerlink" href="#when-to-use-value-and-when-not-to" title="Permanent link">&para;</a></h2>
-<p>Understanding when to access <code>.value</code> versus passing the observable itself is crucial for writing effective reactive code.</p>
-<p><strong>Use <code>.value</code> when you need the actual data:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Reading for immediate use</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Current user: </span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">, age </span><span class="si">{</span><span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Passing to non-reactive functions</span>
-<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">some_function</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
-<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># Conditionals based on current state</span>
-<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="k">if</span> <span class="n">age</span><span class="o">.</span><span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">:</span>
-<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Adult user&quot;</span><span class="p">)</span>
-</code></pre></div>
-<p>When you access <code>.value</code>, you're saying "I need this data right now for a calculation or decision." This is perfect for one-time reads, immediate computations, or interfacing with code that doesn't understand observables.</p>
-<p><strong>Don't use <code>.value</code> when building reactive relationships:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Bad: Reads .value immediately, loses reactivity</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="nb">sum</span><span class="p">)</span>  <span class="c1"># Just a number, won&#39;t update</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Good: Keeps reactivity by transforming the observable</span>
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">item_list</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item_list</span><span class="p">))</span>  <span class="c1"># Updates when items changes</span>
-</code></pre></div>
-<p>The moment you call <code>.value</code>, you extract the data and break the reactive chain. If you're building something that should update automatically when the source changes, work with the observable itself, not its value.</p>
-<p><strong>Pass observables to reactive operators:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># These operators expect observables, not values</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">derived</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>           <span class="c1"># Pass count, not count.value</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="n">merged</span> <span class="o">=</span> <span class="n">first_name</span> <span class="o">|</span> <span class="n">last_name</span>                <span class="c1"># Pass observables, not .value</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&amp;</span> <span class="n">is_valid</span>                    <span class="c1"># Pass observables, not .value</span>
-</code></pre></div>
-<p>The operators (<code>&gt;&gt;</code>, <code>|</code>, <code>&amp;</code>, <code>~</code>) are designed to work with observables and maintain reactivity. When you pass <code>.value</code> to them, you're passing a static snapshot instead of a reactive stream.</p>
-<p><strong>Inside subscribers and reactive functions, <code>.value</code> is fine:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># The function receives the value directly as an argument</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">count</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># But if you need to read OTHER observables inside, use .value</span>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">count</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Double count: </span><span class="si">{</span><span class="n">count</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">age</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-</code></pre></div>
-<p>When your function is already being called reactively (through a subscription or decorator), using <code>.value</code> inside it to read other observables is perfectly appropriate. You're already in a reactive context.</p>
-<p><strong>Rule of thumb:</strong> If you want something to update automatically when the observable changes, don't use <code>.value</code>. If you just need to read the current value for immediate use, <code>.value</code> is correct.</p>
-<h2 id="observable-limitations">Observable Limitations<a class="headerlink" href="#observable-limitations" title="Permanent link">&para;</a></h2>
-<p>Observables aren't magic. They have constraints:</p>
-<p><strong>Observables don't automatically detect changes to their contents:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># This does NOT trigger subscribers</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">items</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="c1"># You must explicitly call .set()</span>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="n">items</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">items</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="p">[</span><span class="mi">4</span><span class="p">])</span>  <span class="c1"># This DOES trigger subscribers</span>
-</code></pre></div>
-<p>FynX can't detect mutations to the objects inside observables. When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call <code>.set()</code> with the updated value—even if it's the same object reference—to trigger reactivity.</p>
-<p><strong>Observables don't track external state:</strong></p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">external_count</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="c1"># This subscriber depends on external_count, but FynX doesn&#39;t know that</span>
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sum: </span><span class="si">{</span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">external_count</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">external_count</span> <span class="o">=</span> <span class="mi">10</span>
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Sum: 15&quot; (uses current external_count)</span>
-</code></pre></div>
-<p>If your subscriber depends on variables outside the observable, FynX won't track those dependencies. Changes to external state won't trigger re-subscription. Keep all reactive state inside observables for predictable behavior.</p>
 <h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
-<p>You now understand the basic observable: a value that notifies subscribers when it changes. But standalone observables with manual subscriptions are just the beginning. In the next sections, you'll learn how to:</p>
+<p>Observables are more than containers—they're nodes in a reactive graph. But standalone observables are just the beginning. The real power emerges when you learn to:</p>
 <ul>
-<li><strong>Transform observables</strong> using the <code>&gt;&gt;</code> operator to create derived values</li>
-<li><strong>Combine observables</strong> using the <code>|</code> operator to work with multiple sources</li>
-<li><strong>Filter observables</strong> using the <code>&amp;</code> operator to apply conditional logic</li>
+<li><strong>Transform observables</strong> using the <code>&gt;&gt;</code> operator to create derived values that update automatically</li>
+<li><strong>Combine observables</strong> using the <code>|</code> operator to work with multiple sources of data</li>
+<li><strong>Filter observables</strong> using the <code>&amp;</code> operator to apply conditional logic and control when data flows</li>
 <li><strong>Organize observables</strong> into Stores for cleaner application architecture</li>
 <li><strong>Automate reactions</strong> with decorators that eliminate subscription boilerplate</li>
 </ul>
@@ -1423,7 +1343,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      &copy; 2025 Cassidy Bridges |
+      Cassidy Bridges &copy; 2025
 
     </div>
   

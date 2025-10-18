@@ -7,6 +7,7 @@ Usage:
     python docs/generation/scripts/generate_html.py
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -36,8 +37,19 @@ def generate_html_docs() -> None:
         # Build the HTML documentation
         print("🏗️  Building HTML documentation...")
         mkdocs_config_path = Path(__file__).parent.parent / "mkdocs.yml"
-        result = subprocess.run(["poetry", "run", "mkdocs", "build", "-f", str(mkdocs_config_path)],
-                              capture_output=True, text=True, cwd=".")
+
+        # Set PYTHONPATH to include the project root so mkdocstrings can find the fynx module
+        env = os.environ.copy()
+        project_root = Path(__file__).parent.parent.parent.parent
+        env["PYTHONPATH"] = str(project_root)
+
+        result = subprocess.run(
+            ["poetry", "run", "mkdocs", "build", "-f", str(mkdocs_config_path)],
+            capture_output=True,
+            text=True,
+            cwd=".",
+            env=env,
+        )
 
         if result.returncode != 0:
             print("❌ HTML documentation generation failed")
