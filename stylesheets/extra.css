@@ -1,6 +1,5 @@
-/* Force the custom dark blue color throughout the Material theme */
+/* Force the custom dark blue color #13162b throughout the Material theme */
 
-/* Primary color overrides */
 :root {
   --md-primary-fg-color: #13162b !important;
   --md-primary-fg-color--light: #13162b !important;
@@ -9,41 +8,87 @@
   --md-accent-fg-color--transparent: rgba(19, 22, 43, 0.1) !important;
 }
 
-/* Header and navigation background */
-.md-header {
+/* Header - most visible element */
+.md-header,
+.md-header[data-md-component="header"] {
   background-color: #13162b !important;
+  background: #13162b !important;
 }
 
-/* Navigation links */
+/* Navigation items */
+.md-nav__link,
 .md-nav__link--active,
 .md-nav__link:focus,
-.md-nav__link:hover {
+.md-nav__link:hover,
+.md-nav__link:active {
   color: #13162b !important;
 }
 
-/* Sidebar background */
-.md-sidebar {
-  background-color: #f8f9fa !important;
-}
-
-/* Links in content */
-.md-content a:not(.md-button) {
-  color: #13162b !important;
-}
-
-/* Buttons and accents */
-.md-button {
+/* Top navigation bar */
+.md-header__inner {
   background-color: #13162b !important;
+}
+
+/* Main navigation toggle button */
+.md-header__button.md-icon {
   color: white !important;
 }
 
-.md-button:hover {
-  background-color: #0a0c1a !important;
+/* Breadcrumbs */
+.md-nav--primary .md-nav__link {
+  color: white !important;
 }
 
-/* Code blocks background */
-.md-code {
-  background-color: rgba(19, 22, 43, 0.05) !important;
+.md-nav--primary .md-nav__link:hover,
+.md-nav--primary .md-nav__link:focus {
+  color: #cccccc !important;
+}
+
+/* Content links */
+.md-content a,
+.md-content a:link,
+.md-content a:visited {
+  color: #13162b !important;
+}
+
+.md-content a:hover,
+.md-content a:focus {
+  color: #13162b !important;
+}
+
+/* Buttons */
+.md-button,
+.md-button--primary,
+button.md-button {
+  background-color: #13162b !important;
+  color: white !important;
+  border-color: #13162b !important;
+}
+
+.md-button:hover,
+.md-button:focus,
+.md-button--primary:hover,
+.md-button--primary:focus {
+  background-color: #0a0c1a !important;
+  color: white !important;
+  border-color: #0a0c1a !important;
+}
+
+/* Search button */
+.md-search__input,
+.md-search__form input {
+  border-color: #13162b !important;
+}
+
+.md-search__input:focus,
+.md-search__form input:focus {
+  border-color: #13162b !important;
+  box-shadow: 0 0 0 0.2rem rgba(19, 22, 43, 0.25) !important;
+}
+
+/* Sidebar */
+.md-sidebar {
+  background-color: #f8f9fa !important;
 }
 
 /* Dark mode overrides */
@@ -54,10 +99,33 @@
   --md-accent-fg-color: #13162b !important;
 }
 
-[data-md-color-scheme="slate"] .md-header {
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-header[data-md-component="header"],
+[data-md-color-scheme="slate"] .md-header__inner {
   background-color: #13162b !important;
+  background: #13162b !important;
+}
+
+[data-md-color-scheme="slate"] .md-nav__link,
+[data-md-color-scheme="slate"] .md-nav__link--active,
+[data-md-color-scheme="slate"] .md-nav__link:focus,
+[data-md-color-scheme="slate"] .md-nav__link:hover {
+  color: #13162b !important;
 }
 
 [data-md-color-scheme="slate"] .md-sidebar {
   background-color: #1e1e1e !important;
+}
+
+[data-md-color-scheme="slate"] .md-content a,
+[data-md-color-scheme="slate"] .md-content a:link,
+[data-md-color-scheme="slate"] .md-content a:visited {
+  color: #13162b !important;
+}
+
+[data-md-color-scheme="slate"] .md-button,
+[data-md-color-scheme="slate"] .md-button--primary {
+  background-color: #13162b !important;
+  color: white !important;
+  border-color: #13162b !important;
 }
