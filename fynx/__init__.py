@@ -36,16 +36,15 @@ Quick Example
 -------------
 
 ```python
-from fynx import Store, observable, computed, reactive
+from fynx import Store, observable, reactive
 
 # Create a reactive store
 class UserStore(Store):
     name = observable("Alice")
     age = observable(30)
 
-    @computed
-    def greeting(self):
-        return f"Hello, {self.name}! You are {self.age} years old."
+    # Computed property using the >> operator
+    greeting = (name | age) >> (lambda n, a: f"Hello, {n}! You are {a} years old.")
 
 # React to changes
 @reactive(UserStore.name, UserStore.age)

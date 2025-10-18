@@ -57,9 +57,23 @@ class ReactiveContext:
     The context uses a stack-based approach to handle nested reactive functions,
     ensuring that dependencies are tracked correctly even in complex scenarios.
 
+    Attributes:
+        func (Callable): The reactive function to execute
+        original_func (Callable): The original user function (for unsubscribe)
+        subscribed_observable (Observable): The observable this context is subscribed to
+        dependencies (Set[Observable]): Set of observables accessed during execution
+        is_running (bool): Whether the context is currently executing
+
     Note:
         This class is typically managed automatically by FynX's decorators and
         observable operations. Direct instantiation is usually not needed.
+
+    Example:
+        ```python
+        # Usually created automatically by @reactive decorator
+        context = ReactiveContext(my_function, my_function, some_observable)
+        context.run()  # Executes function and tracks dependencies
+        ```
     """
 
     def __init__(
@@ -136,20 +150,40 @@ class Observable(Generic[T]):
     - **Change Notification**: Notifies all observers when the value changes
     - **Type Safety**: Generic type parameter ensures type-safe operations
     - **Lazy Evaluation**: Computations only re-run when actually needed
+    - **Circular Dependency Detection**: Prevents infinite loops at runtime
 
     Observable implements various magic methods (`__eq__`, `__str__`, etc.) to
     behave like its underlying value in most contexts, making it easy to use
     in existing code without modification.
 
+    Attributes:
+        key (Optional[str]): Unique identifier for debugging and serialization
+        _value (Optional[T]): The current wrapped value
+        _observers (Set[Callable]): Set of observer functions
+
+    Class Attributes:
+        _current_context (Optional[ReactiveContext]): Current reactive execution context
+        _context_stack (List[ReactiveContext]): Stack of nested reactive contexts
+
+    Args:
+        key: A unique identifier for this observable (used for debugging).
+             If None, will be set to "<unnamed>" and updated in __set_name__.
+        initial_value: The initial value to store. Can be any type.
+
+    Raises:
+        RuntimeError: If a circular dependency is detected during value updates.
+
     Example:
         ```python
-        from fynx import observable
+        from fynx.observable import Observable
 
         # Create an observable
-        counter = observable("counter", 0)
+        counter = Observable("counter", 0)
 
-        # Direct access
+        # Direct access (transparent behavior)
         print(counter.value)  # 0
+        print(counter == 0)   # True
+        print(str(counter))   # "0"
 
         # Subscribe to changes
         def on_change():
@@ -161,7 +195,13 @@ class Observable(Generic[T]):
 
     Note:
         While you can create Observable instances directly, it's often more
-        convenient to use the `observable()` descriptor in Store classes.
+        convenient to use the `observable()` descriptor in Store classes for
+        better organization and automatic serialization support.
+
+    See Also:
+        Store: For organizing observables into reactive state containers
+        computed: For creating derived values from observables
+        reactive: For creating reactive functions that respond to changes
     """
 
     # Class variable to track the current reactive context
@@ -187,7 +227,30 @@ class Observable(Generic[T]):
 
     @property
     def value(self) -> Optional[T]:
-        """Get the current value of this observable."""
+        """
+        Get the current value of this observable.
+
+        Accessing the value property automatically registers this observable
+        as a dependency if called within a reactive context (computation or reaction).
+
+        Returns:
+            The current value stored in this observable, or None if not set.
+
+        Note:
+            This property is tracked by the reactive system. Use it instead of
+            accessing _value directly to ensure proper dependency tracking.
+
+        Example:
+            ```python
+            obs = Observable("counter", 5)
+            print(obs.value)  # 5
+
+            # In a reactive context, this creates a dependency
+            @reactive(obs)
+            def print_value(val):
+                print(f"Value: {val}")
+            ```
+        """
         # Track dependency if we're in a reactive context
         if Observable._current_context is not None:
             Observable._current_context.add_dependency(self)
@@ -197,8 +260,33 @@ class Observable(Generic[T]):
         """
         Set the value and notify all observers if the value changed.
 
+        This method updates the observable's value and triggers change notifications
+        to all registered observers. The update only occurs if the new value is
+        different from the current value (using != comparison).
+
+        Circular dependency detection is performed to prevent infinite loops where
+        a computation tries to modify one of its own dependencies.
+
         Args:
-            value: The new value to set
+            value: The new value to set. Can be any type compatible with the
+                   observable's generic type parameter.
+
+        Raises:
+            RuntimeError: If setting this value would create a circular dependency
+                         (e.g., a computed value trying to modify its own input).
+
+        Example:
+            ```python
+            obs = Observable("counter", 0)
+            obs.set(5)  # Triggers observers if value changed
+
+            # No change, no notification
+            obs.set(5)  # Same value, observers not called
+            ```
+
+        Note:
+            Equality is checked using `!=` operator, so custom objects should
+            implement proper equality comparison if needed.
         """
         # Check for circular dependency: check if the current context
         # is computing a value that depends on this observable
@@ -246,11 +334,33 @@ class Observable(Generic[T]):
         """
         Subscribe a function to react to changes in this observable.
 
+        The subscribed function will be called whenever the observable's value changes.
+
         Args:
-            func: The function to call when this observable changes.
+            func: A callable that accepts one argument (the new value).
+                  The function will be called whenever the observable's value changes.
 
         Returns:
             This observable instance for method chaining.
+
+        Example:
+            ```python
+            def on_change(new_value):
+                print(f"Observable changed to: {new_value}")
+
+            obs = Observable("counter", 0)
+            obs.subscribe(on_change)
+
+            obs.set(5)  # Prints: "Observable changed to: 5"
+            ```
+
+        Note:
+            The function is called only when the observable's value changes.
+            It is not called immediately upon subscription.
+
+        See Also:
+            unsubscribe: Remove a subscription
+            reactive: Decorator-based subscription with automatic dependency tracking
         """
 
         def single_reaction():
@@ -294,7 +404,22 @@ class Observable(Generic[T]):
     def _dispose_subscription_contexts(
         func: Callable, filter_predicate: Optional[Callable] = None
     ) -> None:
-        """Dispose of subscription contexts for a function with optional filtering."""
+        """
+        Dispose of subscription contexts for a function with optional filtering.
+
+        This internal method finds and cleans up ReactiveContext instances associated
+        with a given function. It's used by unsubscribe() methods to properly clean up
+        reactive subscriptions.
+
+        Args:
+            func: The function whose subscription contexts should be disposed
+            filter_predicate: Optional predicate function to filter which contexts to dispose.
+                            Should accept a ReactiveContext and return bool.
+
+        Note:
+            This is an internal method used by the reactive system.
+            Direct use is not typically needed.
+        """
         if func not in _func_to_contexts:
             return
 
@@ -316,30 +441,150 @@ class Observable(Generic[T]):
 
     # Magic methods for transparent behavior
     def __bool__(self) -> bool:
-        """Boolean conversion returns whether the value is truthy."""
+        """
+        Boolean conversion returns whether the value is truthy.
+
+        This allows observables to be used directly in boolean contexts
+        (if statements, boolean operations) just like regular values.
+
+        Returns:
+            True if the wrapped value is truthy, False otherwise.
+
+        Example:
+            ```python
+            obs = Observable("flag", True)
+            if obs:  # Works like if obs.value
+                print("Observable is truthy")
+
+            obs.set(0)  # False
+            if not obs:  # Works like if not obs.value
+                print("Observable is falsy")
+            ```
+        """
         return bool(self._value)
 
     def __str__(self) -> str:
-        """String representation of the value."""
+        """
+        String representation of the wrapped value.
+
+        Returns the string representation of the current value,
+        enabling observables to be used seamlessly in string contexts.
+
+        Returns:
+            String representation of the wrapped value.
+
+        Example:
+            ```python
+            obs = Observable("name", "Alice")
+            print(f"Hello {obs}")  # Prints: "Hello Alice"
+            message = "User: " + obs  # Works like "User: " + obs.value
+            ```
+        """
         return str(self._value)
 
     def __repr__(self) -> str:
-        """Developer representation of this observable."""
+        """
+        Developer representation showing the observable's key and current value.
+
+        Returns:
+            A string representation useful for debugging and development.
+
+        Example:
+            ```python
+            obs = Observable("counter", 42)
+            print(repr(obs))  # Observable('counter', 42)
+            ```
+        """
         return f"Observable({self.key!r}, {self._value!r})"
 
     def __eq__(self, other: object) -> bool:
-        """Equality comparison with another value or observable."""
+        """
+        Equality comparison with another value or observable.
+
+        Compares the wrapped values for equality. If comparing with another
+        Observable, compares their wrapped values.
+
+        Args:
+            other: Value or Observable to compare with
+
+        Returns:
+            True if the values are equal, False otherwise.
+
+        Example:
+            ```python
+            obs1 = Observable("a", 5)
+            obs2 = Observable("b", 5)
+            regular_val = 5
+
+            obs1 == obs2      # True (both wrap 5)
+            obs1 == regular_val  # True (observable equals regular value)
+            obs1 == 10        # False (5 != 10)
+            ```
+        """
         if isinstance(other, Observable):
             return self._value == other._value
         return self._value == other
 
     def __hash__(self) -> int:
-        """Hash based on object identity, not value (values may be unhashable)."""
+        """
+        Hash based on object identity, not value.
+
+        Since values may be unhashable (like dicts, lists), observables
+        hash based on their object identity rather than their value.
+
+        Returns:
+            Hash of the observable's object identity.
+
+        Note:
+            This means observables with the same value will not be
+            considered equal for hashing purposes, only identical objects.
+
+        Example:
+            ```python
+            obs1 = Observable("a", [1, 2, 3])
+            obs2 = Observable("b", [1, 2, 3])
+
+            # These will have different hashes despite same value
+            hash(obs1) != hash(obs2)  # True
+
+            # But identical objects hash the same
+            hash(obs1) == hash(obs1)  # True
+            ```
+        """
         return id(self)
 
     # Descriptor protocol for use as class attributes
     def __set_name__(self, owner: Type, name: str) -> None:
-        """Called when assigned to a class attribute."""
+        """
+        Called when this Observable is assigned to a class attribute.
+
+        This method implements the descriptor protocol to enable automatic
+        conversion of Observable instances to appropriate descriptors based
+        on the owning class type.
+
+        For Store classes, the conversion is handled by StoreMeta metaclass.
+        For other classes, converts to SubscriptableDescriptor for class-level
+        observable behavior.
+
+        Args:
+            owner: The class that owns this attribute
+            name: The name of the attribute being assigned
+
+        Note:
+            This method is called automatically by Python when an Observable
+            instance is assigned to a class attribute. It modifies the class
+            to use the appropriate descriptor for reactive behavior.
+
+        Example:
+            ```python
+            class MyClass:
+                obs = Observable("counter", 0)  # __set_name__ called here
+
+            # Gets converted to a descriptor automatically
+            instance = MyClass()
+            print(instance.obs)  # Uses descriptor
+            ```
+        """
         # Update key if it was defaulted to "<unnamed>"
         if self.key == "<unnamed>":
             # Check if this is a computed observable by checking for the _is_computed attribute
@@ -406,30 +651,52 @@ class Observable(Generic[T]):
 
     def __rshift__(self, func: Callable) -> "Observable":
         """
-        Chain a transformation function to create a new computed observable using >>.
+        Apply a transformation function using the >> operator to create computed observables.
 
-        This is the functorial map operation: it applies a function to this observable,
-        creating a new observable with the transformed values.
+        This implements the functorial map operation over observables, allowing you to
+        transform observable values through pure functions while preserving reactivity.
+        The result is a new observable that automatically updates when the source changes.
 
         Args:
-            func: Function to apply to the observable's value(s).
-                  For merged observables, receives the tuple values as separate arguments.
+            func: A pure function to apply to the observable's value(s).
+                  For single observables, receives the current value.
+                  For merged observables, receives unpacked tuple values as separate arguments.
 
         Returns:
-            A new Observable with computed values
+            A new computed Observable containing the transformed values.
+
+        Raises:
+            Any exception raised by the transformation function will be propagated.
 
         Examples:
             ```python
-            # Single observable
-            doubled = obs >> (lambda x: x * 2)
+            from fynx.observable import Observable
 
-            # Merged observable
-            combined = obs1 | obs2
-            result = combined >> (lambda a, b: a + b)
+            # Single observable transformation
+            counter = Observable("counter", 5)
+            doubled = counter >> (lambda x: x * 2)  # Observable with value 10
 
-            # Chaining
-            final = obs >> func1 >> func2 >> func3
+            # String formatting
+            name = Observable("name", "Alice")
+            greeting = name >> (lambda n: f"Hello, {n}!")
+
+            # Merged observable transformation
+            width = Observable("width", 10)
+            height = Observable("height", 20)
+            area = (width | height) >> (lambda w, h: w * h)  # Observable with value 200
+
+            # Complex chaining
+            result = counter >> (lambda x: x + 1) >> str >> (lambda s: f"Count: {s}")
+            # Result: Observable with value "Count: 6"
             ```
+
+        Note:
+            The transformation function should be pure (no side effects) and relatively
+            fast, as it may be called frequently when dependencies change.
+
+        See Also:
+            computed: The underlying function that creates computed observables
+            __or__: For merging observables before transformation
         """
         from .operators import rshift_operator
 
@@ -437,25 +704,58 @@ class Observable(Generic[T]):
 
     def __and__(self, condition: "Observable[bool]") -> "ConditionalObservable[T]":
         """
-        Create a conditional observable using the & operator.
+        Create a conditional observable using the & operator for filtered reactivity.
 
-        This creates a conditional observable that only emits values when the condition
-        (and any additional conditions) are all True.
+        This creates a ConditionalObservable that only emits values from the source
+        observable when the specified condition (and any chained conditions) are all True.
+        This enables precise control over when reactive updates occur, preventing
+        unnecessary computations and side effects.
 
         Args:
-            condition: A boolean Observable that must be True for emission
+            condition: A boolean Observable that acts as a gate. The source observable's
+                      values are only emitted when this condition is True.
 
         Returns:
-            A ConditionalObservable that filters updates based on the condition
+            A ConditionalObservable that filters the source observable's updates
+            based on the condition. The conditional observable starts with None
+            if the condition is initially False.
 
-        Example:
+        Examples:
             ```python
-            # Only emit when image is uploaded AND valid
-            valid_image = uploaded_image & is_valid_image
+            from fynx.observable import Observable
 
-            # Chain multiple conditions
-            ready_to_process = uploaded_image & is_valid_image & ~is_processing
+            # Basic conditional filtering
+            temperature = Observable("temp", 20)
+            is_heating_on = Observable("heating", False)
+
+            # Only emit temperature when heating is on
+            heating_temp = temperature & is_heating_on
+
+            heating_temp.subscribe(lambda t: print(f"Maintaining {t}°C"))
+            temperature.set(22)     # No output (heating off)
+            is_heating_on.set(True) # Prints: "Maintaining 22°C"
+            temperature.set(25)     # Prints: "Maintaining 25°C"
+
+            # Multiple conditions (chained)
+            is_valid = Observable("valid", True)
+            smart_heating = temperature & is_heating_on & is_valid
+
+            # Resource optimization
+            network_available = Observable("network", True)
+            battery_level = Observable("battery", 80)
+
+            # Only sync when network is available AND battery is not low
+            sync_data = data_changes & network_available & (battery_level >> (lambda b: b > 20))
             ```
+
+        Note:
+            Multiple conditions can be chained: `obs & cond1 & cond2 & cond3`.
+            All conditions must be True for values to be emitted.
+
+        See Also:
+            ConditionalObservable: The class that implements conditional behavior
+            __invert__: For negating boolean conditions
+            watch: For conditional reactive functions with complex logic
         """
         from .operators import and_operator
 
@@ -466,15 +766,47 @@ class Observable(Generic[T]):
         Create a negated boolean observable using the ~ operator.
 
         This creates a computed observable that returns the logical negation
-        of the current observable's boolean value.
+        of the current observable's boolean value. Useful for creating inverse
+        conditions and boolean logic in reactive expressions.
 
         Returns:
-            An Observable[bool] with the negated value
+            A computed Observable[bool] with the negated boolean value.
+            Updates automatically when the source observable changes.
 
-        Example:
+        Examples:
             ```python
-            is_not_processing = ~is_processing  # True when is_processing is False
-            ready_to_process = is_valid & ~is_processing
+            from fynx.observable import Observable
+
+            is_loading = Observable("loading", False)
+
+            # Create negated observable
+            is_not_loading = ~is_loading  # True when is_loading is False
+
+            # Use in conditional logic
+            can_interact = ~is_loading
+            can_interact.subscribe(lambda can: print(f"Can interact: {can}"))
+
+            is_loading.set(True)   # Prints: "Can interact: False"
+            is_loading.set(False)  # Prints: "Can interact: True"
+
+            # Chain with other conditions
+            is_enabled = Observable("enabled", True)
+            should_show_spinner = is_loading & is_enabled
+            should_hide_content = is_loading & ~is_enabled  # Loading but not enabled
+
+            # Complex boolean logic
+            is_valid = Observable("valid", True)
+            has_errors = Observable("errors", False)
+
+            can_submit = is_valid & ~has_errors & ~is_loading
             ```
+
+        Note:
+            This creates a computed observable, so the negation is evaluated
+            lazily and cached until the source value changes.
+
+        See Also:
+            __and__: For combining conditions with AND logic
+            computed: For creating other computed transformations
         """
         return self >> (lambda x: not x)

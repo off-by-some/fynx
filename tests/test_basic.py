@@ -218,15 +218,15 @@ def test_reactive_store_decorator():
 
     # Changes should trigger decorated function
     TestStore.height_cm = 170.2
-    assert len(callback_calls) == 1
-    assert "height=170.2" in callback_calls[0]
+    assert len(callback_calls) == 2  # Called immediately + on change
+    assert "height=170.2" in callback_calls[1]
 
     # Unsubscribe
     TestStore.unsubscribe(on_store_change)
 
     # Changes should NOT trigger anymore
     TestStore.name = "Charlie"
-    assert len(callback_calls) == 1  # No new calls
+    assert len(callback_calls) == 2  # No new calls
 
 
 def test_reactive_multiple_observables_decorator():

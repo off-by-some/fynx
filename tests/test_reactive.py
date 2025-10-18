@@ -18,10 +18,10 @@ def test_reactive_decorator_with_store():
         callback_count += 1
 
     store.value.set(1)
-    assert callback_count == 1
+    assert callback_count == 2  # Called immediately + on set
 
     store.value.set(2)
-    assert callback_count == 2
+    assert callback_count == 3  # Called again on set
 
 
 def test_reactive_decorator_with_single_observable():
@@ -35,7 +35,7 @@ def test_reactive_decorator_with_single_observable():
         callback_count += 1
 
     obs.set(20)
-    assert callback_count == 1
+    assert callback_count == 2  # Called immediately + on set
 
 
 def test_reactive_decorator_with_multiple_observables():
@@ -59,8 +59,8 @@ def test_reactive_decorator_with_multiple_observables():
 def test_reactive_decorator_returns_original_function():
     """Test that @reactive decorator returns the original function."""
 
-    def test_function():
-        return "test"
+    def test_function(value):
+        return f"test: {value}"
 
     decorated = reactive(observable(1))(test_function)
 
@@ -104,10 +104,10 @@ def test_reactive_decorator_with_store_multiple_attributes():
         callback_count += 1
 
     store.name.set("Bob")
-    assert callback_count == 1
+    assert callback_count == 2  # Called immediately + on set
 
     store.age.set(30)
-    assert callback_count == 2
+    assert callback_count == 3  # Called again on set
 
 
 def test_reactive_decorator_no_execution_on_same_value():
@@ -120,13 +120,13 @@ def test_reactive_decorator_no_execution_on_same_value():
         nonlocal callback_count
         callback_count += 1
 
-    # Setting same value should not trigger
+    # Setting same value should not trigger additional call
     obs.set("value")
-    assert callback_count == 0
+    assert callback_count == 1  # Only the initial call
 
     # Setting different value should trigger
     obs.set("new_value")
-    assert callback_count == 1
+    assert callback_count == 2  # Initial call + change call
 
 
 def test_reactive_decorator_mixed_observables_and_store():
@@ -149,11 +149,14 @@ def test_reactive_decorator_mixed_observables_and_store():
         nonlocal callback_count
         callback_count += 10
 
+    # Both callbacks were called immediately during decoration
+    assert callback_count == 11  # obs_callback(1) + store_callback(10)
+
     obs.set("changed")
-    assert callback_count == 1
+    assert callback_count == 12  # obs_callback called again
 
     store.store_value.set("modified")
-    assert callback_count == 11
+    assert callback_count == 22  # store_callback called again
 
 
 def test_reactive_decorator_empty_args():
@@ -194,4 +197,4 @@ def test_reactive_handler_as_decorator():
     assert decorated_callback is callback
 
     obs.set(1)
-    assert callback_count == 1
+    assert callback_count == 2  # Called immediately + on set

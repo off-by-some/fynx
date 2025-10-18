@@ -158,11 +158,8 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# TRELLIS Docker specific
-outputs/
-ckpts/
-*.safetensor
-*.safetensors
+# Documentation Outputs
+docs/**/out/
 
 # Wheels - only keep valid wheel files, not Git LFS pointers
 # We build nvdiffrast from source in extensions/

@@ -28,9 +28,11 @@ packages = [{include = "fynx"}]
 python = ">=3.9"
 
 [tool.poetry.group.docs.dependencies]
-sphinx = ">=4.0.0"
-sphinx-rtd-theme = ">=1.0.0"
-myst-parser = ">=0.18.0"
+mkdocs = ">=1.4.0"
+mkdocs-material = ">=9.0.0"
+mkdocstrings = {extras = ["python"], version = ">=0.20.0"}
+pydoc-markdown = {version = ">=4.8.0", python = ">=3.9,<4.0"}
+mistletoe = ">=1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2,<9.0.0"
@@ -39,6 +41,7 @@ black = ">=22.0.0"
 isort = {extras = ["colors"], version = ">=5.10.0"}
 mypy = ">=1.0.0"
 pre-commit = ">=2.20.0"
+pydoc-markdown = {version = ">=4.8.0", python = ">=3.9,<4.0"}
 
 [tool.isort]
 profile = "black"
