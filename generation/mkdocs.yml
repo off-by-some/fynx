@@ -40,14 +40,14 @@ theme:
   logo_text_align: center
   palette:
     - scheme: default
-      primary: blue
-      accent: blue
+      primary: '#12172b'
+      accent: '#12172b'
       toggle:
         icon: material/lightbulb-outline
         name: Switch to dark mode
     - scheme: slate
-      primary: blue
-      accent: blue
+      primary: '#12172b'
+      accent: '#12172b'
       toggle:
         icon: material/lightbulb
         name: Switch to light mode
