@@ -15,6 +15,7 @@ nav:
       - Observables: generation/markdown/observables.md
       - Stores: generation/markdown/stores.md
       - Using @reactive: generation/markdown/using-reactive.md
+      - Using @watch: generation/markdown/using-watch.md
       - Reference:
           - Observable Types:
               - Observable: generation/markdown/observable.md
