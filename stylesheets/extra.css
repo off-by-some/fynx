@@ -1,0 +1,63 @@
+/* Force the custom dark blue color throughout the Material theme */
+
+/* Primary color overrides */
+:root {
+  --md-primary-fg-color: #13162b !important;
+  --md-primary-fg-color--light: #13162b !important;
+  --md-primary-fg-color--dark: #13162b !important;
+  --md-accent-fg-color: #13162b !important;
+  --md-accent-fg-color--transparent: rgba(19, 22, 43, 0.1) !important;
+}
+
+/* Header and navigation background */
+.md-header {
+  background-color: #13162b !important;
+}
+
+/* Navigation links */
+.md-nav__link--active,
+.md-nav__link:focus,
+.md-nav__link:hover {
+  color: #13162b !important;
+}
+
+/* Sidebar background */
+.md-sidebar {
+  background-color: #f8f9fa !important;
+}
+
+/* Links in content */
+.md-content a:not(.md-button) {
+  color: #13162b !important;
+}
+
+/* Buttons and accents */
+.md-button {
+  background-color: #13162b !important;
+  color: white !important;
+}
+
+.md-button:hover {
+  background-color: #0a0c1a !important;
+}
+
+/* Code blocks background */
+.md-code {
+  background-color: rgba(19, 22, 43, 0.05) !important;
+}
+
+/* Dark mode overrides */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #13162b !important;
+  --md-primary-fg-color--light: #13162b !important;
+  --md-primary-fg-color--dark: #13162b !important;
+  --md-accent-fg-color: #13162b !important;
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background-color: #13162b !important;
+}
+
+[data-md-color-scheme="slate"] .md-sidebar {
+  background-color: #1e1e1e !important;
+}

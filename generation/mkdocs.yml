@@ -113,6 +113,8 @@ extra:
       link: https://github.com/off-by-some/fynx
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/fynx/
+  extra_css:
+    - stylesheets/extra.css
 
 copyright: |
   &copy; 2024 Cassidy Bridges |
