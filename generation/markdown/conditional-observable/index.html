@@ -760,21 +760,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="ConditionalObservable">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="md-nav__link">
-    <span class="md-ellipsis">
-      __and__
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1181,21 +1166,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="ConditionalObservable">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="md-nav__link">
-    <span class="md-ellipsis">
-      __and__
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1226,9 +1196,10 @@
     <div class="doc doc-contents first">
 
         <h2 id="fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations">FynX ConditionalObservable - Conditional Reactive Computations<a class="headerlink" href="#fynx.observable.conditional--fynx-conditionalobservable-conditional-reactive-computations" title="Permanent link">&para;</a></h2>
-<p>This module provides the ConditionalObservable class, which enables filtering
-reactive streams based on boolean conditions. Conditional observables only emit
-values from a source observable when all specified conditions are satisfied.</p>
+<p>This module provides the ConditionalObservable class, a specialized computed observable
+that enables filtering reactive streams based on boolean conditions. Conditional
+observables only emit values from a source observable when all specified conditions
+are satisfied, making them read-only computed observables.</p>
 <h3 id="fynx.observable.conditional--when-to-use-conditional-observables">When to Use Conditional Observables<a class="headerlink" href="#fynx.observable.conditional--when-to-use-conditional-observables" title="Permanent link">&para;</a></h3>
 <p>Conditional observables are perfect for scenarios where you need to react to data
 changes only under specific circumstances:</p>
@@ -1343,15 +1314,17 @@ control over when reactive effects occur.</p>
     <div class="doc doc-contents ">
 
 
-        <p>An observable that filters values from a source observable based on boolean conditions.</p>
-<p>ConditionalObservable creates a reactive stream that only emits values when ALL
-specified conditions are True. This enables precise control over when reactive
-updates occur, preventing unnecessary computations and side effects.</p>
-<p>The conditional observable maintains an internal cache of the current condition
-state and only notifies subscribers when conditions transition from unmet to met,
-or when the source value changes while conditions remain met.</p>
+        <p>A computed observable that filters values from a source observable based on boolean conditions.</p>
+<p>ConditionalObservable is a specialized computed observable that creates a reactive stream
+that only emits values when ALL specified conditions are True. This enables precise
+control over when reactive updates occur, preventing unnecessary computations and side effects.</p>
+<p>As a computed observable, ConditionalObservable is read-only and derives its value from
+a source observable and boolean condition observables. It maintains an internal cache
+of the current condition state and only notifies subscribers when conditions transition
+from unmet to met, or when the source value changes while conditions remain met.</p>
 <p>Key Features:
 - <strong>Condition Filtering</strong>: Only emits when all conditions are satisfied
+- <strong>Read-only</strong>: Cannot be set directly (inherits from ComputedObservable)
 - <strong>State Transitions</strong>: Triggers on condition state changes
 - <strong>Composable</strong>: Can chain multiple conditions with additional <code>&amp;</code> operators
 - <strong>Memory Efficient</strong>: Internal caching prevents redundant evaluations</p>
@@ -1395,7 +1368,8 @@ all conditions become True.</p>
 
 <details class="see-also" open>
   <summary>See Also</summary>
-  <p>Observable: Base observable class
+  <p>ComputedObservable: Parent class providing read-only behavior
+Observable: Base observable class
 MergedObservable: For combining multiple observables
 fynx.watch: For conditional reactive functions</p>
 </details>
@@ -1421,7 +1395,7 @@ the conditional observable behaves identically to the source observable.</p>
                 <code>source_observable</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
+                  <code><span title="fynx.observable.interfaces.Observable">Observable</span>[<span title="fynx.observable.conditional.T">T</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1438,7 +1412,7 @@ the conditional observable behaves identically to the source observable.</p>
                 <code>*condition_observables</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="bool">bool</span>]</code>
+                  <code><span title="fynx.observable.interfaces.Observable">Observable</span>[<span title="bool">bool</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1493,124 +1467,6 @@ the conditional observable behaves identically to the source observable.</p>
 
 
 
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="fynx.observable.conditional.ConditionalObservable.__and__" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">__and__</span>
-
-
-<a href="#fynx.observable.conditional.ConditionalObservable.__and__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__and__</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Chain an additional condition using the <code>&amp;</code> operator.</p>
-<p>This method enables fluent composition of multiple conditions. The resulting
-conditional observable will only emit values when ALL conditions (including
-the new one) are True.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>condition</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="fynx.observable.base.Observable" href="../observable/#fynx.observable.base.Observable">Observable</a>[<span title="bool">bool</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An additional boolean observable condition that must also be
-      True for values to be emitted. This condition is combined with
-      all existing conditions using logical AND.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="ConditionalObservable (fynx.observable.conditional.ConditionalObservable)" href="#fynx.observable.conditional.ConditionalObservable">ConditionalObservable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A new ConditionalObservable instance with the additional condition.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="ConditionalObservable (fynx.observable.conditional.ConditionalObservable)" href="#fynx.observable.conditional.ConditionalObservable">ConditionalObservable</a>[<span title="fynx.observable.conditional.T">T</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The original conditional observable remains unchanged.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<details class="example" open>
-  <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;temp&quot;</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">is_heating_on</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;heating&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">is_user_present</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;present&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Chain conditions fluently</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">smart_heating</span> <span class="o">=</span> <span class="n">temperature</span> <span class="o">&amp;</span> <span class="n">is_heating_on</span> <span class="o">&amp;</span> <span class="n">is_user_present</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1"># This is equivalent to:</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># smart_heating = ConditionalObservable(temperature, is_heating_on, is_user_present)</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">smart_heating</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Smart heating: </span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">°C&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Only triggers when ALL conditions are met</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">is_heating_on</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># Now triggers: &quot;Smart heating: 20°C&quot;</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">temperature</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">22</span><span class="p">)</span>      <span class="c1"># Triggers: &quot;Smart heating: 22°C&quot;</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">is_user_present</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># Stops triggering</span>
-</code></pre></div>
-</details>
-
-<details class="note" open>
-  <summary>Note</summary>
-  <p>This method returns a new ConditionalObservable rather than modifying
-the existing one, enabling immutable composition of conditions.</p>
-</details>
-
-    </div>
-
-</div>
 
 
 
