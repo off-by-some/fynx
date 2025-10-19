@@ -6,18 +6,15 @@
 
 
 <p align="center">
-  <a href="#quick-start" style="text-decoration: none;">
+  <a href="#quick-start" style="text-decoration: none; margin-right: 20px;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://off-by-some.github.io/fynx/" style="text-decoration: none;">
+  <a href="https://off-by-some.github.io/fynx/" style="text-decoration: none; margin-right: 20px;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/read-docs.svg" width="180" alt="Read the Docs"/>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/off-by-some/fynx/blob/main/examples/" style="text-decoration: none;">
+  <a href="https://github.com/off-by-some/fynx/blob/main/examples/" style="text-decoration: none; margin-right: 20px;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/code-examples.svg" width="180" alt="Examples"/>
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://github.com/off-by-some/fynx/issues" style="text-decoration: none;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/get-support.svg" width="180" alt="Support"/>
   </a>
