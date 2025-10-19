@@ -36,7 +36,7 @@ Stop wrestling with manual state synchronization. Whether you're building real-t
 ---
 <p align="center">
   <a href="#quick-start" style="margin-right: 20px;">
-    <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
+    <img src="https://raw.githubusercontent.com/off-by-some/fynx/refs/heads/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
   </a>
   <a href="https://off-by-some.github.io/fynx/" style="margin-right: 20px;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/read-docs.svg" width="180" alt="Read the Docs"/>
