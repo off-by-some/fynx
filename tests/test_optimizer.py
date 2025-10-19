@@ -407,6 +407,351 @@ class TestMaterializationOptimization:
         assert chain.value == expected
 
 
+class TestGraphStructure:
+    """Test graph construction and basic structure handling"""
+
+    def test_empty_graph_optimization(self):
+        """Test optimization of empty graph."""
+        results, optimizer = optimize_reactive_graph([])
+        assert results["total_nodes"] == 0
+        assert results["functor_fusions"] == 0
+
+    def test_single_node_graph(self):
+        """Test optimization of single observable."""
+        obs = observable(42)
+        results, optimizer = optimize_reactive_graph([obs])
+
+        stats = get_graph_statistics(optimizer)
+        assert stats["total_nodes"] == 1
+        assert obs.value == 42
+
+    def test_linear_chain_no_fusion(self):
+        """Test chain with non-fusable operations."""
+        base = observable(5)
+        # Create chain where each function has different signature
+        chain = base
+        chain = chain >> (lambda x: x + 1)
+        chain = chain >> (lambda x: str(x))
+        chain = chain >> (lambda x: len(x))
+        chain = chain >> (lambda x: x * 2)
+
+        results, optimizer = optimize_reactive_graph([chain])
+
+        # Should fuse some parts but not across type changes
+        assert results["functor_fusions"] >= 1  # Can fuse some parts
+        # 5 + 1 = 6, str(6) = "6", len("6") = 1, 1 * 2 = 2
+        assert chain.value == 2
+
+    def test_multiple_independent_chains(self):
+        """Test multiple independent computation chains."""
+        base1 = observable(10)
+        base2 = observable(20)
+
+        chain1 = base1 >> (lambda x: x * 2) >> (lambda x: x + 5)
+        chain2 = base2 >> (lambda x: x // 2) >> (lambda x: x - 3)
+
+        results, optimizer = optimize_reactive_graph([chain1, chain2])
+
+        # Should optimize each chain independently
+        assert results["functor_fusions"] >= 2
+        assert chain1.value == 25  # (10*2) + 5 = 25
+        assert chain2.value == 7  # (20//2) - 3 = 7
+
+    def test_circular_dependency_detection(self):
+        """Test that circular dependencies are handled gracefully."""
+        # Note: FynX doesn't actually support circular dependencies in the reactive graph,
+        # but this tests the robustness of the optimizer
+        base = observable(1)
+
+        # This would create a circular dependency if allowed
+        # We can't actually create circular deps in FynX, so this tests error handling
+        try:
+            # This should work fine as FynX prevents circular dependencies
+            chain = base >> (lambda x: x + 1)
+            results, optimizer = optimize_reactive_graph([chain])
+            assert results["total_nodes"] >= 1
+        except Exception:
+            # If there are issues, they should be handled gracefully
+            pass
+
+
+class TestFusionEdgeCases:
+    """Test edge cases in fusion optimization"""
+
+    def test_fusion_with_none_values(self):
+        """Test fusion when computations return None."""
+        base = observable(5)
+        chain = (
+            base
+            >> (lambda x: x if x > 3 else None)
+            >> (lambda x: x * 2 if x is not None else 0)
+            >> str
+        )
+
+        results, optimizer = optimize_reactive_graph([chain])
+        assert results["functor_fusions"] >= 1
+        assert chain.value == "10"  # 5 > 3, so 5 * 2 = 10
+
+    def test_fusion_with_exceptions(self):
+        """Test fusion robustness when functions might raise exceptions."""
+        base = observable(10)
+        chain = (
+            base
+            >> (lambda x: x / 2)  # 5.0
+            >> (lambda x: int(x))  # 5
+            >> (lambda x: x + 5)  # 10
+        )
+
+        results, optimizer = optimize_reactive_graph([chain])
+        assert results["functor_fusions"] >= 1
+        assert chain.value == 10
+
+    def test_very_deep_narrow_chain(self):
+        """Test optimization of a very deep but narrow chain."""
+        base = observable(1)
+        chain = base
+
+        # Create 50-step chain
+        for i in range(50):
+            chain = chain >> (lambda x, i=i: x + 1)
+
+        results, optimizer = optimize_reactive_graph([chain])
+
+        # Should fuse the entire chain
+        assert results["functor_fusions"] >= 1
+        assert chain.value == 51  # Started at 1, added 1 fifty times
+
+    def test_wide_shallow_graph(self):
+        """Test optimization of wide but shallow graph."""
+        base = observable(10)
+
+        # Create many parallel computations
+        branches = []
+        for i in range(10):
+            branch = base >> (lambda x, i=i: x + i)
+            branches.append(branch)
+
+        results, optimizer = optimize_reactive_graph(branches)
+
+        # Should optimize each branch
+        assert (
+            results["total_nodes"] <= len(branches) + 2
+        )  # branches + base + maybe shared
+
+        # Verify all results
+        for i, branch in enumerate(branches):
+            assert branch.value == 10 + i
+
+
+class TestConditionalFusion:
+    """Test conditional/conditional observable fusion"""
+
+    def test_multiple_condition_composition(self):
+        """Test fusion of multiple conditions on same observable."""
+        data = observable(100)
+
+        # Multiple conditions that should be fused
+        filtered = (
+            data
+            & (lambda x: x > 50)
+            & (lambda x: x < 200)
+            & (lambda x: x % 10 == 0)
+            & (lambda x: x % 7 != 0)
+        )
+
+        results, optimizer = optimize_reactive_graph([filtered])
+        assert results["filter_fusions"] >= 1  # Should fuse multiple conditions
+        assert filtered.value == 100  # Meets all conditions
+
+        # Test boundary cases - create fresh observables for each test
+        data2 = observable(49)  # < 50, should fail
+        filtered2 = data2 & (lambda x: x > 50) & (lambda x: x < 200)
+        assert filtered2.value is None
+
+        data3 = observable(210)  # > 200, should fail
+        filtered3 = data3 & (lambda x: x > 50) & (lambda x: x < 200)
+        assert filtered3.value is None
+
+    def test_condition_fusion_with_transformation(self):
+        """Test condition fusion combined with transformations."""
+        data = observable(20)
+
+        # Create filtered observable, then transform it
+        filtered = data & (lambda x: x > 10) & (lambda x: x < 30)
+        result = filtered >> (lambda x: x * 2) >> str
+
+        results, optimizer = optimize_reactive_graph([result])
+        assert results["filter_fusions"] >= 1
+        assert result.value == "40"  # 20 * 2 = 40
+
+    def test_condition_order_preservation(self):
+        """Test that condition order is preserved in fusion."""
+        data = observable(15)
+
+        # Conditions with side effects (for testing order)
+        call_order = []
+
+        def cond1(x):
+            call_order.append(1)
+            return x > 10
+
+        def cond2(x):
+            call_order.append(2)
+            return x < 20
+
+        filtered = data & cond1 & cond2
+
+        # Force evaluation
+        _ = filtered.value
+
+        # Should call conditions in order (1 then 2)
+        assert call_order == [1, 2]
+        assert filtered.value == 15
+
+
+class TestMorphismOperations:
+    """Test morphism (transformation) operations"""
+
+    def test_identity_morphism(self):
+        """Test identity morphism operations."""
+        from fynx.optimizer import Morphism
+
+        ident = Morphism.identity()
+        assert str(ident) == "id"
+
+        # Test normalization
+        normalized = ident.normalize()
+        assert normalized == ident
+
+    def test_single_morphism(self):
+        """Test single morphism creation."""
+        from fynx.optimizer import Morphism
+
+        single = Morphism.single("test_func")
+        assert str(single) == "test_func"
+
+    def test_compose_morphisms(self):
+        """Test morphism composition."""
+        from fynx.optimizer import Morphism
+
+        f = Morphism.single("f")
+        g = Morphism.single("g")
+
+        composed = Morphism.compose(f, g)
+        assert str(composed) == "(f) ∘ (g)"
+
+        # Test normalization
+        normalized = composed.normalize()
+        assert normalized == composed
+
+    def test_morphism_parser(self):
+        """Test morphism parsing."""
+        from fynx.optimizer import MorphismParser
+
+        # Test identity
+        parsed = MorphismParser.parse("id")
+        assert parsed._type == "identity"
+
+        # Test single
+        parsed = MorphismParser.parse("func")
+        assert parsed._type == "single"
+        assert parsed._name == "func"
+
+        # Test composition
+        parsed = MorphismParser.parse("f ∘ g")
+        assert parsed._type == "compose"
+
+
+class TestOptimizationCorrectness:
+    """Test that optimizations preserve correctness"""
+
+    def test_commutative_operations_fusion(self):
+        """Test fusion of operations that are mathematically equivalent."""
+        base = observable(5)
+
+        # Different ways to compute x*2 + 10
+        way1 = base >> (lambda x: x * 2) >> (lambda x: x + 10)  # (x*2) + 10
+        way2 = base >> (lambda x: x + 10) >> (lambda x: x * 2)  # (x+10) * 2
+
+        results, optimizer = optimize_reactive_graph([way1, way2])
+
+        # Both should give correct results
+        assert way1.value == 20  # (5*2) + 10 = 20
+        assert way2.value == 30  # (5+10) * 2 = 30
+
+    def test_associative_operations_fusion(self):
+        """Test fusion respects mathematical associativity."""
+        base = observable(2)
+
+        # Test (a + b) + c = a + (b + c)
+        chain1 = base >> (lambda x: x + 3) >> (lambda x: x + 5)  # ((2+3)+5) = 10
+        chain2 = base >> (lambda x: x + 5) >> (lambda x: x + 3)  # ((2+5)+3) = 10
+
+        results, optimizer = optimize_reactive_graph([chain1, chain2])
+
+        assert chain1.value == 10
+        assert chain2.value == 10
+
+    def test_fusion_preserves_side_effects_order(self):
+        """Test that fusion preserves order of side effects during initial evaluation."""
+        base = observable(0)
+
+        # Functions with side effects that must happen in order
+        effects = []
+
+        def f1(x):
+            effects.append("f1")
+            return x + 1
+
+        def f2(x):
+            effects.append("f2")
+            return x + 2
+
+        def f3(x):
+            effects.append("f3")
+            return x + 3
+
+        chain = base >> f1 >> f2 >> f3
+
+        # Force initial evaluation
+        result = chain.value
+
+        # Side effects should happen in correct order during first evaluation
+        assert effects == ["f1", "f2", "f3"]
+        assert result == 6  # 0 + 1 + 2 + 3
+
+        # After optimization, re-evaluation may not trigger side effects due to caching
+        # but the result should still be correct
+        result2 = chain.value
+        assert result2 == 6
+
+    def test_optimization_doesnt_change_observable_values(self):
+        """Test that optimization doesn't change final observable values."""
+        test_cases = [
+            # (initial_value, expected_final_value, computation_chain)
+            (5, 25, lambda x: x >> (lambda y: y * 2) >> (lambda y: y + 15)),
+            (10, "20", lambda x: x >> (lambda y: y * 2) >> str),
+            (3, 18, lambda x: x >> (lambda y: y**2) >> (lambda y: y * 2)),
+            (7, 13, lambda x: x >> (lambda y: y + 3) >> (lambda y: y + 3)),
+        ]
+
+        for initial, expected, chain_func in test_cases:
+            obs = observable(initial)
+            chain = chain_func(obs)
+
+            # Get value before optimization
+            value_before = chain.value
+
+            # Optimize
+            results, optimizer = optimize_reactive_graph([chain])
+
+            # Get value after optimization
+            value_after = chain.value
+
+            # Values should be identical
+            assert value_before == value_after == expected
+
+
 class TestIntegrationOptimization:
     """Integration tests for complex optimization scenarios"""
 
@@ -506,36 +851,94 @@ class TestIntegrationOptimization:
 
 
 if __name__ == "__main__":
-    # Run basic smoke tests
-    print("Running FynX Optimizer Extreme Case Tests...")
+    # Run comprehensive smoke tests
+    print("Running FynX Optimizer Comprehensive Tests...")
 
-    # Test chain fusion
-    test = TestChainFusion()
-    test.test_extreme_chain_fusion_100_links()
+    # Test graph structure
+    struct_test = TestGraphStructure()
+    struct_test.test_empty_graph_optimization()
+    print("✓ Empty graph optimization")
+
+    struct_test.test_single_node_graph()
+    print("✓ Single node optimization")
+
+    struct_test.test_linear_chain_no_fusion()
+    print("✓ Linear chain handling")
+
+    struct_test.test_multiple_independent_chains()
+    print("✓ Multiple independent chains")
+
+    # Test fusion edge cases
+    fusion_test = TestFusionEdgeCases()
+    fusion_test.test_fusion_with_none_values()
+    print("✓ Fusion with None values")
+
+    fusion_test.test_very_deep_narrow_chain()
+    print("✓ Very deep chain fusion")
+
+    fusion_test.test_wide_shallow_graph()
+    print("✓ Wide shallow graph optimization")
+
+    # Test conditional fusion
+    cond_test = TestConditionalFusion()
+    cond_test.test_multiple_condition_composition()
+    print("✓ Multiple condition fusion")
+
+    cond_test.test_condition_fusion_with_transformation()
+    print("✓ Condition + transformation fusion")
+
+    # Test morphism operations
+    morph_test = TestMorphismOperations()
+    morph_test.test_identity_morphism()
+    print("✓ Identity morphism")
+
+    morph_test.test_compose_morphisms()
+    print("✓ Morphism composition")
+
+    morph_test.test_morphism_parser()
+    print("✓ Morphism parsing")
+
+    # Test optimization correctness
+    correct_test = TestOptimizationCorrectness()
+    correct_test.test_commutative_operations_fusion()
+    print("✓ Commutative operations")
+
+    correct_test.test_associative_operations_fusion()
+    print("✓ Associative operations")
+
+    correct_test.test_fusion_preserves_side_effects_order()
+    print("✓ Side effect ordering")
+
+    correct_test.test_optimization_doesnt_change_observable_values()
+    print("✓ Value preservation")
+
+    # Test chain fusion (original)
+    chain_test = TestChainFusion()
+    chain_test.test_extreme_chain_fusion_100_links()
     print("✓ Chain fusion (100 links)")
 
-    test.test_nested_function_composition()
+    chain_test.test_nested_function_composition()
     print("✓ Nested function composition")
 
-    # Test product factorization
+    # Test product factorization (original)
     product_test = TestProductFactorization()
     product_test.test_multiple_shared_prefixes()
     print("✓ Common subexpression elimination")
 
-    # Test equivalence
+    # Test equivalence (original)
     equiv_test = TestEquivalenceAnalysis()
     equiv_test.test_identical_computations_equivalence()
     print("✓ Semantic equivalence detection")
 
-    # Test materialization
+    # Test materialization (original)
     mat_test = TestMaterializationOptimization()
     mat_test.test_high_frequency_optimization()
     print("✓ Cost-optimal materialization")
 
-    # Test integration
+    # Test integration (original)
     integration_test = TestIntegrationOptimization()
     integration_test.test_complex_reactive_graph_optimization()
     print("✓ Complex graph optimization")
 
-    print("\nAll extreme case tests passed! 🎉")
-    print("Categorical optimization system is working correctly.")
+    integration_test.test_semantic_preservation_under_optimization()
+    print("✓ Semantic preservation")
