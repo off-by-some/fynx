@@ -35,26 +35,8 @@ Stop wrestling with manual state synchronization. Whether you're building real-t
 
 ---
 
-<!-- Quick Access Navigation -->
-
-<div style="display: flex;  justify-content: space-around; align-items: center; gap: 10px; flex-wrap: wrap;">
-  <div style="flex: 1; text-align: center; min-width: 140px; padding: 10px;">
-    <h3>🚀 Quick Start</h3>
-    <p><a href="#quick-start">Installation & Setup</a></p>
-  </div>
-  <div style="flex: 1; text-align: center; min-width: 140px; padding: 10px;">
-    <h3>📚 Read the Docs</h3>
-    <p><a href="https://off-by-some.github.io/fynx/">Full API Reference</a></p>
-  </div>
-  <div style="flex: 1; text-align: center; min-width: 140px; padding: 10px;">
-    <h3>💡 Examples</h3>
-    <p><a href="https://github.com/off-by-some/fynx/blob/main/examples/">Code Samples</a></p>
-  </div>
-  <div style="flex: 1; text-align: center; min-width: 140px; padding: 10px;">
-    <h3>🐛 Support</h3>
-    <p><a href="https://github.com/off-by-some/fynx/issues">Report Issues</a></p>
-  </div>
-</div>
+| 🚀 [**Quick Start**<br>Installation & Setup](#quick-start) | 📚 [**Read the Docs**<br>Full API Reference](https://off-by-some.github.io/fynx/) | 💡 [**Examples**<br>Code Samples](https://github.com/off-by-some/fynx/blob/main/examples/) | 🐛 [**Support**<br>Report Issues](https://github.com/off-by-some/fynx/issues) |
+|:-----------------------------------------------------------:|:---------------------------------------------------------------------:|:---------------------------------------------------------------:|:---------------------------------------------------------:|
 
 ***
 
@@ -345,49 +327,32 @@ The pre-commit hooks run automatically on each commit, checking code formatting 
 - **Submit PR** with clear description of changes
 
 
-<!-- FynX Footer -->
-<div style="max-width: 900px; margin: 60px auto 0; padding: 0 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
-    <!-- Unified Footer Container -->
-    <div style="position: relative; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px 24px; text-align: center; overflow: hidden;">
-        <!-- Star CTA Section -->
-        <div style="position: relative; z-index: 1; margin: 0 0 16px 0; padding: 0;">
-            <div style="font-size: 32px; margin: 0 0 8px 0; display: inline-block;">⭐</div>
-            <div style="font-size: 22px; font-weight: 700; margin: 0 0 8px 0; color: #24292f;">Love FynX?</div>
-            <div style="font-size: 14px; color: #586069; line-height: 1.5; margin: 0;">
-                Support the evolution of reactive programming by
-                <a href="https://github.com/off-by-some/fynx" style="color: #0366d6; text-decoration: none; font-weight: 600; border-bottom: 1px solid #0366d6; padding-bottom: 1px;">starring the repository</a>
-            </div>
-        </div>
-        <!-- Elegant Divider -->
-        <div style="height: 1px; background: #e1e4e8; margin: 0 0 16px 0;"></div>
-        <!-- Footer Content -->
-        <div style="position: relative; z-index: 1; margin: 0; padding: 0;">
-            <!-- Navigation Links -->
-            <div style="margin: 0 0 12px 0; padding: 0;">
-                <a href="https://github.com/off-by-some/fynx/blob/main/LICENSE" style="color: #0366d6; text-decoration: none; font-size: 13px; font-weight: 500; margin: 0 12px; padding: 4px 8px; border-radius: 4px; display: inline-block;">License</a>
-                <span style="color: #d1d5db; font-size: 14px; margin: 0 2px;">•</span>
-                <a href="https://github.com/off-by-some/fynx/blob/main/CONTRIBUTING.md" style="color: #0366d6; text-decoration: none; font-size: 13px; font-weight: 500; margin: 0 12px; padding: 4px 8px; border-radius: 4px; display: inline-block;">Contributing</a>
-                <span style="color: #d1d5db; font-size: 14px; margin: 0 2px;">•</span>
-                <a href="https://github.com/off-by-some/fynx/blob/main/CODE_OF_CONDUCT.md" style="color: #0366d6; text-decoration: none; font-size: 13px; font-weight: 500; margin: 0 12px; padding: 4px 8px; border-radius: 4px; display: inline-block;">Code of Conduct</a>
-            </div>
-            <!-- Tagline and Creator Attribution Combined -->
-            <div style="margin: 0 0 8px 0; padding: 0; font-size: 12px; color: #586069;">
-                <span style="font-weight: 700; color: #24292f; letter-spacing: 0.5px;">FynX</span> — Functional Yielding Observable Networks
-                <span style="color: #d1d5db; margin: 0 8px;">|</span>
-                <span style="font-size: 13px; color: #24292f;">Architected with ❤️ by
-                <a href="https://github.com/off-by-some" style="color: #0366d6; text-decoration: none; font-weight: 700; border-bottom: 1px solid #0366d6; padding-bottom: 1px;">Cassidy Bridges</a></span>
-            </div>
-            <!-- Copyright -->
-            <div style="font-size: 12px; color: #586069; font-weight: 500;">
-                © 2025 Cassidy Bridges • MIT Licensed
-            </div>
-        </div>
-    </div>
-</div>
 
-<style>
-/* Hover effects */
-a:hover {
-    filter: brightness(1.1);
-}
-</style>
+<br>
+
+## 🌟 Love FynX?
+
+Support the evolution of reactive programming by [**starring the repository**](https://github.com/off-by-some/fynx) ⭐
+
+<br>
+<br>
+<br>
+
+
+<p align="center">
+  <strong>FynX</strong> — Functional Yielding Observable Networks
+</p>
+
+<p align="center">
+  <a href="https://github.com/off-by-some/fynx/blob/main/LICENSE">License</a> •
+  <a href="https://github.com/off-by-some/fynx/blob/main/CONTRIBUTING.md">Contributing</a> •
+  <a href="https://github.com/off-by-some/fynx/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a>
+</p>
+
+<p align="center">
+  <em>Architected with ❤️ by <a href="https://github.com/off-by-some">Cassidy Bridges</a></em>
+</p>
+
+<p align="center">
+  © 2025 Cassidy Bridges • MIT Licensed
+</p>
