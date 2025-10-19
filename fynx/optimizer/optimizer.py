@@ -87,9 +87,9 @@ from typing import (
     Union,
 )
 
-from .observable.base import Observable
-from .observable.computed import ComputedObservable
-from .observable.merged import MergedObservable
+from ..observable.base import Observable
+from ..observable.computed import ComputedObservable
+from ..observable.merged import MergedObservable
 
 T = TypeVar("T")
 
@@ -686,7 +686,7 @@ class ReactiveGraph:
     def build_from_observables(self, observables: List[Observable]) -> None:
         """Build dependency graph starting from given observables."""
         # Import here to avoid circular import issues
-        from .observable.conditional import ConditionalObservable
+        from ..observable.conditional import ConditionalObservable
 
         visited: Set[Observable] = set()
         queue: Deque[Observable] = deque(observables)
@@ -1073,7 +1073,7 @@ class ReactiveGraph:
 
                         if shared_node is None:
                             # Create new shared node representing the factored computation
-                            from .computed import ComputedObservable
+                            from ..computed import ComputedObservable
 
                             shared_obs: "ComputedObservable[Any]" = ComputedObservable(
                                 shared_key, None
@@ -1128,7 +1128,7 @@ class ReactiveGraph:
         fusions = 0
 
         # Import here to avoid circular import issues
-        from .observable.conditional import ConditionalObservable
+        from ..observable.conditional import ConditionalObservable
 
         # Find chains of conditional observables that can form pullbacks
         for node in list(self.nodes.values()):
@@ -1620,7 +1620,7 @@ class ReactiveGraph:
                     verified_products.append(node)
 
         # Check pullback candidates (conditional nodes that could be pullbacks)
-        from .observable.conditional import ConditionalObservable
+        from ..observable.conditional import ConditionalObservable
 
         for node in self.nodes.values():
             if isinstance(node.observable, ConditionalObservable):
@@ -1814,7 +1814,7 @@ class ReactiveGraph:
 
         For conditional observables, this corresponds to filtering based on conjunctive conditions.
         """
-        from .observable.conditional import ConditionalObservable
+        from ..observable.conditional import ConditionalObservable
 
         if not isinstance(pullback_node.observable, ConditionalObservable):
             return False
