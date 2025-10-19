@@ -146,7 +146,7 @@ See Also
 - `fynx.store`: For organizing observables in reactive containers
 """
 
-from typing import Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from .base import Observable
 
@@ -178,9 +178,17 @@ class ComputedObservable(Observable[T]):
     """
 
     def __init__(
-        self, key: Optional[str] = None, initial_value: Optional[T] = None
+        self,
+        key: Optional[str] = None,
+        initial_value: Optional[T] = None,
+        computation_func: Optional[Callable] = None,
+        source_observable: Optional["Observable"] = None,
     ) -> None:
         super().__init__(key, initial_value)
+        # Store computation function for chain fusion optimization
+        self._computation_func = computation_func
+        # Store source observable for fusion
+        self._source_observable = source_observable
 
     def _set_computed_value(self, value: Optional[T]) -> None:
         """

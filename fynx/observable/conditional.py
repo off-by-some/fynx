@@ -108,7 +108,7 @@ See Also
 - `fynx.computed`: For derived reactive values
 """
 
-from typing import TypeVar
+from typing import List, TypeVar
 
 from .computed import ComputedObservable
 from .interfaces import Conditional, Observable
@@ -219,7 +219,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         initial_value = source_observable.value if initial_conditions_met else None
 
         super().__init__("conditional", initial_value)
-        self._source_observable = source_observable
+        self._source_observable = source_observable  # type: ignore
         self._condition_observables = list(condition_observables)
         self._conditions_met = initial_conditions_met
 

@@ -294,6 +294,7 @@ from typing import Callable
 
 from .observable import MergedObservable
 from .observable.computed import ComputedObservable
+from .optimizer import OptimizationContext
 
 
 def computed(func: Callable, observable) -> ComputedObservable:
@@ -358,7 +359,9 @@ def computed(func: Callable, observable) -> ComputedObservable:
     """
     if isinstance(observable, MergedObservable):
         # For merged observables, apply func to the tuple values
-        merged_computed_obs: ComputedObservable = ComputedObservable(None, None)
+        merged_computed_obs: ComputedObservable = ComputedObservable(
+            None, None, func, observable
+        )
 
         def update_merged_computed():
             values = tuple(obs.value for obs in observable._source_observables)
@@ -371,10 +374,17 @@ def computed(func: Callable, observable) -> ComputedObservable:
         # Subscribe to changes in the source observable
         observable.subscribe(lambda *args: update_merged_computed())
 
+        # Register with current optimization context for automatic optimization
+        context = OptimizationContext.current()
+        if context is not None:
+            context.register_observable(merged_computed_obs)
+
         return merged_computed_obs
     else:
         # For single observables
-        single_computed_obs: ComputedObservable = ComputedObservable(None, None)
+        single_computed_obs: ComputedObservable = ComputedObservable(
+            None, None, func, observable
+        )
 
         def update_single_computed():
             result = func(observable.value)
@@ -385,5 +395,10 @@ def computed(func: Callable, observable) -> ComputedObservable:
 
         # Subscribe to changes
         observable.subscribe(lambda val: update_single_computed())
+
+        # Register with current optimization context for automatic optimization
+        context = OptimizationContext.current()
+        if context is not None:
+            context.register_observable(single_computed_obs)
 
         return single_computed_obs

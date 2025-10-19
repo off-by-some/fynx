@@ -207,5 +207,4 @@ class Conditional(Observable[T], abc.ABC):
     runtime isinstance checks.
     """
 
-    _source_observable: Observable[T]
     _condition_observables: List[Observable[bool]]

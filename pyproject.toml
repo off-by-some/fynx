@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fynx"
-version = "0.0.7"
+version = "0.0.8"
 description = "Python reactive state management library inspired by MobX"
 authors = ["Cassidy Bridges <cassidybridges@gmail.com>"]
 readme = "README.md"
@@ -42,6 +42,9 @@ isort = {extras = ["colors"], version = ">=5.10.0"}
 mypy = ">=1.0.0"
 pre-commit = ">=2.20.0"
 pydoc-markdown = {version = ">=4.8.0", python = ">=3.9,<4.0"}
+
+[tool.poetry.group.benchmark.dependencies]
+rich = ">=13.0.0"
 
 [tool.isort]
 profile = "black"
