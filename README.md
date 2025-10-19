@@ -4,7 +4,6 @@
   <img src="https://github.com/off-by-some/fynx/raw/main/docs/images/banner.svg" alt="FynX Logo" style="border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); max-width: 100%; height: auto;">
 </p>
 
-
 <p align="center">
   <a href="#quick-start" style="text-decoration: none;">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
@@ -51,7 +50,6 @@
 Stop wrestling with manual state synchronization. Whether you're building real-time [Streamlit](https://streamlit.io/) dashboards, complex data pipelines, or interactive applications, FynX ensures that when one value changes, everything that depends on it updates instantly and predictably. No stale UI. No forgotten dependencies. No synchronization headaches.
 
 **Define relationships once. Updates flow automatically. Your application stays in sync—effortlessly.**
-
 
 ## Quick Start
 
@@ -261,37 +259,41 @@ Explore the [`examples/`](https://github.com/off-by-some/fynx/tree/main/examples
 
 ## The Mathematical Foundation
 
-If you're curious about the theory powering FynX, the core insight is that observables form a functor in the category-theoretic sense. An `Observable<T>` represents a time-varying value—formally, a continuous function $\mathcal{T} \to T$ where $\mathcal{T}$ denotes the temporal domain. This construction naturally forms an endofunctor $\mathcal{O}: \mathbf{Type} \to \mathbf{Type}$ on the category of Python types.
+Time-varying values have structure. When you create an `Observable<T>` in FynX, you're working with something that behaves like a continuous function from time to values—formally, $\mathcal{T} \to T$ where $\mathcal{T}$ represents the temporal domain. This might seem like a simple wrapper, but observables possess a deeper mathematical character: they form what category theorists call an endofunctor $\mathcal{O}: \mathbf{Type} \to \mathbf{Type}$ on Python's type system.
 
-The `>>` operator implements functorial mapping, satisfying the functor laws. For any morphism $f: A \to B$, we get a lifted morphism $\mathcal{O}(f): \mathcal{O}(A) \to \mathcal{O}(B)$, ensuring that:
+Functors are transformation preservers. If you have a function $f: A \to B$ that transforms regular values, a functor lifts that transformation to work on structured values. The `>>` operator in FynX implements exactly this lifting—it takes ordinary functions and makes them work on observables. This isn't arbitrary cleverness; functors must satisfy two laws that guarantee predictable behavior:
 
 $$\mathcal{O}(\mathrm{id}) = \mathrm{id} \qquad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f$$
 
-The `|` operator constructs Cartesian products in the observable category, giving us $\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$. This isomorphism means combining observables is equivalent to observing tuples—a property that ensures composition remains well-behaved.
+The first law says that doing nothing to an observable still does nothing—identity maps to identity. The second says that composing two functions and then lifting the result is identical to lifting each function separately and composing them. These laws mean that no matter how you chain transformations with `>>`, the order of operations is preserved exactly as you'd expect from ordinary function composition.
 
-The `&` operator forms filtered subobjects through pullbacks. For a predicate $p: A \to \mathbb{B}$ (where $\mathbb{B}$ is the boolean domain), we construct a monomorphism representing the subset where $p$ holds true:
+Consider what happens when you combine observables with the `|` operator. Mathematically, you're constructing a Cartesian product in the observable category: $\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$. This isomorphism reveals something elegant—combining two separate time-varying values produces a single time-varying tuple, and these two perspectives are equivalent. The structure you get from pairing observables is the same structure you'd get from observing pairs directly. This property, called the product structure, ensures that combining observables remains symmetric and associative regardless of nesting order.
+
+Filtering introduces a different categorical construction. When you use the `&` operator with a predicate $p: A \to \mathbb{B}$, FynX constructs what's known as a pullback—a universal way of selecting subobjects. The predicate maps values to the boolean domain $\mathbb{B}$, and we're essentially pulling back along the "true" morphism:
 
 $$
 \mathcal{O}(A) \xrightarrow{\mathcal{O}(p)} \mathcal{O}(\mathbb{B}) \xrightarrow{\text{true}} \mathbb{B}
 $$
 
-This isn't merely academic terminology. These mathematical properties guarantee that reactive graphs compose predictably through universal constructions. Functoriality ensures transformations preserve structure: if $f$ and $g$ compose in the base category, their lifted versions $\mathcal{O}(f)$ and $\mathcal{O}(g)$ compose identically in the observable category. The pullback construction for filtering ensures that combining filters behaves associatively and commutatively—no matter how you nest your conditions with `&`, the semantics remain consistent.
+Pullbacks guarantee that combining filters with `&` behaves associatively and commutatively. Stack conditions in any order, nest them however you like—the semantics remain consistent because they're derived from a universal construction.
 
-Category theory provides formal proof that FynX's behavior is correct and composable. The functor laws guarantee that chaining transformations never produces unexpected behavior. The product structure ensures that combining observables remains symmetric and associative. These aren't implementation details—they're mathematical guarantees that follow from the categorical structure itself.
+The categorical perspective matters because it provides proofs, not just patterns. When you chain operations in FynX, you're not hoping the library handles edge cases correctly—the mathematics guarantees it must. Functoriality ensures that structure-preserving transformations in your domain remain structure-preserving when lifted to observables. The product and pullback constructions come with universal properties that dictate precisely how composition must behave. There are no special cases to memorize, no gotchas lurking in complex reactive graphs.
 
-**The practical benefit?** Changes flow through your reactive graph transparently because the mathematics proves they must. FynX handles all dependency tracking and propagation automatically, and the categorical foundation ensures there are no edge cases or surprising interactions. You describe what you want declaratively, and the underlying mathematics—specifically the universal properties of functors, products, and pullbacks—ensures it behaves correctly in all circumstances.
+Changes propagate through your system transparently because the underlying category theory proves they must propagate correctly. FynX tracks dependencies and manages updates automatically, but that automation isn't heuristic—it follows necessarily from the categorical structure. You write declarative code describing what relationships should hold, and the functor laws, product isomorphisms, and pullback universality ensure those relationships are maintained under all transformations.
+
+This is the power of building on mathematical foundations. The theory isn't window dressing or academic indulgence—it's the reason you can compose observables fearlessly. Category theory gives FynX its correctness guarantees, turning reactive programming from a collection of patterns into a rigorous calculus with laws you can depend on.
 
 ## Design Philosophy
 
-FynX embodies a simple principle: **mathematical rigor shouldn't compromise usability**. The library builds on category theory but exposes that power through Pythonic interfaces. Observables behave like normal values—you read and write them naturally—while reactivity happens behind the scenes. Method chaining flows intuitively: `observable(42).subscribe(print)` reads like plain English.
+FynX embraces a conviction: deep mathematics should enable simpler code, not complicate it. The library grounds itself in category theory precisely because those abstractions—functors, products, pullbacks—capture the essence of composition without the accidents of implementation. Users benefit from mathematical rigor whether they recognize the theory or not.
 
-**Composability** runs through every aspect of the design. Transform with `>>`, combine with `|`, filter with `&`. Each operation produces new observables that you can transform further. Complex reactive systems emerge from simple, reusable pieces. This compositional approach mirrors how mathematicians think about functions and morphisms, but you don't need to know category theory to benefit from its guarantees.
+The interface reflects this philosophy. Observables feel like ordinary values—read them, write them, pass them around. Reactivity works behind the scenes, tracking dependencies through the categorical structure without requiring explicit wiring. Method chaining flows naturally: `observable(42).subscribe(print)` reads as plain description, not ceremony. The `>>` operator transforms, `|` combines, `&` filters—each operation produces new observables ready for further composition. Complex reactive systems emerge from simple, reusable pieces, much as mathematicians build elaborate structures from fundamental morphisms.
 
-**Multiple APIs for multiple contexts.** FynX offers decorators for convenience, direct calls for control, and context managers for scoped reactions. The library adapts to your style rather than forcing one approach.
+FynX offers multiple APIs because different contexts call for different styles. Use decorators when conciseness matters, direct calls when you need explicit control, context managers when reactions should be scoped. The library adapts to your preferred way of working rather than enforcing a single paradigm.
 
-**Framework agnostic.** FynX works with Streamlit, FastAPI, Flask, or any Python framework. The core library has zero dependencies and integrates cleanly with existing tools. Whether you're building web applications, data pipelines, or desktop software, FynX fits naturally into your stack.
+The library remains framework agnostic by design. FynX has zero dependencies in its core and integrates cleanly with Streamlit, FastAPI, Flask, or any Python environment. Whether you're building web applications, data pipelines, or desktop software, the reactive primitives fit naturally into your existing stack without forcing architectural changes.
 
-> **Note:** FynX is currently single-threaded; async support is planned for future releases.
+One current limitation: FynX operates single-threaded. Async support is planned for future releases as the concurrency model matures.
 
 ## Test Coverage
 
