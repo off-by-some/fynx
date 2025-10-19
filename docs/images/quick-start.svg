@@ -1,21 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="180" height="100" viewBox="0 0 180 100">
   <!-- Card background -->
-  <rect width="180" height="100" rx="8" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <rect width="180" height="100" rx="8" fill="currentColor" fill-opacity="0.05" stroke="currentColor" stroke-opacity="0.2" stroke-width="1"/>
 
   <!-- Emoji -->
-  <text x="90" y="38" text-anchor="middle" font-size="26">🚀</text>
+  <text x="90" y="38" text-anchor="middle" font-size="26" fill="currentColor">🚀</text>
 
   <!-- Title -->
   <text x="90" y="60" text-anchor="middle"
         font-family="Segoe UI, Helvetica, Arial, sans-serif"
-        font-size="16" font-weight="700" fill="#1f2937">
+        font-size="16" font-weight="700" fill="currentColor">
     Quick Start
   </text>
 
   <!-- Subtitle -->
   <text x="90" y="80" text-anchor="middle"
         font-family="Segoe UI, Helvetica, Arial, sans-serif"
-        font-size="13" fill="#0969da">
+        font-size="13" fill="currentColor" fill-opacity="0.7">
     Installation &amp; Setup
   </text>
 </svg>
