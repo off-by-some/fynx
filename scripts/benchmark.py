@@ -3,8 +3,8 @@
 FynX Performance Benchmarks
 
 This script provides performance testing for the FynX reactive system.
-It includes adaptive benchmarks that automatically scale workload until time limits are exceeded,
-finding the exact performance boundaries of FynX's reactive observables.
+It includes adaptive benchmarks that automatically increase workload size until time limits are reached,
+finding the exact performance boundaries of FynX's reactive data handling.
 
 Usage:
     python benchmark.py                    # Run all benchmarks
@@ -40,7 +40,10 @@ class AdaptiveBenchmark:
         self.quiet = quiet
 
     def run_adaptive_benchmark(
-        self, operation_func: Callable[[int], Tuple[float, float]], operation_name: str
+        self,
+        operation_func: Callable[[int], Tuple[float, float]],
+        operation_name: str,
+        operations_performed: Optional[Callable[[int], int]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Run an adaptive benchmark that scales N until time T is exceeded.
@@ -48,6 +51,7 @@ class AdaptiveBenchmark:
         Args:
             operation_func: Function that takes N and returns (setup_time, operation_time)
             operation_name: Descriptive name for the operation
+            operations_performed: Function that takes N and returns actual operations performed
 
         Returns:
             dict: Results including max_N, final_time, etc., or None if failed
@@ -72,8 +76,14 @@ class AdaptiveBenchmark:
             ) or iteration < 3
             if should_report and n != last_reported_n and not self.quiet:
                 total_time = setup_time + operation_time
+                actual_ops = operations_performed(n) if operations_performed else n
+                # For benchmarks that perform few operations, show operations/second based on operation time
+                if actual_ops <= n / 1000:  # If performing << N operations
+                    perf_metric = f"{actual_ops/(operation_time):.1f} operations/second (reactive)"
+                else:
+                    perf_metric = f"{actual_ops/(total_time):.0f} operations/second"
                 print(
-                    f"N={n:6d} | Total: {total_time:.4f}s | {n/(total_time):.0f} ops/sec"
+                    f"Workload size: {n:6d} | Time: {total_time:.4f}s | {perf_metric}"
                 )
                 last_reported_n = n
                 significant_steps.append((n, total_time))
@@ -100,16 +110,23 @@ class AdaptiveBenchmark:
         # Final benchmark with the maximum N that was within time limits
         if n > STARTING_N:
             setup_time, operation_time = operation_func(n)
+            actual_ops = operations_performed(n) if operations_performed else n
+            # For reactive benchmarks (few operations), use operation_time for ops/sec
+            if actual_ops <= n / 1000:
+                ops_per_sec = actual_ops / operation_time
+            else:
+                ops_per_sec = actual_ops / (setup_time + operation_time)
+
             result = {
                 "max_n": n,
                 "setup_time": setup_time,
                 "operation_time": operation_time,
                 "total_time": setup_time + operation_time,
-                "operations_per_second": n / (setup_time + operation_time),
+                "operations_per_second": ops_per_sec,
             }
             if not self.quiet:
                 print(
-                    f"✓ Maximum sustainable N: {n} ({result['operations_per_second']:.0f} ops/sec)"
+                    f"Maximum sustainable workload: {n} ({result['operations_per_second']:.0f} operations/second)"
                 )
             return result
         else:
@@ -121,6 +138,39 @@ class AdaptiveBenchmark:
 class FynxBenchmarks:
     """Main benchmark suite for FynX performance testing."""
 
+    # Docstrings containing code patterns with markdown formatting
+    CREATE_PATTERN_DOCSTRING = """
+```python
+observables = [observable(i) for i in range(N)]
+```
+Creates N independent reactive data items
+"""
+
+    UPDATE_PATTERN_DOCSTRING = """
+```python
+obs.set(new_value)  # for each of N observables
+```
+Updates N separate reactive data items
+"""
+
+    CHAIN_PATTERN_DOCSTRING = """
+```python
+base = observable(1)
+current = base
+for i in range(N):
+    current = computed(lambda x: x + i, current)
+```
+Creates a chain of N computed values, each depending on the previous
+"""
+
+    FANOUT_PATTERN_DOCSTRING = """
+```python
+base = observable(42)
+dependents = [computed(lambda x: x + i, base) for i in range(N)]
+```
+Creates N computed values all depending on one base observable
+"""
+
     def __init__(self, quiet: bool = False):
         self.quiet = quiet
         self.adaptive_benchmark = AdaptiveBenchmark(quiet=quiet)
@@ -128,7 +178,7 @@ class FynxBenchmarks:
     def run_all_benchmarks(self) -> None:
         """Run the complete benchmark suite."""
         if not self.quiet:
-            print("🚀 FynX Performance Benchmark Suite")
+            print("FynX Performance Benchmark Suite")
             print("=" * 50)
 
         # Quick performance summary
@@ -138,22 +188,28 @@ class FynxBenchmarks:
         self.run_adaptive_benchmarks()
 
         if not self.quiet:
-            print("\n🏁 Benchmark suite completed!")
+            print("\nBenchmark suite completed successfully!")
 
     def run_performance_summary(self) -> None:
         """Run a quick summary of key performance metrics."""
         if not self.quiet:
             print("\n=== PERFORMANCE SUMMARY ===")
+            print("Testing basic FynX operations with fixed workload sizes:")
+            print("- Create 100 data items")
+            print("- Update 100 data items")
+            print("- Process 50-step dependency chain")
+            print("- Update 50 dependent data items")
+            print()
 
         scenarios = [
             (
-                "100 Observables",
+                "Create 100 data items",
                 lambda: self._time_operation(
                     lambda: [observable(i) for i in range(100)]
                 ),
             ),
             (
-                "100 Updates",
+                "Update 100 data items",
                 lambda: self._time_operation(
                     lambda: [
                         obs.set(i * 2)
@@ -162,11 +218,11 @@ class FynxBenchmarks:
                 ),
             ),
             (
-                "Chain of 50",
+                "Process 50-step dependency chain",
                 lambda: self._time_operation(lambda: self._create_chain(50)),
             ),
             (
-                "Fan-out 50",
+                "Update 50 dependent data items",
                 lambda: self._time_operation(lambda: self._create_fan_out(50)),
             ),
         ]
@@ -181,45 +237,84 @@ class FynxBenchmarks:
         if not self.quiet:
             print("\n=== ADAPTIVE SCALING BENCHMARKS ===")
             print(
-                "These tests automatically scale workload N until time limit T is exceeded."
+                "These tests automatically increase the workload until the time limit is reached."
             )
+            print("The workload size (N) represents different things in each test:")
+            print(
+                "- Creation/Update tests: N = number of data items to create or update"
+            )
+            print("- Chain test: N = length of the dependency chain to process")
+            print("- Fan-out test: N = number of dependent items to update")
+            print()
 
         results = []
 
         # Observable creation scaling
+        if not self.quiet:
+            print("Testing pattern:")
+            print(self.CREATE_PATTERN_DOCSTRING.strip())
+            print()
         result = self.adaptive_benchmark.run_adaptive_benchmark(
-            self._create_n_observables, "Observable Creation"
+            self._create_n_observables,
+            "Create & Verify N Data Items",
+            operations_performed=lambda n: n,
         )
         if result:
-            results.append(("Observable Creation", result))
+            results.append(("Create & Verify Data Items", result))
 
         # Observable updates scaling
+        if not self.quiet:
+            print("Testing pattern:")
+            print(self.UPDATE_PATTERN_DOCSTRING.strip())
+            print()
         result = self.adaptive_benchmark.run_adaptive_benchmark(
-            self._update_n_observables, "Observable Updates"
+            self._update_n_observables,
+            "Update N Individual Data Items",
+            operations_performed=lambda n: n,
         )
         if result:
-            results.append(("Observable Updates", result))
+            results.append(("Update Individual Data Items", result))
 
         # Computed chain scaling
+        if not self.quiet:
+            print("Testing pattern:")
+            print(self.CHAIN_PATTERN_DOCSTRING.strip())
+            print()
         result = self.adaptive_benchmark.run_adaptive_benchmark(
-            self._create_chain_of_length, "Computed Chain"
+            self._create_chain_of_length,
+            "Process N-Step Dependency Chain",
+            operations_performed=lambda n: 1,
         )
         if result:
-            results.append(("Computed Chain", result))
+            results.append(("Process Dependency Chain", result))
 
         # Fan-out scaling
+        if not self.quiet:
+            print("Testing pattern:")
+            print(self.FANOUT_PATTERN_DOCSTRING.strip())
+            print()
         result = self.adaptive_benchmark.run_adaptive_benchmark(
-            self._create_fan_out, "Fan-out Dependencies"
+            self._create_fan_out,
+            "Update N Dependent Data Items",
+            operations_performed=lambda n: 1,
         )
         if result:
-            results.append(("Fan-out Dependencies", result))
+            results.append(("Update Dependent Data Items", result))
 
         # Print summary
         if results:
             if not self.quiet:
                 print("\n=== BENCHMARK RESULTS SUMMARY ===")
+                print("Maximum sustainable workload size with operations per second:")
+                print(
+                    "- Creation/Update tests: operations completed per second (higher numbers = faster)"
+                )
+                print("- Reactive tests: data updates processed per second")
+                print()
             for name, result in results:
-                print(f"{name:<25} {result['operations_per_second']:>8.0f} ops/sec")
+                print(
+                    f"{name:<30} {result['operations_per_second']:>8.0f} operations/second"
+                )
 
     # Benchmark operation functions
 
@@ -238,26 +333,27 @@ class FynxBenchmarks:
         return setup_time, operation_time
 
     def _update_n_observables(self, n: int) -> Tuple[float, float]:
-        """Update n pre-created observables."""
-        # Pre-create observables for update testing
-        if not hasattr(self, "_pre_created_obs"):
-            self._pre_created_obs = [observable(0) for _ in range(10000)]
+        """Update n observables and measure update performance."""
+        # Create n observables for this test
+        start_time = time.time()
+        observables = [observable(0) for _ in range(n)]
+        setup_time = time.time() - start_time
 
-        setup_time = 0  # Already created
-
+        # Perform n updates (one per observable)
         operation_start = time.time()
-        for i in range(min(n, len(self._pre_created_obs))):
-            self._pre_created_obs[i].set(i * 2)
+        for i, obs in enumerate(observables):
+            obs.set(i * 2)
         operation_time = time.time() - operation_start
 
-        # Verify
-        for i in range(min(n, len(self._pre_created_obs))):
-            assert self._pre_created_obs[i].value == i * 2
+        # Verify all updates worked
+        for i, obs in enumerate(observables):
+            assert obs.value == i * 2
 
         return setup_time, operation_time
 
     def _create_chain_of_length(self, n: int) -> Tuple[float, float]:
-        """Create a computed observable chain of length n."""
+        """Test propagation speed through a chain of n computed observables."""
+        # Create chain of n computed observables
         start_time = time.time()
         base = observable(1)
         current = base
@@ -267,19 +363,20 @@ class FynxBenchmarks:
 
         setup_time = time.time() - start_time
 
-        # Test update propagation
+        # Measure propagation time (one update through the entire chain)
         operation_start = time.time()
         base.set(2)
         operation_time = time.time() - operation_start
 
-        # Verify: final value should be 2 + sum(range(n))
+        # Verify propagation worked: final value should be 2 + sum(range(n))
         expected = 2 + sum(range(n))
         assert current.value == expected
 
         return setup_time, operation_time
 
     def _create_fan_out(self, n: int) -> Tuple[float, float]:
-        """Create n computed observables depending on a single base."""
+        """Test update speed for n computed observables depending on one base."""
+        # Create n computed observables all depending on the same base
         start_time = time.time()
         base = observable(42)
         dependents = []
@@ -290,12 +387,12 @@ class FynxBenchmarks:
 
         setup_time = time.time() - start_time
 
-        # Test update propagation to all dependents
+        # Measure update time (one base change updates all n dependents)
         operation_start = time.time()
         base.set(100)
         operation_time = time.time() - operation_start
 
-        # Verify all dependents updated
+        # Verify all n dependents were updated correctly
         for i, dep in enumerate(dependents):
             assert dep.value == 100 + i
 
