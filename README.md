@@ -393,9 +393,9 @@ FynX Benchmark Configuration:
   STARTING_N: 10
   SCALE_FACTOR: 1.5
 
-╭─────────────────────────────────── 🎯 FynX Benchmarks ──────────────────────────────────────────────╮
-│                             FynX Performance Benchmark Suite                                        │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭───────────────────────── 🎯 FynX Benchmarks ────────────────────────────────────╮
+│                    FynX Performance Benchmark Suite                            │
+╰─────────────────────────────────────────────────────────────────────────────────╯
 
 Running Observable Creation benchmark...
 ✓ Observable Creation: 793,506 ops/sec (810325 items)
@@ -406,13 +406,13 @@ Running Chain Propagation benchmark...
 Running Reactive Fan-out benchmark...
 ✓ Reactive Fan-out: 47,115 ops/sec (47427 items)
 
-╭────────────────────────── 🎯 Real-World Performance Translation ────────────────────────────────────╮
-│ ✓ Can handle ~47,427 UI components reacting to single state change                                  │
-│ ✓ Supports component trees up to 2,776 levels deep                                                  │
-│ ✓ Processes 353K+ state updates per second                                                          │
-│ ✓ Creates 794K+ observable objects per second                                                       │
-│ ✓ Average propagation latency: 609μs per dependency link                                            │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────── 🎯 Real-World Performance Translation ───────────────────╮
+│ ✓ Can handle ~47,427 UI components reacting to single state change              │
+│ ✓ Supports component trees up to 2,776 levels deep                              │
+│ ✓ Processes 353K+ state updates per second                                      │
+│ ✓ Creates 794K+ observable objects per second                                   │
+│ ✓ Average propagation latency: 609μs per dependency link                        │
+╰──────────────────────────────────────────────────────────────────────────────── ╯
 ```
 
 The library processes over **353,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.

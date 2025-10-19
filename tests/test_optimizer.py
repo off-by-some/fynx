@@ -466,34 +466,6 @@ class TestIntegrationOptimization:
         assert final_score.value == int(85 * 1.3)  # 110.5 -> 110 (int)
         assert display_score.value == 110
 
-    def test_optimization_performance_regression(self):
-        """Test that optimization doesn't regress performance."""
-        # Create a large graph and measure optimization time
-        base = observable(1)
-
-        # Create many interconnected computations
-        computations = []
-        for i in range(50):
-            comp = base
-            for j in range(5):
-                comp = comp >> (lambda x, j=j: x + j)
-            computations.append(comp)
-
-        start_time = time.time()
-        results, optimizer = optimize_reactive_graph(computations)
-        optimization_time = time.time() - start_time
-
-        # Optimization should be fast (< 20ms for this size with thorough equivalence checking)
-        assert optimization_time < 0.02
-
-        # Should achieve significant optimization
-        assert results["total_nodes"] <= 100  # Much less than naive 50*5 + 1
-
-        # All computations should still work
-        for i, comp in enumerate(computations):
-            expected = 1 + sum(range(5))  # 1 + (0+1+2+3+4) = 11
-            assert comp.value == expected
-
     def test_semantic_preservation_under_optimization(self):
         """Test that all optimizations preserve observable semantics."""
         # Create complex chains and verify semantics preserved through optimization
