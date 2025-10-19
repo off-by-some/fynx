@@ -144,7 +144,6 @@ See Also
 """
 
 from typing import (
-    TYPE_CHECKING,
     Any,
     Generic,
     Optional,
@@ -152,13 +151,16 @@ from typing import (
     TypeVar,
 )
 
-if TYPE_CHECKING:
-    from .base import Observable
+from .base import Observable as ObservableImpl
+from .conditional import ConditionalObservable
+from .interfaces import Conditional, Mergeable, Observable
+from .merged import MergedObservable
+from .operators import ValueMixin
 
 T = TypeVar("T")
 
 
-class ObservableValue(Generic[T]):
+class ObservableValue(Generic[T], ValueMixin):
     """
     A transparent wrapper that combines direct value access with observable capabilities.
 
@@ -222,48 +224,6 @@ class ObservableValue(Generic[T]):
 
         observable.subscribe(update_value)
 
-    def __eq__(self, other) -> bool:
-        return self._current_value == other
-
-    def __str__(self) -> str:
-        return str(self._current_value)
-
-    def __repr__(self) -> str:
-        return repr(self._current_value)
-
-    def __len__(self) -> int:
-        if self._current_value is None:
-            return 0
-        if hasattr(self._current_value, "__len__"):
-            return len(self._current_value)
-        return 0
-
-    def __iter__(self):
-        if self._current_value is None:
-            return iter([])
-        if hasattr(self._current_value, "__iter__"):
-            return iter(self._current_value)
-        return iter([self._current_value])
-
-    def __getitem__(self, key):
-        if self._current_value is None:
-            raise IndexError("observable value is None")
-        if hasattr(self._current_value, "__getitem__"):
-            return self._current_value[key]
-        raise TypeError(
-            f"'{type(self._current_value).__name__}' object is not subscriptable"
-        )
-
-    def __contains__(self, item) -> bool:
-        if self._current_value is None:
-            return False
-        if hasattr(self._current_value, "__contains__"):
-            return item in self._current_value
-        return False
-
-    def __bool__(self) -> bool:
-        return bool(self._current_value)
-
     # Observable methods
     @property
     def value(self) -> Optional[T]:
@@ -275,30 +235,6 @@ class ObservableValue(Generic[T]):
 
     def subscribe(self, func) -> "Observable[T]":
         return self._observable.subscribe(func)
-
-    def __or__(self, other):
-        """Support merging observables with | operator."""
-        from .merged import MergedObservable
-
-        if hasattr(other, "observable"):
-            return MergedObservable(self._observable, other.observable)
-        return MergedObservable(self._observable, other)
-
-    def __and__(self, condition):
-        """Support conditional observables with & operator."""
-        from .conditional import ConditionalObservable
-
-        if hasattr(condition, "observable"):
-            return ConditionalObservable(self._observable, condition.observable)
-        return ConditionalObservable(self._observable, condition)
-
-    def __invert__(self):
-        """Support negating conditions with ~ operator."""
-        return self._observable.__invert__()
-
-    def __rshift__(self, func):
-        """Support computed observables with >> operator."""
-        return self._observable >> func
 
     @property
     def observable(self) -> "Observable[T]":
@@ -384,22 +320,20 @@ class SubscriptableDescriptor(Generic[T]):
 
     def __get__(self, instance: Optional[object], owner: Optional[Type]) -> Any:
         """Get the observable value for this attribute."""
-        # Use the stored owner class if available, otherwise use the passed owner
-        target_class = self._owner_class or owner
+        # Always use the class being accessed (owner) as the target
+        # This ensures each class gets its own observable instance
+        target_class = owner
         if target_class is None:
             raise AttributeError("Descriptor not properly initialized")
 
         # Create class-level observable if it doesn't exist
         obs_key = f"_{self.attr_name}_observable"
-        if not hasattr(target_class, obs_key):
+        if obs_key not in target_class.__dict__:
             # Use the original observable if provided, otherwise create a new one
             if self._original_observable is not None:
                 obs = self._original_observable
             else:
-                # Import here to avoid circular import
-                from .base import Observable
-
-                obs = Observable(self.attr_name or "unknown", self._initial_value)
+                obs = ObservableImpl(self.attr_name or "unknown", self._initial_value)
             setattr(target_class, obs_key, obs)
 
         retrieved_obs = getattr(target_class, obs_key)
@@ -407,7 +341,8 @@ class SubscriptableDescriptor(Generic[T]):
 
     def __set__(self, instance: Optional[object], value: Optional[T]) -> None:
         """Set the value on the observable."""
-        # For both class and instance access, we need the class
+        # Use the owner class (set in __set_name__) as the target
+        # each descriptor's _owner_class will be the class that owns it
         target_class = self._owner_class
         if target_class is None:
             if instance is not None:

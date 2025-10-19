@@ -27,15 +27,17 @@ print(dimensions.value)  # (15, 20)
 ```
 """
 
-from typing import Callable, TypeVar
+from typing import Callable, Iterable, TypeVar
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
 from .base import Observable, ReactiveContext
+from .interfaces import Mergeable
+from .operators import OperatorMixin, TupleMixin
 
 T = TypeVar("T")
 
 
-class MergedObservable(Observable[T]):
+class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
     """
     An observable that combines multiple observables into a single reactive tuple.
 
@@ -85,7 +87,7 @@ class MergedObservable(Observable[T]):
         computed: For creating derived values from merged observables
     """
 
-    def __init__(self, *observables: Observable) -> None:
+    def __init__(self, *observables: "Observable") -> None:
         """
         Create a merged observable from multiple source observables.
 
@@ -228,7 +230,7 @@ class MergedObservable(Observable[T]):
         """
         pass
 
-    def __or__(self, other: Observable) -> "MergedObservable":
+    def __or__(self, other: "Observable") -> "MergedObservable":
         """
         Chain merging with another observable using the | operator.
 
@@ -242,120 +244,8 @@ class MergedObservable(Observable[T]):
         Returns:
             A new MergedObservable containing all source observables from this
             merged observable plus the additional observable.
-
-        Examples:
-            ```python
-            # Chain multiple merges
-            a = Observable("a", 1)
-            b = Observable("b", 2)
-            c = Observable("c", 3)
-
-            # Method 1: Merge all at once
-            merged1 = MergedObservable(a, b, c)
-
-            # Method 2: Chain merges
-            merged2 = a | b | c  # Same result as merged1
-
-            print(merged2.value)  # (1, 2, 3)
-            ```
         """
-        return MergedObservable(*self._source_observables, other)
-
-    def __iter__(self):
-        """
-        Allow iteration over the tuple value.
-
-        Enables unpacking and iteration over merged observable values.
-
-        Yields:
-            Individual values from the merged tuple.
-
-        Examples:
-            ```python
-            coords = x | y | z
-            # Unpack values
-            x_val, y_val, z_val = coords
-
-            # Iterate over values
-            for value in coords:
-                print(value)
-            ```
-        """
-        return iter(self._value)
-
-    def __len__(self) -> int:
-        """
-        Return the number of combined observables.
-
-        Returns:
-            The number of source observables that were merged.
-
-        Example:
-            ```python
-            single = Observable("a", 1)
-            pair = single | Observable("b", 2)
-            triple = pair | Observable("c", 3)
-
-            print(len(single))   # TypeError (single observable)
-            print(len(pair))     # 2
-            print(len(triple))   # 3
-            ```
-        """
-        return len(self._source_observables)
-
-    def __getitem__(self, index: int) -> T:
-        """
-        Allow indexing into the merged observable like a tuple.
-
-        Provides tuple-like access to individual values in the merged observable.
-
-        Args:
-            index: Zero-based index of the value to retrieve
-
-        Returns:
-            The value at the specified index
-
-        Raises:
-            IndexError: If the index is out of range or the observable has no value
-
-        Examples:
-            ```python
-            point = x | y | z
-            print(point[0])  # x value
-            print(point[1])  # y value
-            print(point[-1]) # z value
-            ```
-        """
-        if self._value is None:
-            raise IndexError("MergedObservable has no value")
-        return self._value[index]  # type: ignore
-
-    def __setitem__(self, index: int, value: T) -> None:
-        """
-        Allow setting values by index, updating the corresponding source observable.
-
-        Provides a convenient way to update individual source observables through
-        the merged interface.
-
-        Args:
-            index: Zero-based index of the source observable to update
-            value: New value for the source observable at that index
-
-        Raises:
-            IndexError: If the index is out of range
-
-        Examples:
-            ```python
-            point = x | y | z
-            point[0] = 10  # Updates x
-            point[1] = 20  # Updates y
-            print(point.value)  # (10, 20, z.value)
-            ```
-        """
-        if 0 <= index < len(self._source_observables):
-            self._source_observables[index].set(value)
-        else:
-            raise IndexError("Index out of range")
+        return MergedObservable(*self._source_observables, other)  # type: ignore
 
     def subscribe(self, func: Callable) -> "MergedObservable[T]":
         """

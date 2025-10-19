@@ -530,6 +530,47 @@ class IsLoadingStore(Store):
 is_loading = observable(False)
 ```
 
+## Store Inheritance: Clean State Isolation
+
+Store classes support inheritance, but with important nuances for state management:
+
+```python
+class BaseStore(Store):
+    count = observable(0)
+    name = observable("Base")
+
+class ChildStore(BaseStore):
+    pass  # Inherits count and name observables
+
+# Each class gets completely independent state
+BaseStore.count = 5
+ChildStore.count = 10
+
+print(BaseStore.count)   # 5
+print(ChildStore.count)  # 10 (completely separate)
+```
+
+**Key Behavior:** Unlike standard Python inheritance where child classes share parent attributes, Store inheritance creates separate observable instances for each class. This ensures clean state isolation:
+
+- `BaseStore.count` and `ChildStore.count` are completely independent
+- Changes to one don't affect the other
+- Each class maintains its own reactive state
+
+**Explicit Overrides:** You can still override inherited observables:
+
+```python
+class CustomStore(BaseStore):
+    count = observable(100)  # Completely replaces parent's count
+    name = observable("Custom")  # Completely replaces parent's name
+
+print(CustomStore.count)  # 100 (not 0)
+print(BaseStore.count)    # 5 (unchanged)
+```
+
+Store inheritance prioritizes predictability and state isolation. Since Stores are typically global singletons, shared state through inheritance could lead to unexpected coupling. Each Store class gets its own clean state namespace.
+
+**Best Practice:** Use inheritance for shared behavior (methods, computed properties), but define separate observables for each Store class that needs independent state.
+
 ## Best Practices
 
 **1. Keep Stores focused on a single domain**

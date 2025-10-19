@@ -2,9 +2,10 @@
 FynX ConditionalObservable - Conditional Reactive Computations
 =============================================================
 
-This module provides the ConditionalObservable class, which enables filtering
-reactive streams based on boolean conditions. Conditional observables only emit
-values from a source observable when all specified conditions are satisfied.
+This module provides the ConditionalObservable class, a specialized computed observable
+that enables filtering reactive streams based on boolean conditions. Conditional
+observables only emit values from a source observable when all specified conditions
+are satisfied, making them read-only computed observables.
 
 When to Use Conditional Observables
 -----------------------------------
@@ -109,25 +110,29 @@ See Also
 
 from typing import TypeVar
 
-from .base import Observable
+from .computed import ComputedObservable
+from .interfaces import Conditional, Observable
+from .operators import OperatorMixin
 
 T = TypeVar("T")
 
 
-class ConditionalObservable(Observable[T]):
+class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin):
     """
-    An observable that filters values from a source observable based on boolean conditions.
+    A computed observable that filters values from a source observable based on boolean conditions.
 
-    ConditionalObservable creates a reactive stream that only emits values when ALL
-    specified conditions are True. This enables precise control over when reactive
-    updates occur, preventing unnecessary computations and side effects.
+    ConditionalObservable is a specialized computed observable that creates a reactive stream
+    that only emits values when ALL specified conditions are True. This enables precise
+    control over when reactive updates occur, preventing unnecessary computations and side effects.
 
-    The conditional observable maintains an internal cache of the current condition
-    state and only notifies subscribers when conditions transition from unmet to met,
-    or when the source value changes while conditions remain met.
+    As a computed observable, ConditionalObservable is read-only and derives its value from
+    a source observable and boolean condition observables. It maintains an internal cache
+    of the current condition state and only notifies subscribers when conditions transition
+    from unmet to met, or when the source value changes while conditions remain met.
 
     Key Features:
     - **Condition Filtering**: Only emits when all conditions are satisfied
+    - **Read-only**: Cannot be set directly (inherits from ComputedObservable)
     - **State Transitions**: Triggers on condition state changes
     - **Composable**: Can chain multiple conditions with additional `&` operators
     - **Memory Efficient**: Internal caching prevents redundant evaluations
@@ -166,13 +171,16 @@ class ConditionalObservable(Observable[T]):
         all conditions become True.
 
     See Also:
+        ComputedObservable: Parent class providing read-only behavior
         Observable: Base observable class
         MergedObservable: For combining multiple observables
         fynx.watch: For conditional reactive functions
     """
 
     def __init__(
-        self, source_observable: Observable[T], *condition_observables: Observable[bool]
+        self,
+        source_observable: "Observable[T]",
+        *condition_observables: "Observable[bool]"
     ) -> None:
         """
         Create a conditional observable that filters values based on boolean conditions.
@@ -221,7 +229,7 @@ class ConditionalObservable(Observable[T]):
             # If conditions are currently met, emit the new source value
             if self._conditions_met:
                 new_value = self._source_observable.value
-                self.set(new_value)
+                self._set_computed_value(new_value)
 
         def update_from_conditions():
             """Called when condition observables change."""
@@ -234,59 +242,12 @@ class ConditionalObservable(Observable[T]):
             # If conditions just became met, emit current source value
             if self._conditions_met and not old_conditions_met:
                 current_value = self._source_observable.value
-                self.set(current_value)
-            # If conditions became unmet, update internal state but don't notify
+                self._set_computed_value(current_value)
+            # If conditions became unmet, emit None to notify observers
             elif not self._conditions_met and old_conditions_met:
-                self._value = None  # Update internal value without notifying
+                self._set_computed_value(None)
 
         # Subscribe to all observables
         source_observable.add_observer(update_from_source)
         for cond_obs in condition_observables:
             cond_obs.add_observer(update_from_conditions)
-
-    def __and__(self, condition: Observable[bool]) -> "ConditionalObservable[T]":
-        """
-        Chain an additional condition using the `&` operator.
-
-        This method enables fluent composition of multiple conditions. The resulting
-        conditional observable will only emit values when ALL conditions (including
-        the new one) are True.
-
-        Args:
-            condition: An additional boolean observable condition that must also be
-                      True for values to be emitted. This condition is combined with
-                      all existing conditions using logical AND.
-
-        Returns:
-            A new ConditionalObservable instance with the additional condition.
-            The original conditional observable remains unchanged.
-
-        Example:
-            ```python
-            from fynx.observable import Observable
-
-            temperature = Observable("temp", 20)
-            is_heating_on = Observable("heating", False)
-            is_user_present = Observable("present", True)
-
-            # Chain conditions fluently
-            smart_heating = temperature & is_heating_on & is_user_present
-
-            # This is equivalent to:
-            # smart_heating = ConditionalObservable(temperature, is_heating_on, is_user_present)
-
-            smart_heating.subscribe(lambda t: print(f"Smart heating: {t}°C"))
-
-            # Only triggers when ALL conditions are met
-            is_heating_on.set(True)  # Now triggers: "Smart heating: 20°C"
-            temperature.set(22)      # Triggers: "Smart heating: 22°C"
-            is_user_present.set(False)  # Stops triggering
-            ```
-
-        Note:
-            This method returns a new ConditionalObservable rather than modifying
-            the existing one, enabling immutable composition of conditions.
-        """
-        return ConditionalObservable(
-            self._source_observable, *self._condition_observables, condition
-        )

@@ -565,8 +565,10 @@ def test_watch_initial_execution():
 
 
 def test_watch_error_handling():
-    """Test that watch handles errors in condition evaluation gracefully."""
+    """Test that watch does not catch exceptions in condition evaluation."""
     import sys
+
+    import pytest
 
     from fynx import watch
 
@@ -574,32 +576,12 @@ def test_watch_error_handling():
     value = observable(5)
     error_obs = observable(None)
 
-    # Track callback calls and errors
-    callback_calls = []
-    captured_errors = []
-
-    # Mock stdout to capture print statements
-    import io
-    from contextlib import redirect_stdout
-
-    stdout_capture = io.StringIO()
-
-    with redirect_stdout(stdout_capture):
+    # Condition functions that raise exceptions should cause watch setup to fail
+    with pytest.raises(AttributeError, match="nonexistent_attribute"):
 
         @watch(lambda: value.value > 3, lambda: error_obs.value.nonexistent_attribute)
         def error_callback():
-            callback_calls.append(f"Value: {value.value}")
-
-    # Check that warning was printed about condition evaluation failure
-    output = stdout_capture.getvalue()
-    assert "condition evaluation failed during discovery" in output
-
-    # Should not execute initially since one condition throws an exception
-    assert len(callback_calls) == 0  # No initial execution due to error condition
-
-    # Change value - should still not trigger since error condition fails
-    value.set(7)
-    assert len(callback_calls) == 0  # Still no calls due to error condition
+            pass
 
 
 def test_placeholder():

@@ -29,6 +29,52 @@ Key Characteristics
 - **Automatic Discovery**: Framework finds observables accessed in condition functions
 - **Multiple Conditions**: Supports AND logic across multiple conditions
 - **Error Resilience**: Gracefully handles condition evaluation failures
+- **Flexible Conditions**: Supports both lambda functions and ConditionalObservables
+
+Condition Types
+---------------
+
+**Lambda Conditions** (Most flexible - any Python expression):
+```python
+# Complex boolean logic with OR, AND, calculations
+@watch(lambda: temperature.value > 30 or (humidity.value > 80 and ac_enabled.value))
+def activate_cooling():
+    pass
+
+# Mathematical conditions
+@watch(lambda: cart.total.value > 100 and cart.items.value and user.is_premium.value)
+def apply_discount():
+    pass
+```
+
+**ConditionalObservable Conditions** (AND-only boolean logic):
+```python
+# Simple AND combinations
+@watch(user_logged_in & data_loaded & notifications_enabled)
+def show_dashboard():
+    pass
+
+# Can be complex with chained conditions
+@watch(user_logged_in & data_loaded & notifications_enabled & cart_has_items)
+def enable_checkout():
+    pass
+
+# Can mix with computed values
+@watch(user_logged_in & (cart_total >> lambda x: x > 50))
+def show_free_shipping():
+    pass
+```
+
+**Mixed Conditions** (Combine both approaches):
+```python
+@watch(
+    user_logged_in & data_loaded,                    # AND conditions with &
+    lambda: temperature.value > 30 or humidity.value > 80,  # OR logic with lambda
+    lambda: cart.total.value > 100                   # Complex calculations
+)
+def complex_action():
+    pass
+```
 
 Basic Usage
 -----------
@@ -216,6 +262,21 @@ Performance Considerations
 Best Practices
 --------------
 
+### Choose the Right Condition Type
+
+Use **lambda conditions** when you need:
+- OR logic: `lambda: temp > 30 or humidity > 80`
+- Complex calculations: `lambda: cart.total * 0.9 > 100`
+- Function calls: `lambda: user.is_eligible() and data.is_valid()`
+- Multi-variable expressions: `lambda: (width * height) > min_area`
+
+Use **ConditionalObservables** (`&` operator) when you need:
+- Simple AND combinations: `user_logged_in & data_loaded & notifications_enabled`
+- Chain many conditions: `a & b & c & d & e & f`
+- Mix with computed values: `logged_in & (age >> lambda x: x >= 18)`
+
+Both approaches work - choose based on readability and your specific needs.
+
 ### Keep Conditions Simple
 
 Break complex conditions into simpler, more focused ones:
@@ -361,6 +422,7 @@ See Also
 from typing import Callable
 
 from .observable import Observable
+from .observable.interfaces import Conditional
 
 
 def watch(*conditions) -> Callable:
@@ -371,17 +433,25 @@ def watch(*conditions) -> Callable:
     specified conditions become true, after previously being false. This enables
     guarded reactions that wait for specific state combinations before triggering.
 
-    The decorator automatically discovers which observables are accessed within the
-    condition functions and sets up the appropriate subscriptions. When any of these
-    observables change, the conditions are re-evaluated, and the decorated function
-    runs only if this represents a transition from "not all conditions met" to
-    "all conditions met".
-
     Args:
-        *conditions: Variable number of condition functions. Each condition should be
-                    a callable that returns a boolean value. Condition functions can
-                    access observable values via `.value` attribute. All conditions
-                    must return `True` for the decorated function to execute.
+        *conditions: Variable number of conditions. Each condition can be:
+                    - A callable function that returns a boolean (lambda conditions)
+                    - A ConditionalObservable created with the & operator
+
+    **Types of Conditions:**
+
+    **Lambda Conditions** (Most flexible):
+    - Any Python expression: OR logic, complex calculations, function calls
+    - Framework automatically discovers observables accessed in the lambda
+    - Example: `lambda: temp > 30 or (humidity > 80 and ac_on)`
+
+    **ConditionalObservable Conditions** (AND-only):
+    - Boolean observables combined with `&` operator (AND logic only)
+    - Can be chained: `a & b & c & d`
+    - Can include computed values: `a & (total >> lambda x: x > 100)`
+    - Example: `user_logged_in & data_loaded & (age >> lambda x: x >= 18)`
+
+    Both types can be mixed freely in the same `@watch` decorator.
 
     Returns:
         A decorator function that can be applied to reactive functions.
@@ -390,48 +460,35 @@ def watch(*conditions) -> Callable:
     ```python
     from fynx import observable, watch
 
-        # Basic conditional reaction
-        user_logged_in = observable(False)
-        data_loaded = observable(False)
-
-        @watch(
-            lambda: user_logged_in.value,
-            lambda: data_loaded.value
-        )
-        def show_dashboard():
-            print("Welcome to your dashboard!")
-
-        # Only shows when both conditions are true
-        user_logged_in.set(True)  # Not yet (data not loaded)
-        data_loaded.set(True)     # Now shows dashboard!
-
-        # State-based reactions
-        app_state = observable("loading")
-        error_count = observable(0)
-
-        @watch(
-            lambda: app_state.value == "error",
-            lambda: error_count.value >= 3
-        )
-        def show_error_recovery():
-            print("Too many errors - showing recovery options")
-
-        # Advanced conditions with computations
+        # Lambda conditions for complex boolean logic
         temperature = observable(20)
         humidity = observable(50)
 
-        @watch(
-            lambda: temperature.value > 30,
-            lambda: humidity.value < 30
-        )
+        @watch(lambda: temperature.value > 25 and humidity.value < 60)
         def activate_cooling():
-            print("Hot and dry - activating cooling system!")
+            print("Cooling activated!")
 
-        # Conditions can be complex expressions
+        # ConditionalObservable with & operator for simple AND
+        user_logged_in = observable(False)
+        data_loaded = observable(False)
+
+        @watch(user_logged_in & data_loaded)
+        def show_dashboard():
+            print("Welcome to your dashboard!")
+
+        # Mixed conditions: ConditionalObservables + lambdas
+        @watch(
+            user_logged_in & data_loaded,     # Simple AND condition
+            lambda: temperature.value < 30    # Complex condition
+        )
+        def complex_action():
+            print("Complex action triggered!")
+
+        # Complex expressions still use lambdas
         @watch(lambda: temperature.value < 0 or temperature.value > 40)
         def extreme_temperature_alert():
             print("Extreme temperature detected!")
-        ```
+    ```
 
     Note:
         - Condition functions should be pure and relatively fast
@@ -446,7 +503,17 @@ def watch(*conditions) -> Callable:
     """
 
     def decorator(func):
-        # Track which observables are accessed during condition evaluation
+        # Separate conditions into: callables (lambdas) and ConditionalObservables
+        callable_conditions = []
+        conditional_observables = []
+
+        for condition in conditions:
+            if isinstance(condition, Conditional):
+                conditional_observables.append(condition)
+            else:
+                callable_conditions.append(condition)
+
+        # Track which observables are accessed during callable condition evaluation
         accessed_observables = set()
 
         class TrackingContext:
@@ -468,45 +535,67 @@ def watch(*conditions) -> Callable:
                 """Track that this observable was accessed."""
                 self._accessed.add(observable)
 
-        def evaluate_conditions():
-            """Evaluate all conditions and return True if all pass."""
-            try:
-                return all(condition() for condition in conditions)
-            except Exception:
-                # If condition evaluation fails at runtime, treat as False
-                return False
-
+        # Track previous state for transition detection
         previous_conditions_met = False
 
-        def wrapped_reaction():
-            """Check conditions and call func if all are met and this is a transition."""
+        def evaluate_callable_conditions():
+            """Evaluate callable conditions and return True if all pass."""
+            if not callable_conditions:
+                return True  # No callable conditions means this part is satisfied
+            return all(condition() for condition in callable_conditions)
+
+        def check_all_conditions_and_trigger():
+            """Check if all conditions are met and trigger if this is a transition."""
             nonlocal previous_conditions_met
-            current_conditions_met = evaluate_conditions()
+
+            # All ConditionalObservables must have truthy values (conditions met)
+            conditional_values = [co.value for co in conditional_observables]
+            all_conditionals_have_values = all(
+                bool(co.value) for co in conditional_observables
+            )
+
+            # All callable conditions must pass
+            callable_conditions_met = evaluate_callable_conditions()
+
+            current_conditions_met = (
+                all_conditionals_have_values and callable_conditions_met
+            )
+
             if current_conditions_met and not previous_conditions_met:
                 func()
                 previous_conditions_met = True
             elif not current_conditions_met:
                 previous_conditions_met = False
 
-        # Discover observables by evaluating conditions in tracking context
-        # We need to evaluate each condition individually to discover all accessed observables,
-        # since all() short-circuits and might not evaluate all conditions
-        with TrackingContext():
-            for condition in conditions:
-                try:
-                    condition()  # Evaluate each condition to discover accessed observables
-                except Exception as e:
-                    # If evaluation fails during discovery (e.g., uninitialized values),
-                    # we'll still track the accessed observables
-                    print(f"Warning: condition evaluation failed during discovery: {e}")
-                    pass
+        # Set up subscriptions for callable conditions (lambda-style)
+        if callable_conditions:
 
-        # Subscribe to all discovered observables
-        for obs in accessed_observables:
-            obs.add_observer(wrapped_reaction)
+            def on_callable_condition_change():
+                """Handle changes to observables used in callable conditions."""
+                check_all_conditions_and_trigger()
+
+            # Discover observables by evaluating ONLY callable conditions in tracking context
+            with TrackingContext():
+                for (
+                    condition
+                ) in callable_conditions:  # Only iterate over callable conditions
+                    condition()  # Evaluate each callable condition to discover accessed observables
+
+            # Subscribe to all discovered observables
+            for obs in accessed_observables:
+                obs.add_observer(on_callable_condition_change)
+
+        # Set up subscriptions for ConditionalObservables
+        for conditional_obs in conditional_observables:
+
+            def on_conditional_change(co=conditional_obs):
+                """Handle changes to a specific ConditionalObservable."""
+                check_all_conditions_and_trigger()
+
+            conditional_obs.add_observer(on_conditional_change)
 
         # Run immediately if conditions are currently met
-        wrapped_reaction()
+        check_all_conditions_and_trigger()
 
         return func
 

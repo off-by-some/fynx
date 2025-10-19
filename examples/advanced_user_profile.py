@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Optional
 
 from fynx import Store, computed, observable, reactive, watch
+from fynx.observable.computed import ComputedObservable
 
 
 class UserProfile(Store):
@@ -147,15 +148,17 @@ print("-" * 100)
 print()
 
 # Email validation
-is_valid_email = computed(
+is_valid_email: ComputedObservable[bool] = computed(
     lambda email: "@" in email and "." in email.split("@")[1], UserProfile.email
 )
 
 # Age validation (reasonable range)
-is_valid_age = computed(lambda age: 0 <= age <= 150, UserProfile.age)
+is_valid_age: ComputedObservable[bool] = computed(
+    lambda age: 0 <= age <= 150, UserProfile.age
+)
 
 # Phone validation (basic format check)
-is_valid_phone = computed(
+is_valid_phone: ComputedObservable[bool] = computed(
     lambda phone: not phone
     or (
         len(phone) >= 10
@@ -165,7 +168,7 @@ is_valid_phone = computed(
 )
 
 # Overall profile validity - using conditional observables for complex logic
-profile_is_valid = is_valid_email & is_valid_age & is_valid_phone
+profile_is_valid = is_valid_email & is_valid_age & is_valid_phone  # type: ignore
 
 
 @reactive(profile_is_valid)

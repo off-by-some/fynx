@@ -115,7 +115,11 @@ You've moved from "track and compare state" to "declare what happens when." The 
 
 ## Writing Condition Functions
 
-The `@watch` decorator accepts a function that returns a boolean—this is your condition. Inside this function, you read observable values using `.value`:
+The `@watch` decorator accepts conditions that return boolean values. You have two main options for writing conditions:
+
+### Lambda Conditions (Most Flexible)
+
+Use lambda functions for any Python expression:
 
 ```python
 age = observable(16)
@@ -128,13 +132,70 @@ age.set(17)  # Nothing happens
 age.set(18)  # Prints: "User is now an adult!"
 ```
 
-The condition function is checked every time any observable it reads changes. When you access `age.value` inside the lambda, `@watch` automatically tracks that dependency and re-evaluates the condition whenever `age` changes.
+Lambda conditions can contain:
+- **Complex boolean logic**: `lambda: temp > 30 or (humidity > 80 and ac_on)`
+- **Mathematical calculations**: `lambda: cart.total * 0.9 > 100`
+- **Function calls**: `lambda: user.is_eligible() and data.is_valid()`
+- **Multi-variable expressions**: `lambda: (width * height) > min_area`
 
-This automatic dependency tracking is what makes `@watch` powerful. You don't manually list which observables to watch—just write a condition that reads them, and FynX figures out the dependencies.
+The condition function is checked every time any observable it reads changes. FynX automatically tracks dependencies and re-evaluates when observables change.
+
+### ConditionalObservable Conditions (AND-Only)
+
+Use the `&` operator to create AND conditions from observables:
+
+```python
+user_logged_in = observable(False)
+data_loaded = observable(False)
+notifications_enabled = observable(True)
+
+# Simple AND combination
+@watch(user_logged_in & data_loaded & notifications_enabled)
+def show_dashboard():
+    print("Welcome to your dashboard!")
+
+# Can be complex with chained conditions
+@watch(user_logged_in & data_loaded & notifications_enabled & cart_has_items)
+def enable_checkout():
+    print("Ready to checkout!")
+```
+
+The `&` operator creates ConditionalObservable objects that represent AND logic. You can chain as many conditions as needed - there's no limitation on complexity:
+
+```python
+# Complex chained conditions work perfectly
+@watch(
+    user_logged_in &
+    data_loaded &
+    notifications_enabled &
+    (cart_total >> lambda x: x > 50) &  # Even with computed values
+    (account_age >> lambda x: x >= 7)
+)
+def unlock_premium_features():
+    print("Premium features unlocked!")
+```
+
+### Choosing Between Lambda and ConditionalObservable Conditions
+
+**Use lambda conditions when you need:**
+- OR logic: `lambda: temp > 30 or humidity > 80`
+- Complex calculations: `lambda: cart.total * 0.9 > 100`
+- Function calls: `lambda: user.is_eligible() and data.is_valid()`
+
+**Use ConditionalObservable conditions (`&`) when you need:**
+- Simple AND combinations: `a & b & c & d`
+- Chain many conditions: `cond1 & cond2 & cond3 & ...`
+- Mix with computed values: `logged_in & (age >> lambda x: x >= 18)`
+
+Both approaches work equally well - choose based on readability and your specific needs.
 
 ## Multiple Conditions: AND Logic
 
-You can pass multiple condition functions to `@watch`. The decorated function runs when *all* conditions become true simultaneously:
+You have two ways to achieve AND logic with `@watch`:
+
+### Method 1: Multiple Lambda Conditions
+
+Pass multiple condition functions - all must be true:
 
 ```python
 has_items = observable(False)
@@ -152,7 +213,26 @@ is_logged_in.set(True)   # Both now true!
 # Output: "Ready to checkout!"
 ```
 
-This is AND logic: `condition1 AND condition2 AND condition3...`. All must be true for the function to run. This is perfect for complex state requirements like "user is logged in AND has items in cart AND has a valid payment method."
+### Method 2: ConditionalObservable with `&` Operator
+
+Use the `&` operator to combine conditions into a single ConditionalObservable:
+
+```python
+has_items = observable(False)
+is_logged_in = observable(False)
+payment_valid = observable(False)
+
+@watch(has_items & is_logged_in & payment_valid)
+def on_ready_to_checkout():
+    print("Ready to checkout!")
+
+has_items.set(True)      # Only one condition true, nothing happens
+is_logged_in.set(True)   # Two conditions true, nothing happens
+payment_valid.set(True)  # All three now true!
+# Output: "Ready to checkout!"
+```
+
+Both approaches create AND logic where all conditions must be true. The ConditionalObservable approach can be more readable for simple boolean combinations, while multiple lambdas give you more flexibility for complex expressions.
 
 The function fires when the *combined* condition transitions from false to true. If any individual condition becomes false and then true, but the others remain true, nothing happens. The entire combined condition must transition:
 
@@ -176,7 +256,7 @@ has_items.set(True)        # Combined: True (back to all true)
 
 ## Practical Example: Form Submission Flow
 
-Here's where `@watch` shines—expressing multi-step workflows as declarative transitions:
+This example shows how @watch can be used to manage complex state transitions in a form submission process, from validation to completion:
 
 ```python
 class FormStore(Store):
@@ -186,7 +266,7 @@ class FormStore(Store):
     is_submitting = observable(False)
     submission_complete = observable(False)
 
-# Computed validations
+# Computed validations using the >> operator
 email_valid = FormStore.email >> (
     lambda e: '@' in e and len(e) > 3
 )
@@ -195,51 +275,58 @@ password_valid = FormStore.password >> (
     lambda p: len(p) >= 8
 )
 
+# Combine all validations
 all_valid = (email_valid | password_valid | FormStore.terms_accepted) >> (
     lambda e, p, t: e and p and t
 )
 
-# Watch for form becoming submittable
 @watch(lambda: all_valid.value)
 def on_form_valid():
-    print("✅ Form is valid - submit button enabled")
-    enable_submit_button()
+    print("Form validation passed - submit button enabled")
 
-# Watch for form becoming invalid (using NOT)
-@watch(lambda: not all_valid.value)
-def on_form_invalid():
-    print("❌ Form is invalid - submit button disabled")
-    disable_submit_button()
-
-# Watch for submission starting
 @watch(lambda: FormStore.is_submitting.value)
 def on_submit_start():
-    print("🔄 Submitting form...")
-    show_loading_spinner()
-    actual_submit_to_server()
+    print("Form submission started")
 
-# Watch for submission completing
 @watch(lambda: FormStore.submission_complete.value)
 def on_submit_complete():
-    print("✅ Submission complete!")
-    hide_loading_spinner()
-    show_success_message()
-    FormStore.is_submitting = False
+    print("Form submission completed successfully")
 
-# Simulate the flow
-print("Initial state:")
+# Simulate user filling out the form
+print("User fills out form:")
 FormStore.email = "user@example.com"
+print("Email set")
+
 FormStore.password = "secure123"
+print("Password set")
+
 FormStore.terms_accepted = True
-# Output: "✅ Form is valid - submit button enabled"
+print("Terms accepted (all validations now pass, triggers form valid)")
 
-print("\nUser clicks submit:")
+# Simulate submission process
+print("\nUser submits form:")
 FormStore.is_submitting = True
-# Output: "🔄 Submitting form..."
+print("Submission initiated")
 
-print("\nServer responds:")
+# Simulate server response
+print("\nServer processes submission:")
 FormStore.submission_complete = True
-# Output: "✅ Submission complete!"
+print("Submission completed")
+
+# Output:
+# User fills out form:
+# Email set
+# Password set
+# Terms accepted (all validations now pass, triggers form valid)
+# Form validation passed - submit button enabled
+#
+# User submits form:
+# Submission initiated
+# Form submission started
+#
+# Server processes submission:
+# Submission completed
+# Form submission completed successfully
 ```
 
 Each `@watch` declaration captures one transition in your workflow. The complete behavior emerges from these individual transition handlers, with no manual orchestration code needed.
@@ -358,7 +445,7 @@ can_checkout = (has_items | has_shipping | has_payment) >> (
     lambda items, shipping, payment: items and shipping and payment
 )
 
-# Watch the computed condition
+# Watch the computed condition - lambda approach
 @watch(lambda: can_checkout.value)
 def on_checkout_ready():
     print("🛒 Ready to checkout!")
@@ -370,6 +457,24 @@ def on_checkout_not_ready():
     print("⏸️ Checkout not available")
     disable_checkout_button()
     schedule_abandoned_cart_email()
+
+# Alternative: Use ConditionalObservables for cleaner AND logic
+checkout_conditions = has_items & has_shipping & has_payment
+
+@watch(checkout_conditions)
+def on_checkout_ready_alt():
+    print("🛒 Ready to checkout (ConditionalObservable)!")
+    enable_checkout_button()
+
+# Can even mix computed values in ConditionalObservables
+cart_total = ShoppingCartStore.items >> (lambda items: sum(item['price'] for item in items))
+has_minimum_total = cart_total >> (lambda total: total >= 25)
+
+@watch(has_items & has_shipping & has_payment & has_minimum_total)
+def on_full_checkout_ready():
+    print("🛒 Ready to checkout with minimum total!")
+    enable_checkout_button()
+    show_free_shipping_banner()
 ```
 
 The computed observable encapsulates the business logic. The `@watch` decorator handles the transition detection. Each piece has a single, clear responsibility.
@@ -488,7 +593,7 @@ A rule of thumb: if you care about *what the value is*, use `@reactive`. If you 
 
 ## Practical Example: User Engagement System
 
-Let's build a complete engagement tracking system that demonstrates both decorators working together:
+This example shows how @watch can be used to create sophisticated engagement tracking with multiple threshold levels and different types of events:
 
 ```python
 class UserActivityStore(Store):
@@ -498,7 +603,7 @@ class UserActivityStore(Store):
     has_account = observable(False)
     is_premium = observable(False)
 
-# Computed engagement score (0-100)
+# Computed engagement score: min(100, (views * 5) + (actions * 10) + (time / 6))
 engagement_score = (
     UserActivityStore.page_views |
     UserActivityStore.actions_taken |
@@ -510,83 +615,62 @@ engagement_score = (
     )
 )
 
-# Continuous monitoring with @reactive
-@reactive(engagement_score)
-def update_engagement_display(score):
-    print(f"📊 Engagement: {score:.0f}/100")
-    update_progress_bar(score)
-
-@reactive(UserActivityStore.page_views)
-def track_page_views(views):
-    analytics.track('page_view_count', views)
-
-# Event-driven reactions with @watch
-
-# Engagement milestones
 @watch(lambda: engagement_score.value >= 25)
 def on_low_engagement():
-    print("🟡 User is browsing")
+    print(f"Low engagement reached (score: {engagement_score.value:.1f})")
 
 @watch(lambda: engagement_score.value >= 50)
 def on_medium_engagement():
-    print("🟠 User is engaged!")
-    show_tooltip("Enjoying the site? Create an account!")
+    print(f"Medium engagement reached (score: {engagement_score.value:.1f})")
 
 @watch(lambda: engagement_score.value >= 75)
 def on_high_engagement():
-    print("🔴 User is highly engaged!")
-    show_modal("Love what you see? Try Premium!")
+    print(f"High engagement reached (score: {engagement_score.value:.1f})")
 
-# Account creation flow
 @watch(lambda: UserActivityStore.has_account.value)
 def on_account_created():
-    print("🎉 Account created!")
-    send_welcome_email()
-    unlock_saved_features()
+    print("Account created - user registration completed")
 
-# Premium conversion
-@watch(
-    lambda: UserActivityStore.has_account.value,
-    lambda: engagement_score.value >= 60,
-    lambda: not UserActivityStore.is_premium.value
-)
-def on_premium_eligible():
-    print("💎 User eligible for Premium!")
-    show_upgrade_offer()
+# Simulate user engagement progression
+print("User engagement progression:")
 
-@watch(lambda: UserActivityStore.is_premium.value)
-def on_premium_conversion():
-    print("🚀 User upgraded to Premium!")
-    send_thank_you_email()
-    enable_premium_features()
-    track_conversion()
-
-# Simulate user journey
-print("=== User starts browsing ===")
+# Stage 1: Initial browsing (score: 22.5)
 UserActivityStore.page_views = 3
 UserActivityStore.time_on_site = 45
+print("User browses 3 pages for 45 seconds (score: 22.5)")
 
-print("\n=== User interacts more ===")
+# Stage 2: Low engagement reached (score: 42.5)
 UserActivityStore.actions_taken = 2
+print("User takes 2 actions (score: 42.5, triggers low engagement)")
+
+# Stage 3: Medium engagement reached (score: 57.5)
 UserActivityStore.page_views = 6
+print("User views 3 more pages (score: 57.5, triggers medium engagement)")
 
-print("\n=== User creates account ===")
+# Stage 4: Account creation (separate event)
 UserActivityStore.has_account = True
+print("User creates account (triggers account creation event)")
+
+# Stage 5: Extended engagement (score: 70, still medium)
 UserActivityStore.time_on_site = 120
+print("User spends more time (score: 70, still medium engagement)")
 
-print("\n=== User upgrades to premium ===")
-UserActivityStore.is_premium = True
+# Stage 6: High engagement reached (score: 80)
+UserActivityStore.time_on_site = 180
+print("User spends even more time (score: 80, triggers high engagement)")
 
-# Output shows both continuous updates and discrete events:
-# 📊 Engagement: 45/100
-# 🟡 User is browsing
-# 📊 Engagement: 60/100
-# 🟠 User is engaged!
-# 🎉 Account created!
-# 💎 User eligible for Premium!
-# 📊 Engagement: 80/100
-# 🔴 User is highly engaged!
-# 🚀 User upgraded to Premium!
+# Output:
+# User engagement progression:
+# User browses 3 pages for 45 seconds (score: 22.5)
+# Low engagement reached (score: 42.5)
+# User takes 2 actions (score: 42.5, triggers low engagement)
+# Medium engagement reached (score: 57.5)
+# User views 3 more pages (score: 57.5, triggers medium engagement)
+# User creates account (triggers account creation event)
+# Account created - user registration completed
+# User spends more time (score: 70, still medium engagement)
+# High engagement reached (score: 80.0)
+# User spends even more time (score: 80, triggers high engagement)
 ```
 
 The `@reactive` decorators handle continuous monitoring—updating displays and tracking metrics. The `@watch` decorators handle discrete events—milestones, state transitions, business logic triggers. Together they create a complete reactive system.
@@ -805,7 +889,7 @@ def on_stable_hover():
 
 ## Real-World Example: Order Processing Pipeline
 
-Let's build a complete order processing system that shows the full power of `@watch`:
+This example shows how @watch can orchestrate complex multi-step workflows where each stage depends on the completion of previous stages:
 
 ```python
 class OrderStore(Store):
@@ -816,84 +900,75 @@ class OrderStore(Store):
     shipped = observable(False)
     delivered = observable(False)
 
-# Computed: Order has items
-has_items = OrderStore.items >> (lambda items: len(items) > 0)
-
-# Stage 1: Order ready for payment
-@watch(lambda: has_items.value)
+# Pipeline stages - each @watch represents a transition to the next stage
+@watch(lambda: len(OrderStore.items.value) > 0)
 def on_order_created():
-    print("📝 Order created - awaiting payment")
-    send_order_confirmation_email()
+    print("Order created - items added to cart")
 
-# Stage 2: Payment verified
 @watch(
     lambda: OrderStore.payment_verified.value,
-    lambda: has_items.value
+    lambda: len(OrderStore.items.value) > 0
 )
 def on_payment_verified():
-    print("💳 Payment verified - reserving inventory")
-    reserve_inventory_for_order()
-    # Simulating async inventory reservation
+    print("Payment verified - proceeding to inventory check")
+    # Simulate automatic inventory reservation
     OrderStore.inventory_reserved = True
 
-# Stage 3: Inventory reserved
 @watch(lambda: OrderStore.inventory_reserved.value)
 def on_inventory_reserved():
-    print("📦 Inventory reserved - creating shipping label")
-    create_shipping_label()
+    print("Inventory reserved - generating shipping label")
+    # Simulate automatic label creation
     OrderStore.shipping_label_created = True
 
-# Stage 4: Shipping label created
 @watch(lambda: OrderStore.shipping_label_created.value)
 def on_label_created():
-    print("🏷️ Shipping label created - ready to ship")
-    notify_warehouse_to_ship()
+    print("Shipping label created - order ready for shipment")
 
-# Stage 5: Order shipped
 @watch(lambda: OrderStore.shipped.value)
 def on_shipped():
-    print("🚚 Order shipped!")
-    send_shipping_notification()
-    start_delivery_tracking()
+    print("Order shipped - tracking number generated")
 
-# Stage 6: Order delivered
 @watch(lambda: OrderStore.delivered.value)
 def on_delivered():
-    print("✅ Order delivered!")
-    send_delivery_confirmation()
-    request_review()
-    close_order()
+    print("Order delivered - customer notified")
 
-# Simulate the order pipeline
-print("=== Customer adds items ===")
+# Execute the order processing pipeline
+print("Processing customer order:")
+
+# Stage 1: Customer adds items
 OrderStore.items = [
     {'name': 'Widget', 'price': 29.99},
     {'name': 'Gadget', 'price': 49.99}
 ]
+print("Items added to cart")
 
-print("\n=== Payment processed ===")
+# Stage 2: Customer completes payment
 OrderStore.payment_verified = True
+print("Payment processed")
 
-print("\n=== Warehouse ships order ===")
+# Subsequent stages are triggered automatically by the @watch decorators
+# Each stage advances the order through the pipeline
+
+# Stage 5: Warehouse ships the order
 OrderStore.shipped = True
+print("Order shipped from warehouse")
 
-print("\n=== Order delivered ===")
+# Stage 6: Order is delivered
 OrderStore.delivered = True
+print("Order delivered to customer")
 
 # Output:
-# === Customer adds items ===
-# 📝 Order created - awaiting payment
-#
-# === Payment processed ===
-# 💳 Payment verified - reserving inventory
-# 📦 Inventory reserved - creating shipping label
-# 🏷️ Shipping label created - ready to ship
-#
-# === Warehouse ships order ===
-# 🚚 Order shipped!
-#
-# === Order delivered ===
-# ✅ Order delivered!
+# Processing customer order:
+# Order created - items added to cart
+# Items added to cart
+# Payment verified - proceeding to inventory check
+# Inventory reserved - generating shipping label
+# Shipping label created - order ready for shipment
+# Payment processed
+# Order shipped - tracking number generated
+# Order shipped from warehouse
+# Order delivered - customer notified
+# Order delivered to customer
 ```
 
 Each stage of the pipeline is a separate `@watch` declaration. The complete workflow emerges from these independent transition handlers, with no central orchestration code. Add a new stage? Just add another `@watch`. Remove a stage? Delete the corresponding watch. The pipeline is self-documenting and maintainable.
@@ -903,9 +978,9 @@ Each stage of the pipeline is a separate `@watch` declaration. The complete work
 The `@watch` decorator runs functions when conditions transition from false to true:
 
 - **Event-driven reactions** — Respond to specific state transitions, not every change
-- **Boolean conditions** — Pass lambda functions that return true/false
+- **Boolean conditions** — Pass lambda functions or ConditionalObservables (created with `&`)
 - **Automatic dependency tracking** — Conditions re-evaluate when observables they read change
-- **Multiple conditions** — Combine conditions with AND logic for complex requirements
+- **Multiple conditions** — Combine conditions with AND logic using multiple lambdas or `&` operator
 - **One-time per transition** — Function runs once when condition becomes true, then waits for false→true again
 - **Compose with computed observables** — Separate business logic (computed) from event handling (watch)
 

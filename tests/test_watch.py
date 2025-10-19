@@ -206,40 +206,46 @@ def test_watch_no_execution_on_same_value():
     assert callback_count == 1
 
 
-def test_watch_error_handling_in_condition_evaluation():
-    """Test that watch handles errors during condition evaluation."""
+def test_watch_error_propagation_in_condition_evaluation():
+    """Test that watch propagates errors during condition evaluation."""
     value = observable(5)
     error_obs = observable(None)
     callback_executed = False
 
-    with redirect_stdout(io.StringIO()):
+    # Should raise an exception during watch decorator setup due to error in condition
+    try:
 
         @watch(lambda: value.value > 3, lambda: error_obs.value.nonexistent_attribute)
         def callback():
             nonlocal callback_executed
             callback_executed = True
 
-    # Should not execute initially due to error condition
+        # If we get here, the test failed
+        assert False, "Expected AttributeError to be raised during watch setup"
+    except AttributeError:
+        # Expected - error in condition evaluation now propagates
+        pass
+
+    # Callback should not have been executed
     assert not callback_executed
 
-    # Should not execute when changing value due to persistent error
-    value.set(7)
-    assert not callback_executed
 
-
-def test_watch_error_handling_warning_message():
-    """Test that watch prints warning for condition evaluation errors."""
+def test_watch_error_propagation_during_discovery():
+    """Test that watch propagates errors during condition discovery."""
     error_obs = observable(None)
-    stdout_capture = io.StringIO()
 
-    with redirect_stdout(stdout_capture):
+    # Should raise an exception during watch decorator setup due to error in condition discovery
+    try:
 
         @watch(lambda: error_obs.value.nonexistent_attribute)
         def callback():
             pass
 
-    output = stdout_capture.getvalue()
-    assert "condition evaluation failed during discovery" in output
+        # If we get here, the test failed
+        assert False, "Expected AttributeError to be raised during watch discovery"
+    except AttributeError:
+        # Expected - error during condition discovery now propagates
+        pass
 
 
 def test_watch_returns_original_function():
@@ -323,3 +329,169 @@ def test_watch_multiple_decorators_on_same_function():
     # Setting obs1 to True should trigger again
     obs1.set(True)
     assert len(call_sequence) == 2
+
+
+def test_watch_single_conditional_observable():
+    """Test watch decorator with a single ConditionalObservable."""
+    obs1 = observable(False)
+    obs2 = observable(False)
+    callback_count = 0
+
+    @watch(obs1 & obs2)
+    def callback():
+        nonlocal callback_count
+        callback_count += 1
+
+    # Initially conditions not met
+    assert callback_count == 0
+
+    # Make first condition true - still not all met
+    obs1.set(True)
+    assert callback_count == 0
+
+    # Make second condition true - all conditions met, should trigger
+    obs2.set(True)
+    assert callback_count == 1
+
+    # Change obs1 from truthy to falsy and back - should trigger on the transition to truthy
+    obs1.set(False)
+    obs1.set(True)
+    assert callback_count == 2
+
+    # Make conditions unmet then met again - should trigger
+    obs2.set(False)
+    obs2.set(True)
+    assert callback_count == 3
+
+
+def test_watch_multiple_conditions():
+    """Test watch decorator with multiple conditions (ConditionalObservable + lambda)."""
+    obs1 = observable(False)
+    obs2 = observable(False)
+    obs3 = observable(False)
+    callback_count = 0
+
+    @watch(obs1 & obs2, lambda: obs3.value)  # ConditionalObservable + lambda
+    def callback():
+        nonlocal callback_count
+        callback_count += 1
+
+    # Initially no conditions met
+    assert callback_count == 0
+
+    # Make obs3 true - still missing obs1 & obs2
+    obs3.set(True)
+    assert callback_count == 0
+
+    # Make obs1 & obs2 true - all conditions met, should trigger
+    obs1.set(True)
+    obs2.set(True)
+    assert callback_count == 1
+
+    # Change obs1 to false - conditions no longer met
+    obs1.set(False)
+    assert callback_count == 1
+
+    # Make obs1 true again - conditions met again, should trigger
+    obs1.set(True)
+    assert callback_count == 2
+
+
+def test_watch_mixed_conditional_and_lambda():
+    """Test watch decorator with ConditionalObservable and lambda conditions."""
+    obs1 = observable(False)
+    obs2 = observable(False)
+    num_obs = observable(5)
+    callback_count = 0
+
+    @watch(obs1 & obs2, lambda: num_obs.value > 10)
+    def callback():
+        nonlocal callback_count
+        callback_count += 1
+
+    # Initially conditions not met (num_obs = 5, not > 10)
+    assert callback_count == 0
+
+    # Make num_obs condition true - still missing obs1 & obs2
+    num_obs.set(15)
+    assert callback_count == 0
+
+    # Make obs1 & obs2 true - all conditions met, should trigger
+    obs1.set(True)
+    obs2.set(True)
+    assert callback_count == 1
+
+    # Change num_obs while conditions still met - no additional trigger
+    num_obs.set(20)
+    assert callback_count == 1
+
+    # Make num_obs condition false - conditions no longer met
+    num_obs.set(5)
+    assert callback_count == 1
+
+    # Make num_obs condition true again - conditions met again, should trigger
+    num_obs.set(15)
+    assert callback_count == 2
+
+
+def test_watch_conditional_observable_initial_execution():
+    """Test that watch executes immediately when ConditionalObservable conditions are initially met."""
+    obs1 = observable(True)  # Already true
+    obs2 = observable(True)  # Already true
+    callback_executed = False
+
+    @watch(obs1 & obs2)
+    def callback():
+        nonlocal callback_executed
+        callback_executed = True
+
+    # Should execute immediately since both conditions are already true
+    assert callback_executed
+
+
+def test_watch_conditional_observable_no_initial_execution():
+    """Test that watch does not execute immediately when ConditionalObservable conditions are not initially met."""
+    obs1 = observable(True)
+    obs2 = observable(False)  # Not true initially
+    callback_executed = False
+
+    @watch(obs1 & obs2)
+    def callback():
+        nonlocal callback_executed
+        callback_executed = True
+
+    # Should not execute initially since obs2 is False
+    assert not callback_executed
+
+    # But should execute when obs2 becomes true
+    obs2.set(True)
+    assert callback_executed
+
+
+def test_watch_conditional_observable_transition_behavior():
+    """Test that watch with ConditionalObservable only triggers on transitions, not on ongoing changes."""
+    obs1 = observable(False)
+    obs2 = observable(False)
+    data_obs = observable("initial")
+    callback_count = 0
+
+    @watch(obs1 & obs2)
+    def callback():
+        nonlocal callback_count
+        callback_count += 1
+
+    # Make conditions met
+    obs1.set(True)
+    obs2.set(True)
+    assert callback_count == 1
+
+    # Change data_obs while conditions still met - should NOT trigger additional times
+    data_obs.set("changed1")
+    data_obs.set("changed2")
+    data_obs.set("changed3")
+    assert callback_count == 1  # Still only 1
+
+    # Make conditions unmet then met again - should trigger
+    obs1.set(False)
+    obs1.set(True)
+    assert callback_count == 2

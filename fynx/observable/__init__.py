@@ -182,8 +182,20 @@ from .base import Observable, ReactiveContext
 from .computed import ComputedObservable
 from .conditional import ConditionalObservable
 from .descriptors import ObservableValue, SubscriptableDescriptor
+from .interfaces import (
+    Conditional,
+    Mergeable,
+)
+from .interfaces import Observable as ObservableInterface
+from .interfaces import ReactiveContext as ReactiveContextInterface
 from .merged import MergedObservable
-from .operators import and_operator, rshift_operator
+from .operators import (
+    OperatorMixin,
+    TupleMixin,
+    ValueMixin,
+    and_operator,
+    rshift_operator,
+)
 
 __all__ = [
     "Observable",
@@ -195,4 +207,13 @@ __all__ = [
     "SubscriptableDescriptor",
     "rshift_operator",
     "and_operator",
+    # Protocols
+    "ObservableInterface",
+    "Mergeable",
+    "Conditional",
+    "ReactiveContextInterface",
+    # Operator mixins
+    "OperatorMixin",
+    "TupleMixin",
+    "ValueMixin",
 ]

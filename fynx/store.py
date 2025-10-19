@@ -255,7 +255,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    get_type_hints,
 )
 
 from .observable import Observable, SubscriptableDescriptor
@@ -337,6 +336,30 @@ class StoreMeta(type):
         new_namespace = namespace.copy()
         observable_attrs = []
 
+        # First, collect inherited observable attributes that need descriptors
+        inherited_observables = {}
+        for base in bases:
+            if hasattr(base, "_observable_attrs"):
+                base_attrs = getattr(base, "_observable_attrs", [])
+                for attr_name in base_attrs:
+                    if (
+                        attr_name not in namespace
+                        and hasattr(base, "__dict__")
+                        and attr_name in base.__dict__
+                    ):
+                        # This inherited attribute needs a descriptor in the child class
+                        base_descriptor = base.__dict__[attr_name]
+                        if isinstance(base_descriptor, SubscriptableDescriptor):
+                            inherited_observables[attr_name] = base_descriptor
+
+        # Create descriptors for inherited observables
+        for attr_name, base_descriptor in inherited_observables.items():
+            new_namespace[attr_name] = SubscriptableDescriptor(
+                initial_value=base_descriptor._initial_value,
+                original_observable=None,  # Don't share original observable
+            )
+
+        # Process directly defined observables
         for attr_name, attr_value in namespace.items():
             if isinstance(attr_value, Observable):
                 observable_attrs.append(attr_name)
@@ -346,13 +369,18 @@ class StoreMeta(type):
                     initial_value=initial_value, original_observable=attr_value
                 )
 
+        # Add inherited observables to the list
+        observable_attrs.extend(inherited_observables.keys())
+
         new_namespace["__annotations__"] = annotations
         cls = super().__new__(mcs, name, bases, new_namespace)
 
         # Cache observable attributes and their instances for efficient access
         cls._observable_attrs = list(observable_attrs)
         # Store the original observables from the namespace before they get replaced
-        cls._observables = {attr: namespace[attr] for attr in observable_attrs}
+        cls._observables = {
+            attr: namespace[attr] for attr in observable_attrs if attr in namespace
+        }
 
         return cls
 

@@ -21,7 +21,6 @@ transparent dependency tracking and automatic change propagation.
 """
 
 from typing import (
-    TYPE_CHECKING,
     Callable,
     Generic,
     List,
@@ -31,16 +30,16 @@ from typing import (
     TypeVar,
 )
 
-if TYPE_CHECKING:
-    from .merged import MergedObservable
-    from .conditional import ConditionalObservable
-
 from ..registry import _all_reactive_contexts, _func_to_contexts
+from .interfaces import Conditional, Mergeable
+from .interfaces import Observable as ObservableInterface
+from .interfaces import ReactiveContext as ReactiveContextInterface
+from .operators import OperatorMixin
 
 T = TypeVar("T")
 
 
-class ReactiveContext:
+class ReactiveContext(ReactiveContextInterface):
     """
     Execution context for reactive functions with automatic dependency tracking.
 
@@ -136,7 +135,7 @@ class ReactiveContext:
         self.dependencies.clear()
 
 
-class Observable(Generic[T]):
+class Observable(ObservableInterface[T], OperatorMixin):
     """
     A reactive value that automatically notifies dependents when it changes.
 
@@ -620,193 +619,3 @@ class Observable(Generic[T]):
 
         # Remove this instance since it's being replaced
         # The descriptor will create the actual Observable when accessed
-
-    def __or__(self, other: "Observable") -> "MergedObservable[T]":
-        """
-        Combine this observable with another using the | operator.
-
-        This creates a merged observable that contains a tuple of both values
-        and updates automatically when either observable changes.
-
-        Args:
-            other: Another Observable to combine with
-
-        Returns:
-            A MergedObservable containing both values as a tuple
-
-        Example:
-            ```python
-            combined = obs1 | obs2  # Creates MergedObservable((obs1.value, obs2.value))
-            combined2 = combined | obs3  # Creates MergedObservable((obs1.value, obs2.value, obs3.value))
-            ```
-        """
-        from .merged import MergedObservable  # Import here to avoid circular import
-
-        if isinstance(other, MergedObservable):
-            # If other is already merged, combine our observable with its sources
-            return MergedObservable(self, *other._source_observables)
-        else:
-            # Standard case: combine two regular observables
-            return MergedObservable(self, other)
-
-    def __rshift__(self, func: Callable) -> "Observable":
-        """
-        Apply a transformation function using the >> operator to create computed observables.
-
-        This implements the functorial map operation over observables, allowing you to
-        transform observable values through pure functions while preserving reactivity.
-        The result is a new observable that automatically updates when the source changes.
-
-        Args:
-            func: A pure function to apply to the observable's value(s).
-                  For single observables, receives the current value.
-                  For merged observables, receives unpacked tuple values as separate arguments.
-
-        Returns:
-            A new computed Observable containing the transformed values.
-
-        Raises:
-            Any exception raised by the transformation function will be propagated.
-
-        Examples:
-            ```python
-            from fynx.observable import Observable
-
-            # Single observable transformation
-            counter = Observable("counter", 5)
-            doubled = counter >> (lambda x: x * 2)  # Observable with value 10
-
-            # String formatting
-            name = Observable("name", "Alice")
-            greeting = name >> (lambda n: f"Hello, {n}!")
-
-            # Merged observable transformation
-            width = Observable("width", 10)
-            height = Observable("height", 20)
-            area = (width | height) >> (lambda w, h: w * h)  # Observable with value 200
-
-            # Complex chaining
-            result = counter >> (lambda x: x + 1) >> str >> (lambda s: f"Count: {s}")
-            # Result: Observable with value "Count: 6"
-            ```
-
-        Note:
-            The transformation function should be pure (no side effects) and relatively
-            fast, as it may be called frequently when dependencies change.
-
-        See Also:
-            computed: The underlying function that creates computed observables
-            __or__: For merging observables before transformation
-        """
-        from .operators import rshift_operator
-
-        return rshift_operator(self, func)
-
-    def __and__(self, condition: "Observable[bool]") -> "ConditionalObservable[T]":
-        """
-        Create a conditional observable using the & operator for filtered reactivity.
-
-        This creates a ConditionalObservable that only emits values from the source
-        observable when the specified condition (and any chained conditions) are all True.
-        This enables precise control over when reactive updates occur, preventing
-        unnecessary computations and side effects.
-
-        Args:
-            condition: A boolean Observable that acts as a gate. The source observable's
-                      values are only emitted when this condition is True.
-
-        Returns:
-            A ConditionalObservable that filters the source observable's updates
-            based on the condition. The conditional observable starts with None
-            if the condition is initially False.
-
-        Examples:
-            ```python
-            from fynx.observable import Observable
-
-            # Basic conditional filtering
-            temperature = Observable("temp", 20)
-            is_heating_on = Observable("heating", False)
-
-            # Only emit temperature when heating is on
-            heating_temp = temperature & is_heating_on
-
-            heating_temp.subscribe(lambda t: print(f"Maintaining {t}°C"))
-            temperature.set(22)     # No output (heating off)
-            is_heating_on.set(True) # Prints: "Maintaining 22°C"
-            temperature.set(25)     # Prints: "Maintaining 25°C"
-
-            # Multiple conditions (chained)
-            is_valid = Observable("valid", True)
-            smart_heating = temperature & is_heating_on & is_valid
-
-            # Resource optimization
-            network_available = Observable("network", True)
-            battery_level = Observable("battery", 80)
-
-            # Only sync when network is available AND battery is not low
-            sync_data = data_changes & network_available & (battery_level >> (lambda b: b > 20))
-            ```
-
-        Note:
-            Multiple conditions can be chained: `obs & cond1 & cond2 & cond3`.
-            All conditions must be True for values to be emitted.
-
-        See Also:
-            ConditionalObservable: The class that implements conditional behavior
-            __invert__: For negating boolean conditions
-            watch: For conditional reactive functions with complex logic
-        """
-        from .operators import and_operator
-
-        return and_operator(self, condition)
-
-    def __invert__(self) -> "Observable[bool]":
-        """
-        Create a negated boolean observable using the ~ operator.
-
-        This creates a computed observable that returns the logical negation
-        of the current observable's boolean value. Useful for creating inverse
-        conditions and boolean logic in reactive expressions.
-
-        Returns:
-            A computed Observable[bool] with the negated boolean value.
-            Updates automatically when the source observable changes.
-
-        Examples:
-            ```python
-            from fynx.observable import Observable
-
-            is_loading = Observable("loading", False)
-
-            # Create negated observable
-            is_not_loading = ~is_loading  # True when is_loading is False
-
-            # Use in conditional logic
-            can_interact = ~is_loading
-            can_interact.subscribe(lambda can: print(f"Can interact: {can}"))
-
-            is_loading.set(True)   # Prints: "Can interact: False"
-            is_loading.set(False)  # Prints: "Can interact: True"
-
-            # Chain with other conditions
-            is_enabled = Observable("enabled", True)
-            should_show_spinner = is_loading & is_enabled
-            should_hide_content = is_loading & ~is_enabled  # Loading but not enabled
-
-            # Complex boolean logic
-            is_valid = Observable("valid", True)
-            has_errors = Observable("errors", False)
-
-            can_submit = is_valid & ~has_errors & ~is_loading
-            ```
-
-        Note:
-            This creates a computed observable, so the negation is evaluated
-            lazily and cached until the source value changes.
-
-        See Also:
-            __and__: For combining conditions with AND logic
-            computed: For creating other computed transformations
-        """
-        return self >> (lambda x: not x)

@@ -1,9 +1,9 @@
 """
-FynX Operators - Observable Operator Implementations
-===================================================
+FynX Operators - Observable Operator Implementations and Mixins
+================================================================
 
-This module provides the core operator implementations that enable FynX's fluent
-reactive programming syntax. These operators allow observables to be composed
+This module provides the core operator implementations and mixins that enable FynX's
+fluent reactive programming syntax. These operators allow observables to be composed
 using intuitive Python operators, creating complex reactive behaviors from simple
 building blocks.
 
@@ -42,6 +42,20 @@ These operators work together to create complex reactive pipelines:
 ```python
 result = (x | y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
 ```
+
+Operator Mixins
+---------------
+
+This module also provides mixin classes that consolidate operator overloading logic:
+
+**OperatorMixin**: Provides common reactive operators (__or__, __rshift__, __and__, __invert__)
+for all observable types that support reactive composition.
+
+**TupleMixin**: Adds tuple-like behavior (__iter__, __len__, __getitem__, __setitem__) for
+observables that represent collections of values.
+
+**ValueMixin**: Provides transparent value wrapper behavior for ObservableValue instances,
+making them behave like regular Python values while supporting reactive operators.
 
 Implementation Details
 ----------------------
@@ -127,23 +141,238 @@ The operator syntax is more concise and readable for simple transformations.
 See Also
 --------
 
-- `fynx.observable`: Core observable classes that use these operators
+- `fynx.observable`: Core observable classes that use these operators and mixins
 - `fynx.computed`: Computed observables created by the `>>` operator
 - `fynx.watch`: Conditional reactive functions (alternative to `&`)
 """
 
 from typing import TYPE_CHECKING, Callable, TypeVar
 
-from .base import Observable
+from .interfaces import Conditional, Mergeable
 
 if TYPE_CHECKING:
-    from .conditional import ConditionalObservable
+    from .base import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")
 
 
-def rshift_operator(obs: Observable[T], func: Callable[..., U]) -> Observable[U]:
+# Operator Mixins for consolidating operator overloading logic
+
+
+class OperatorMixin:
+    """
+    Mixin class providing common reactive operators for observable classes.
+
+    This mixin consolidates the operator overloading logic that was previously
+    duplicated across multiple observable classes. It provides the core reactive
+    operators (__or__, __rshift__, __and__, __invert__) that enable FynX's fluent
+    reactive programming syntax.
+
+    Classes inheriting from this mixin get automatic support for:
+    - Merging with `|` operator
+    - Transformation with `>>` operator
+    - Conditional filtering with `&` operator
+    - Boolean negation with `~` operator
+
+    This mixin should be used by classes that represent reactive values and
+    need to support reactive composition operations.
+    """
+
+    def __or__(self, other) -> "Mergeable":
+        """
+        Combine this observable with another using the | operator.
+
+        This creates a merged observable that contains a tuple of both values
+        and updates automatically when either observable changes.
+
+        Args:
+            other: Another Observable to combine with
+
+        Returns:
+            A MergedObservable containing both values as a tuple
+        """
+        from .merged import MergedObservable  # Import here to avoid circular import
+
+        if isinstance(other, MergedObservable):
+            # If other is already merged, combine our observable with its sources
+            return MergedObservable(self, *other._source_observables)  # type: ignore
+        else:
+            # Standard case: combine two regular observables
+            return MergedObservable(self, other)  # type: ignore
+
+    def __rshift__(self, func: Callable) -> "Observable":
+        """
+        Apply a transformation function using the >> operator to create computed observables.
+
+        This implements the functorial map operation over observables, allowing you to
+        transform observable values through pure functions while preserving reactivity.
+
+        Args:
+            func: A pure function to apply to the observable's value(s)
+
+        Returns:
+            A new computed Observable containing the transformed values
+        """
+        from .operators import rshift_operator
+
+        return rshift_operator(self, func)  # type: ignore
+
+    def __and__(self, condition) -> "Conditional":
+        """
+        Create a conditional observable using the & operator for filtered reactivity.
+
+        This creates a ConditionalObservable that only emits values when all
+        specified conditions are True, enabling precise control over reactive updates.
+
+        Args:
+            condition: A boolean Observable that acts as a gate
+
+        Returns:
+            A ConditionalObservable that filters values based on the condition
+        """
+        from .operators import and_operator
+
+        return and_operator(self, condition)  # type: ignore
+
+    def __invert__(self) -> "Observable[bool]":
+        """
+        Create a negated boolean observable using the ~ operator.
+
+        This creates a computed observable that returns the logical negation
+        of the current boolean value, useful for creating inverse conditions.
+
+        Returns:
+            A computed Observable[bool] with negated boolean value
+        """
+        return self >> (lambda x: not x)  # type: ignore
+
+
+class TupleMixin:
+    """
+    Mixin class providing tuple-like operators for merged observables.
+
+    This mixin adds tuple-like behavior to observables that represent collections
+    of values (like MergedObservable). It provides operators for iteration,
+    indexing, and length operations that make merged observables behave like
+    tuples of their component values.
+
+    Classes inheriting from this mixin get automatic support for:
+    - Iteration with `for item in merged:`
+    - Length with `len(merged)`
+    - Indexing with `merged[0]`, `merged[-1]`, etc.
+    - Setting values by index with `merged[0] = new_value`
+    """
+
+    def __iter__(self):
+        """Allow iteration over the tuple value."""
+        return iter(self._value)  # type: ignore
+
+    def __len__(self) -> int:
+        """Return the number of combined observables."""
+        return len(self._source_observables)  # type: ignore
+
+    def __getitem__(self, index: int):
+        """Allow indexing into the merged observable like a tuple."""
+        if self._value is None:  # type: ignore
+            raise IndexError("MergedObservable has no value")
+        return self._value[index]  # type: ignore
+
+    def __setitem__(self, index: int, value):
+        """Allow setting values by index, updating the corresponding source observable."""
+        if 0 <= index < len(self._source_observables):  # type: ignore
+            self._source_observables[index].set(value)  # type: ignore
+        else:
+            raise IndexError("Index out of range")
+
+
+class ValueMixin:
+    """
+    Mixin class providing value wrapper operators for ObservableValue.
+
+    This mixin adds operators that make observable values behave transparently
+    like their underlying values in most Python contexts. It provides magic
+    methods for equality, string conversion, iteration, indexing, etc., while
+    also supporting the reactive operators.
+
+    Classes inheriting from this mixin get automatic support for:
+    - Value-like behavior (equality, string conversion, etc.)
+    - Reactive operators (__or__, __and__, __invert__, __rshift__)
+    - Transparent access to the wrapped observable
+    """
+
+    def __eq__(self, other) -> bool:
+        return self._current_value == other  # type: ignore
+
+    def __str__(self) -> str:
+        return str(self._current_value)  # type: ignore
+
+    def __repr__(self) -> str:
+        return repr(self._current_value)  # type: ignore
+
+    def __len__(self) -> int:
+        if self._current_value is None:  # type: ignore
+            return 0
+        if hasattr(self._current_value, "__len__"):  # type: ignore
+            return len(self._current_value)  # type: ignore
+        return 0
+
+    def __iter__(self):
+        if self._current_value is None:  # type: ignore
+            return iter([])
+        if hasattr(self._current_value, "__iter__"):  # type: ignore
+            return iter(self._current_value)  # type: ignore
+        return iter([self._current_value])  # type: ignore
+
+    def __getitem__(self, key):
+        if self._current_value is None:  # type: ignore
+            raise IndexError("observable value is None")
+        if hasattr(self._current_value, "__getitem__"):  # type: ignore
+            return self._current_value[key]  # type: ignore
+        raise TypeError(
+            f"'{type(self._current_value).__name__}' object is not subscriptable"  # type: ignore
+        )
+
+    def __contains__(self, item) -> bool:
+        if self._current_value is None:  # type: ignore
+            return False
+        if hasattr(self._current_value, "__contains__"):  # type: ignore
+            return item in self._current_value  # type: ignore
+        return False
+
+    def __bool__(self) -> bool:
+        return bool(self._current_value)  # type: ignore
+
+    def _unwrap_operand(self, operand):
+        """Unwrap operand if it's an ObservableValue, otherwise return as-is."""
+        if hasattr(operand, "observable"):
+            return operand.observable  # type: ignore
+        return operand
+
+    def __or__(self, other) -> "Mergeable":
+        """Support merging observables with | operator."""
+        unwrapped_other = self._unwrap_operand(other)  # type: ignore
+        from .merged import MergedObservable
+
+        return MergedObservable(self._observable, unwrapped_other)  # type: ignore
+
+    def __and__(self, condition) -> "Conditional":
+        """Support conditional observables with & operator."""
+        unwrapped_condition = self._unwrap_operand(condition)  # type: ignore
+        from .conditional import ConditionalObservable
+
+        return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore
+
+    def __invert__(self):
+        """Support negating conditions with ~ operator."""
+        return self._observable.__invert__()  # type: ignore
+
+    def __rshift__(self, func):
+        """Support computed observables with >> operator."""
+        return self._observable >> func  # type: ignore
+
+
+def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable[U]":
     """
     Implement the `>>` operator for creating computed observables.
 
@@ -196,9 +425,7 @@ def rshift_operator(obs: Observable[T], func: Callable[..., U]) -> Observable[U]
     return computed(func, obs)
 
 
-def and_operator(
-    obs: Observable[T], condition: Observable[bool]
-) -> "ConditionalObservable[T]":
+def and_operator(obs, condition):
     """
     Implement the `&` operator for creating conditional observables.
 
@@ -250,7 +477,6 @@ def and_operator(
         ConditionalObservable: The class that implements conditional behavior
         Observable.__and__: The magic method that calls this operator
     """
-    # Import here to avoid circular import
     from .conditional import ConditionalObservable
 
     return ConditionalObservable(obs, condition)
