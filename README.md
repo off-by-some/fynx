@@ -35,11 +35,20 @@ Stop wrestling with manual state synchronization. Whether you're building real-t
 
 ---
 <p align="center">
-  <a href="#quick-start" style="margin-right: 20px;"><img src="docs/images/quick-start.svg" width="180" alt="Quick Start"/></a>
-  <a href="https://off-by-some.github.io/fynx/" style="margin-right: 20px;"><img src="docs/images/read-docs.svg" width="180" alt="Read the Docs"/></a>
-  <a href="https://github.com/off-by-some/fynx/blob/main/examples/" style="margin-right: 20px;"><img src="docs/images/code-examples.svg" width="180" alt="Examples"/></a>
-  <a href="https://github.com/off-by-some/fynx/issues"><img src="docs/images/get-support.svg" width="180" alt="Support"/></a>
+  <a href="#quick-start" style="margin-right: 20px;">
+    <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
+  </a>
+  <a href="https://off-by-some.github.io/fynx/" style="margin-right: 20px;">
+    <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/read-docs.svg" width="180" alt="Read the Docs"/>
+  </a>
+  <a href="https://github.com/off-by-some/fynx/blob/main/examples/" style="margin-right: 20px;">
+    <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/code-examples.svg" width="180" alt="Examples"/>
+  </a>
+  <a href="https://github.com/off-by-some/fynx/issues">
+    <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/get-support.svg" width="180" alt="Support"/>
+  </a>
 </p>
+
 
 
 ***
