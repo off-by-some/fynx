@@ -34,28 +34,22 @@ Stop wrestling with manual state synchronization. Whether you're building real-t
 **Define relationships once. Updates flow automatically. Your application stays in sync—effortlessly.**
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/divider.svg" alt="divider" width="100%" />
-</p>
-
-<p align="center">
   <a href="#quick-start">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/quick-start.svg" width="180" alt="Quick Start"/>
   </a>
-  <a href="https://off-by-some.github.io/fynx/">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://off-by-some.github.io/fynx/">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/read-docs.svg" width="180" alt="Read the Docs"/>
   </a>
-  <a href="https://github.com/off-by-some/fynx/blob/main/examples/">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/off-by-some/fynx/blob/main/examples/">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/code-examples.svg" width="180" alt="Examples"/>
   </a>
-  <a href="https://github.com/off-by-some/fynx/issues">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/off-by-some/fynx/issues">
     <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/get-support.svg" width="180" alt="Support"/>
   </a>
 </p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/off-by-some/fynx/main/docs/images/divider.svg" alt="divider" width="100%"/>
-</p>
-
 
 ## Quick Start
 
@@ -79,15 +73,7 @@ CartStore.item_count = 3      # Cart Total: $30.00
 CartStore.price_per_item = 12.50  # Cart Total: $37.50
 ```
 
-
-
 For the complete tutorial and advanced examples, see the [full documentation](https://off-by-some.github.io/fynx/) or explore [`examples/`](https://github.com/off-by-some/fynx/tree/main/examples/).
-
-
-
-
-
-
 
 ## Observables
 
@@ -110,7 +96,7 @@ AppState.username = "off-by-some"  # Normal assignment, reactive behavior
 
 Stores provide organizational structure for related state and unlock powerful features like store-level reactions and serialization.
 
----
+***
 
 ## Transforming Data with `>>`
 
@@ -131,7 +117,7 @@ doubled = computed(lambda x: x * 2, counter)
 
 Each transformation creates a new observable that recalculates automatically when its source changes.
 
----
+***
 
 ## Combining Observables with `|`
 
@@ -150,7 +136,7 @@ When *any* combined observable changes, downstream values recalculate automatica
 
 > **Note:** The `|` operator will transition to `@` in a future release to support logical OR operations.
 
----
+***
 
 ## Filtering with `&` and `~`
 
@@ -167,7 +153,7 @@ preview_ready = uploaded_file & is_valid & (~is_processing)
 
 The `preview_ready` observable only emits when a file exists, it's valid, *and* processing is inactive. All conditions must align before downstream execution—perfect for complex business logic.
 
----
+***
 
 ## Reacting to Changes
 
@@ -195,7 +181,7 @@ def on_conditions_met():
 
 Choose the pattern that fits your use case—FynX adapts to your preferred style.
 
----
+***
 
 ## The Four Reactive Operators
 
@@ -210,7 +196,7 @@ FynX provides four composable operators that form a complete algebra for reactiv
 
 **Each operation creates a new observable.** Chain them infinitely to build sophisticated reactive systems from simple, composable parts.
 
----
+***
 
 ## Where FynX Shines
 
@@ -223,8 +209,6 @@ FynX excels when data flows through transformations and multiple components need
 * **Real-time applications** where state coordination becomes unwieldy
 
 The library frees you from the tedious work of tracking dependencies and triggering updates. Instead of thinking about *when* to update state, you focus purely on *what* relationships should hold. The rest happens automatically.
-
-
 
 ## Complete Example
 
@@ -259,8 +243,6 @@ FileUpload.is_processing = False           # → Preview: image.jpg
 ```
 
 The preview function triggers automatically, but only when all conditions align. You never manually check whether to show the preview—the reactive graph coordinates everything for you.
-
-
 
 ## Additional Examples
 
@@ -335,14 +317,12 @@ The pre-commit hooks run automatically on each commit, checking code formatting 
 
 ### Development Workflow
 
-- **Test your changes**: `poetry run pytest --cov=fynx`
-- **Check linting**: `./scripts/lint.sh`
-- **Auto-fix formatting**: `./scripts/lint.sh --fix`
-- **Fork and create feature branch**: `feature/amazing-feature`
-- **Add tests and ensure they pass**
-- **Submit PR** with clear description of changes
-
-
+* **Test your changes**: `poetry run pytest --cov=fynx`
+* **Check linting**: `./scripts/lint.sh`
+* **Auto-fix formatting**: `./scripts/lint.sh --fix`
+* **Fork and create feature branch**: `feature/amazing-feature`
+* **Add tests and ensure they pass**
+* **Submit PR** with clear description of changes
 
 <br>
 
@@ -353,7 +333,6 @@ Support the evolution of reactive programming by [**starring the repository**](h
 <br>
 <br>
 <br>
-
 
 <p align="center">
   <strong>FynX</strong> — Functional Yielding Observable Networks
