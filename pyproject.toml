@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fynx"
-version = "0.0.6"
+version = "0.0.7"
 description = "Python reactive state management library inspired by MobX"
 authors = ["Cassidy Bridges <cassidybridges@gmail.com>"]
 readme = "README.md"

@@ -116,12 +116,13 @@ class ReactiveContext(ReactiveContextInterface):
 
     def add_dependency(self, observable: "Observable") -> None:
         """Add an observable as a dependency of this context."""
-        # Simply add the dependency - cycle detection happens during set()
-        self.dependencies.add(observable)
-        observable.add_observer(self.run)
+        # Only add if not already a dependency to avoid redundant observer registration
+        if observable not in self.dependencies:
+            self.dependencies.add(observable)
+            observable.add_observer(self.run)
 
     def dispose(self) -> None:
-        """Stop the reactive computation and remove all observers."""
+        """Stop  the reactive computation and remove all observers."""
         if self._observer_to_remove_from is not None:
             # For single observables or merged observables
             self._observer_to_remove_from.remove_observer(self.run)
@@ -208,6 +209,10 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     # Stack of reactive contexts being computed (for proper cycle detection)
     _context_stack: List["ReactiveContext"] = []
+
+    # Pending notifications to avoid recursion in long chains
+    _pending_notifications: Set["Observable"] = set()
+    _notification_scheduled: bool = False
 
     def __init__(
         self, key: Optional[str] = None, initial_value: Optional[T] = None
@@ -299,7 +304,13 @@ class Observable(ObservableInterface[T], OperatorMixin):
         # Only update and notify if the value actually changed
         if self._value != value:
             self._value = value
-            self._notify_observers()
+            # Defer notifications to avoid recursion in long chains
+            Observable._pending_notifications.add(self)
+            # Schedule notification if not already scheduled
+            if not Observable._notification_scheduled:
+                Observable._notification_scheduled = True
+                # Use a microtask-like mechanism to defer execution
+                Observable._schedule_notification()
         else:
             # Even if the value didn't change, we still check for circular dependencies
             # in case the setter is being called from within its own computation
@@ -310,6 +321,22 @@ class Observable(ObservableInterface[T], OperatorMixin):
         # Create a copy of observers to avoid "Set changed size during iteration"
         for observer in list(self._observers):
             observer()
+
+    @classmethod
+    def _schedule_notification(cls) -> None:
+        """Schedule deferred notification of all pending observables."""
+        try:
+            # Process all pending notifications in breadth-first order
+            # to avoid deep recursion in long chains
+            while cls._pending_notifications:
+                pending = cls._pending_notifications.copy()
+                cls._pending_notifications.clear()
+                for observable in pending:
+                    observable._notify_observers()
+        finally:
+            cls._notification_scheduled = False
+            # Ensure clean state
+            cls._pending_notifications.clear()
 
     def add_observer(self, observer: Callable) -> None:
         """

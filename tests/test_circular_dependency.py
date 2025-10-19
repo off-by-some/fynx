@@ -92,3 +92,75 @@ def test_circular_dependency_should_be_detected():
     # The circular dependency is detected when the computed is triggered
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
         obs_a.set(5)  # This should trigger the circular dependency error
+
+
+def test_long_computed_chain_no_recursion():
+    """Test a long chain of computed observables to ensure no recursion issues."""
+    # Create a base observable
+    base = observable(1)
+
+    # Create a chain of computed observables
+    chain = [base]
+    for i in range(10000):  # Create 10000 levels deep to stress test
+        next_obs = computed(lambda x, i=i: x + i + 1, chain[-1])
+        chain.append(next_obs)
+
+    # Setting the base should propagate through the entire chain
+    base.set(2)
+
+    # Verify the final value in the chain
+    expected = 2  # base value
+    for i in range(10000):
+        expected += i + 1
+    assert chain[-1].value == expected
+
+
+def test_complex_computed_web():
+    """Test a web of computed observables that might cause recursion issues."""
+    # Create several base observables
+    a = observable(1)
+    b = observable(2)
+    c = observable(3)
+
+    # Create computed observables that depend on each other
+    sum_ab = computed(lambda x, y: x + y, a | b)
+    sum_bc = computed(lambda x, y: x + y, b | c)
+    sum_ac = computed(lambda x, y: x + y, a | c)
+
+    # Create higher-level computed that depend on the sums
+    total1 = computed(lambda x, y: x + y, sum_ab | sum_bc)
+    total2 = computed(lambda x, y: x + y, sum_bc | sum_ac)
+    total3 = computed(lambda x, y: x + y, sum_ac | sum_ab)
+
+    # Create final aggregator
+    grand_total = computed(lambda x, y, z: x + y + z, total1 | total2 | total3)
+
+    # Change one base observable and verify everything updates
+    a.set(10)
+
+    # Verify all values are correct
+    assert sum_ab.value == 12  # 10 + 2
+    assert sum_bc.value == 5  # 2 + 3
+    assert sum_ac.value == 13  # 10 + 3
+    assert total1.value == 17  # 12 + 5
+    assert total2.value == 18  # 5 + 13
+    assert total3.value == 25  # 13 + 12
+    assert grand_total.value == 60  # 17 + 18 + 25
+
+
+def test_fan_out_many_dependents():
+    """Test fan-out pattern with many computed observables depending on one base."""
+    base = observable(42)
+    dependents = []
+
+    # Create many computed observables that depend on the base
+    for i in range(100):  # Create 100 dependents
+        dep = computed(lambda x, i=i: x + i, base)
+        dependents.append(dep)
+
+    # Change the base - this should trigger all dependents to update
+    base.set(100)
+
+    # Verify all dependents updated correctly
+    for i, dep in enumerate(dependents):
+        assert dep.value == 100 + i

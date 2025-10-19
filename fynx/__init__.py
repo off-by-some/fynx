@@ -59,7 +59,7 @@ UserStore.age = 31      # Prints: User updated: Bob, 31
 For more examples and detailed documentation, see the README.md file.
 """
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 __author__ = "Cassidy Bridges"
 __email__ = "cassidybridges@gmail.com"
 
