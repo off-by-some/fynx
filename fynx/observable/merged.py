@@ -3,10 +3,12 @@ FynX MergedObservable - Combined Reactive Values
 ================================================
 
 This module provides the MergedObservable class, which combines multiple individual
-observables into a single reactive unit. This enables treating related observables
-as a cohesive group that updates atomically when any component changes.
+observables into a single reactive computed observable. This enables treating related
+observables as a cohesive group that updates atomically when any component changes.
 
-Merged observables are useful for:
+Merged observables are read-only computed observables that derive their value from
+their source observables. They are useful for:
+
 - **Coordinated Updates**: When multiple values need to change together
 - **Computed Relationships**: When derived values depend on multiple inputs
 - **Tuple Operations**: When you need to pass multiple reactive values as a unit
@@ -24,6 +26,9 @@ print(dimensions.value)  # (10, 20)
 
 width.set(15)
 print(dimensions.value)  # (15, 20)
+
+# Merged observables are read-only
+dimensions.set((5, 5))  # Raises ValueError: Computed observables are read-only
 ```
 """
 
@@ -31,19 +36,23 @@ from typing import Callable, Iterable, TypeVar
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
 from .base import Observable, ReactiveContext
+from .computed import ComputedObservable
 from .interfaces import Mergeable
 from .operators import OperatorMixin, TupleMixin
 
 T = TypeVar("T")
 
 
-class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
+class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, TupleMixin):
     """
-    An observable that combines multiple observables into a single reactive tuple.
+    A computed observable that combines multiple observables into a single reactive tuple.
 
-    MergedObservable creates a composite observable whose value is a tuple containing
+    MergedObservable creates a read-only computed observable whose value is a tuple containing
     the current values of all source observables. When any source observable changes,
-    the merged observable updates its tuple value and notifies all subscribers.
+    the merged observable automatically recalculates its tuple value and notifies all subscribers.
+
+    As a computed observable, MergedObservable is read-only and cannot be set directly.
+    Its value is always derived from its source observables, ensuring consistency.
 
     This enables treating multiple related reactive values as a single atomic unit,
     which is particularly useful for:
@@ -82,8 +91,8 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
         two observables. This provides a consistent interface for computed functions.
 
     See Also:
-        Observable: Base observable class
-        computed: For creating derived values from merged observables
+        ComputedObservable: Base computed observable class
+        >> operator: For creating derived values from merged observables
     """
 
     def __init__(self, *observables: "Observable") -> None:
@@ -97,12 +106,19 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
         Raises:
             ValueError: If no observables are provided
         """
-        # Call parent constructor with a key and initial tuple value
+        if not observables:
+            raise ValueError("At least one observable must be provided for merging")
+
+        # Call ComputedObservable constructor with appropriate parameters
         initial_tuple = tuple(obs.value for obs in observables)
+
+        # Create a computation function that combines the source observables
+        def compute_merged_value():
+            return tuple(obs.value for obs in observables)
 
         # NOTE: MyPy's generics can't perfectly model this complex inheritance pattern
         # where T represents a tuple type in the subclass but a single value in the parent
-        super().__init__("merged", initial_tuple)  # type: ignore
+        super().__init__("merged", initial_tuple, compute_merged_value)  # type: ignore
         self._source_observables = list(observables)
         self._cached_tuple = None  # Cache for tuple value
 
@@ -111,9 +127,10 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
             # Invalidate cache and update value
             self._cached_tuple = None
             new_value = tuple(obs.value for obs in self._source_observables)
-            # Use the parent set method to trigger our own observers
-            super(MergedObservable, self).set(new_value)
+            # Use the computed observable's internal method to update value
+            self._set_computed_value(new_value)
 
+        # Set up dependency tracking for each source observable
         for obs in self._source_observables:
             obs.add_observer(update_merged)
 
@@ -144,25 +161,6 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
             self._cached_tuple = tuple(obs.value for obs in self._source_observables)
 
         return self._cached_tuple
-
-    def set(self, value):
-        """
-        Override set to invalidate cache.
-
-        This method is not typically used directly on merged observables,
-        as they derive their value from source observables. However, if you
-        need to manually set a merged observable's value, this method ensures
-        the internal cache is properly invalidated.
-
-        Args:
-            value: The new tuple value to set
-
-        Note:
-            Manually setting merged observable values is uncommon. Usually,
-            you update the source observables instead.
-        """
-        self._cached_tuple = None
-        super().set(value)
 
     def __enter__(self):
         """

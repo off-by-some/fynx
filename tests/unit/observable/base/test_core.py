@@ -579,10 +579,13 @@ def test_merged_observable_value_derives_from_source_observables():
     obs2.set(4)
     assert merged.value == (3, 4)
 
-    # Direct set on merged observable doesn't affect the derived value
-    # (this is the expected behavior - merged observables derive from sources)
-    merged.set((5, 6))
-    assert merged.value == (3, 4)  # Still reflects source values
+    # Merged observables are read-only computed observables
+    # Attempting to set them directly should raise ValueError
+    with pytest.raises(ValueError, match="Computed observables are read-only"):
+        merged.set((5, 6))
+
+    # Value should still reflect source values
+    assert merged.value == (3, 4)
 
 
 @pytest.mark.unit

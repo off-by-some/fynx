@@ -102,7 +102,7 @@ This breadth isn't accidental. The universal properties underlying FynX apply to
 
 ## The Mathematical Guarantee
 
-Here's what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct. FynX is built on solid mathematical foundations from category theory. These aren't abstractions for their own sake—they're implementation principles that guarantee correctness and enable powerful optimizations.
+You don't need to understand category theory at all to use FynX, though it is what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct. FynX is built on solid mathematical foundations from category theory. These aren't abstractions for their own sake—they're implementation principles that guarantee correctness and enable powerful optimizations.
 
 FynX satisfies specific universal properties from category theory (covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)) These aren't abstractions for their own sake; they're implementation principles that guarantee correctness:
 
@@ -116,7 +116,7 @@ $$
 \mathcal{O}(\mathrm{id}) = \mathrm{id} \quad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f
 $$
 
-You don't need to understand category theory to use FynX. The mathematics works beneath the surface, ensuring that complex reactive systems composed from simple parts behave predictably under all transformations. Write declarative code describing relationships, and the universal properties guarantee those relationships hold.
+The mathematics works beneath the surface, ensuring that complex reactive systems composed from simple parts behave predictably under all transformations. Write declarative code describing relationships, and the universal properties guarantee those relationships hold.
 
 These same categorical structures also enable FynX's automatic optimizer—composition laws prove that `obs >> f >> g >> h` can safely fuse into a single operation, product properties allow sharing common computations, and pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness; it shows exactly which performance optimizations preserve your program's semantics.
 
@@ -203,7 +203,7 @@ FynX provides four composable operators that form a complete algebra for reactiv
 | Operator | Method | Operation | Purpose | Example |
 |----------|--------|-----------|---------|---------|
 | `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
-| `+` | `.alongside()` | Combine | Merge observables into tuples | `(first + last) >> join` |
+| `+` | `.alongside()` | Combine | Merge observables into read-only tuples | `(first + last) >> join` |
 | `&` | `.also()` | Filter | Gate based on conditions | `file & valid & ~processing` |
 | `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
 | | `.either()` | Logical OR | Combine boolean conditions | *(coming soon)* |
@@ -242,7 +242,8 @@ Each transformation creates a new observable that recalculates when its source c
 
 ## Combining Observables with `+` or `.alongside()`
 
-Use `+` (or `.alongside()`) to combine multiple observables into reactive tuples:
+Use `+` (or `.alongside()`) to combine multiple observables into reactive tuples.
+Merged observables are read-only computed observables that derive their value from their source observables:
 
 ```python
 class User(Store):
@@ -250,8 +251,7 @@ class User(Store):
     last_name = observable("Doe")
 
 # Define transformation function
-def join_names(first_and_last):
-    first, last = first_and_last
+def join_names(first, last):
     return f"{first} {last}"
 
 # Combine and transform using .then()
@@ -259,6 +259,10 @@ full_name_method = (User.first_name + User.last_name).then(join_names)
 
 # Alternative using >> operator
 full_name_operator = (User.first_name + User.last_name) >> join_names
+
+# Merged observables are read-only
+merged = User.first_name + User.last_name
+# merged.set(("Jane", "Smith"))  # Raises ValueError: Computed observables are read-only
 ```
 
 When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.

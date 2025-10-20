@@ -502,23 +502,23 @@ class ReactiveGraph(DependencyGraph):
 
             node = self.get_or_create_node(obs)
 
-            # For computed observables, add their source dependencies
-            if isinstance(obs, ComputedObservable) and hasattr(
-                obs, "_source_observable"
-            ):
-                source = obs._source_observable
-                if source is not None:
+            # For merged observables, add all source dependencies
+            if isinstance(obs, MergedObservable):
+                for source in obs._source_observables:  # type: ignore
+                    if source is None:
+                        continue
                     if source not in visited:
                         queue.append(source)
                     source_node = self.get_or_create_node(source)
                     node.incoming.add(source_node)
                     source_node.outgoing.add(node)
 
-            # For merged observables, add all source dependencies
-            elif isinstance(obs, MergedObservable):
-                for source in obs._source_observables:  # type: ignore
-                    if source is None:
-                        continue
+            # For computed observables, add their source dependencies
+            elif isinstance(obs, ComputedObservable) and hasattr(
+                obs, "_source_observable"
+            ):
+                source = obs._source_observable
+                if source is not None:
                     if source not in visited:
                         queue.append(source)
                     source_node = self.get_or_create_node(source)
@@ -644,9 +644,11 @@ class ReactiveGraph(DependencyGraph):
 
             # Check if this node could be the start of a chain
             # (its predecessor is not a computed node, or has multiple outputs)
+            # Special case: MergedObservable can start chains even though it's a ComputedObservable
             predecessor = next(iter(node.incoming))
             if (
                 isinstance(predecessor.observable, ComputedObservable)
+                and not isinstance(predecessor.observable, MergedObservable)
                 and len(predecessor.outgoing) == 1
             ):
                 continue  # This is a middle node, not a start
