@@ -14,7 +14,7 @@ Each example demonstrates a different aspect of conditional reactive programming
 
 import sys
 
-from fynx import Store, observable, watch
+from fynx import Store, observable, reactive
 
 
 def basic_watch_example():

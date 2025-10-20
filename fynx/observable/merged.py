@@ -55,7 +55,7 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
 
     Example:
         ```python
-        from fynx import observable, computed
+        from fynx import observable
 
         # Individual observables
         x = observable(10)
@@ -66,9 +66,8 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
         print(point.value)  # (10, 20)
 
         # Computed values can work with the tuple
-        distance_from_origin = computed(
-            lambda px, py: (px**2 + py**2)**0.5,
-            point
+        distance_from_origin = point.then(
+            lambda px, py: (px**2 + py**2)**0.5
         )
         print(distance_from_origin.value)  # 22.360679774997898
 

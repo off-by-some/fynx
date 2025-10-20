@@ -93,7 +93,7 @@ Conditional reactions extend the basic reaction pattern by only executing when s
 Here's a complete example showing how FynX's concepts work together:
 
 ```python
-from fynx import Store, observable, computed, reactive, watch
+from fynx import Store, observable, reactive, watch
 
 # Create a reactive store grouping related state
 class UserStore(Store):
@@ -112,12 +112,11 @@ def on_user_change(name, age):
     print(f"User updated: {name}, {age}")
 
 # React only when specific conditions are met
-@watch(
-    lambda: UserStore.is_online.value,
-    lambda: UserStore.age.value >= 18
-)
-def on_adult_online():
-    print(f"Adult user {UserStore.name.value} is now online!")
+is_adult_online = (UserStore.is_online >> (lambda online: online)) & (UserStore.age >> (lambda age: age >= 18))
+@reactive(is_adult_online)
+def on_adult_online(is_adult_online_state):
+    if is_adult_online_state:
+        print(f"Adult user {UserStore.name.value} is now online!")
 
 # Changes trigger appropriate reactions automatically
 UserStore.name = "Bob"      # Prints: User updated: Bob, 30

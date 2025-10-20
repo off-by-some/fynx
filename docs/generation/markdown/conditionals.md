@@ -43,9 +43,9 @@ extreme_temps.subscribe(lambda temp: {
 
 Now the filtering is declarative and reusable. The `extreme_temps` observable only produces values when the condition is met.
 
-## The & Operator: Conditional Filtering
+## The & Operator: Boolean Composition
 
-The `&` operator combines an observable with boolean condition observables. It only emits values from the source observable when ALL condition observables are `True`:
+The `&` operator combines multiple boolean observables into compound boolean conditions. The result emits the source observable's value when ALL conditions are `True`, and does not emit when any condition becomes `False`:
 
 ```python
 from fynx import observable
@@ -62,36 +62,41 @@ high_scores.subscribe(lambda score: {
     print(f"🎉 High score achieved: {score}")
 })
 
-scores.set(88)  # No output (condition is False)
-scores.set(95)  # Prints: "🎉 High score achieved: 95"
-scores.set(87)  # No output (condition becomes False again)
+scores.set(88)  # No emission (condition became False)
+scores.set(95)  # Prints: "🎉 High score achieved: 95" (condition became True)
+scores.set(87)  # No emission (condition became False)
 ```
 
-### Multiple Conditions
+The `&` operator creates a **ConditionalObservable** that only emits when conditions are met, making it ideal for reactive boolean logic and state management.
 
-Combine multiple conditions with logical operators:
+## Using Conditional Observables with @reactive
+
+The `&` operator creates conditional observables that work perfectly with `@reactive` for event-driven reactions:
 
 ```python
-age = observable(25)
-score = observable(85)
-is_premium = observable(True)
+from fynx import observable, reactive
 
-# Create boolean condition observables
-is_adult = age >> (lambda a: a >= 18)
-has_good_score = score >> (lambda s: s >= 80)
-is_premium_user = is_premium >> (lambda p: p == True)
+scores = observable(85)
 
-# Multiple conditions - all must be true
-eligible_users = age & is_adult & has_good_score & is_premium_user
+# Create a boolean condition observable
+is_high_score = scores >> (lambda score: score > 90)
 
-eligible_users.subscribe(lambda _: {
-    print("User is eligible for premium features")
-})
+# Use with @reactive for event-driven reactions
+@reactive(is_high_score)
+def on_high_score(is_high):
+    if is_high:
+        print(f"🎉 High score achieved: {scores.value}")
+
+scores.set(88)  # No output (condition not met)
+scores.set(95)  # Prints: "🎉 High score achieved: 95"
+scores.set(87)  # No output (condition no longer met)
 ```
 
-### Complex Predicates
+This pattern gives you event-driven reactions while maintaining the reactive paradigm.
 
-Your condition functions can be as complex as needed:
+### Complex Predicates with &
+
+Your condition functions can be as complex as needed with the `&` operator:
 
 ```python
 user = observable({"name": "Alice", "age": 30, "country": "US"})
@@ -104,13 +109,18 @@ is_valid_user = user >> (lambda u: {
     "@" not in u["name"]  # No emails in names
 })
 
-# Filter users based on validation
+# Create compound boolean condition with & operator
 valid_users = user & is_valid_user
 
 valid_users.subscribe(lambda user_data: {
-    print(f"✅ Valid user: {user_data['name']}")
+    if user_data is not None:
+        print(f"✅ Valid user: {user_data['name']}")
+    else:
+        print("❌ User no longer valid")
 })
 ```
+
+The `&` operator emits `None` when validation fails, allowing you to react to both valid and invalid states.
 
 ## The ~ Operator: Logical Negation
 
@@ -157,7 +167,7 @@ status.set("error")      # Prints: "Status changed to: error"
 
 ## Real-World Example: Form Validation
 
-Form validation is perfect for conditional observables:
+Form validation is perfect for conditional observables with the `&` operator:
 
 ```python
 email = observable("")
@@ -172,20 +182,24 @@ terms_checked = terms_accepted >> (lambda t: t == True)
 # Form is valid only when all conditions are true
 form_valid = email & email_valid & password_strong & terms_checked
 
-form_valid.subscribe(lambda _: {
-    print("✅ Form is complete and valid!")
+form_valid.subscribe(lambda is_valid: {
+    if is_valid is not None:
+        print("✅ Form is complete and valid!")
+    else:
+        print("❌ Form validation failed")
 })
 
 # Simulate form filling
-email.set("user@")           # Not yet
-password.set("pass")         # Not yet
-terms_accepted.set(True)     # Not yet
+email.set("user@")           # Prints: "❌ Form validation failed" (email invalid)
+password.set("pass")         # Still invalid
+terms_accepted.set(True)     # Still invalid
 
-email.set("user@example.com")  # Not yet (password too short)
-password.set("secure123")      # Now valid!
+email.set("user@example.com")  # Still invalid (password too short)
+password.set("secure123")      # Prints: "✅ Form is complete and valid!"
+password.set("short")          # Prints: "❌ Form validation failed" (password weak)
 ```
 
-Notice how `form_valid` only emits when ALL conditions become true simultaneously.
+The `&` operator emits `None` when validation fails, allowing you to handle both valid and invalid states in your UI.
 
 ## Advanced Patterns: State Machines with Conditionals
 
@@ -394,6 +408,6 @@ Conditionals transform your reactive system from "process everything" to "proces
 - **Clarity**: Separate filtering logic from reaction logic
 - **Composition**: Combine conditions with other operators
 
-Think of conditionals as reactive filters. They let you create observables that only emit valuable data, reducing noise and improving performance. Combined with transformations (`>>`) and reactions (`@reactive`, `@watch`), they give you a complete toolkit for building sophisticated reactive applications.
+Think of conditionals as reactive filters. They let you create observables that only emit valuable data, reducing noise and improving performance. Combined with transformations (`>>`) and reactions (`@reactive`), they give you a complete toolkit for building sophisticated reactive applications.
 
 The next step is organizing these reactive pieces into reusable units called **Stores**—the architectural pattern that brings everything together.

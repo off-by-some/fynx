@@ -46,12 +46,15 @@ import pytest
 
 from fynx import observable
 from fynx.observable.computed import ComputedObservable
+from fynx.observable.conditional import ConditionalNeverMet, ConditionalNotMet
 from fynx.optimizer import ReactiveGraph, get_graph_statistics, optimize_reactive_graph
 
 
 class TestChainFusion:
     """Test Rule 1: Functor Composition Collapse - O(g) ∘ O(f) = O(g ∘ f)"""
 
+    @pytest.mark.integration
+    @pytest.mark.optimizer
     def test_simple_chain_fusion(self):
         """Test that a simple 3-link chain gets fused into 2 nodes."""
         base = observable(5)
@@ -66,6 +69,8 @@ class TestChainFusion:
         # Verify semantics preserved
         assert chain.value == "20"  # (5 * 2 + 10) -> "20"
 
+    @pytest.mark.integration
+    @pytest.mark.optimizer
     def test_extreme_chain_fusion_100_links(self):
         """Test fusion of a 100-link chain - should reduce to minimal nodes."""
         from fynx.optimizer import ReactiveGraph
@@ -98,6 +103,8 @@ class TestChainFusion:
         expected = 1 + sum(range(100))  # 1 + 4950 = 5051
         assert chain.value == expected
 
+    @pytest.mark.integration
+    @pytest.mark.optimizer
     def test_nested_function_composition(self):
         """Test fusion preserves correct function composition order."""
         base = observable(2)
@@ -119,6 +126,8 @@ class TestChainFusion:
         # Verify composition: ((2² + 3) × 4) - 1 = ((4 + 3) × 4) - 1 = (7 × 4) - 1 = 28 - 1 = 27
         assert chain.value == 27
 
+    @pytest.mark.integration
+    @pytest.mark.optimizer
     def test_chain_fusion_with_merges(self):
         """Test chain fusion works with merged observables."""
         a = observable(1)
@@ -248,7 +257,8 @@ class TestPullbackFusion:
 
         # Test boundary case
         data.set(25)  # >20, fails second condition
-        assert filtered.value is None  # Should be filtered out
+        with pytest.raises(ConditionalNotMet):
+            _ = filtered.value  # Should raise exception when conditions not met
 
         # Test another value that meets conditions
         data.set(17)  # >10, <20, odd
@@ -277,7 +287,8 @@ class TestPullbackFusion:
 
         # Test failure case
         value.set(49)  # 49%2==1 (odd), fails last condition
-        assert complex_filter.value is None
+        with pytest.raises(ConditionalNotMet):
+            _ = complex_filter.value
 
 
 class TestEquivalenceAnalysis:
@@ -410,6 +421,8 @@ class TestMaterializationOptimization:
 class TestGraphStructure:
     """Test graph construction and basic structure handling"""
 
+    @pytest.mark.integration
+    @pytest.mark.optimizer
     def test_empty_graph_optimization(self):
         """Test optimization of empty graph."""
         results, optimizer = optimize_reactive_graph([])
@@ -566,11 +579,13 @@ class TestConditionalFusion:
         # Test boundary cases - create fresh observables for each test
         data2 = observable(49)  # < 50, should fail
         filtered2 = data2 & (lambda x: x > 50) & (lambda x: x < 200)
-        assert filtered2.value is None
+        with pytest.raises(ConditionalNeverMet):
+            _ = filtered2.value
 
         data3 = observable(210)  # > 200, should fail
         filtered3 = data3 & (lambda x: x > 50) & (lambda x: x < 200)
-        assert filtered3.value is None
+        with pytest.raises(ConditionalNeverMet):
+            _ = filtered3.value
 
     def test_condition_fusion_with_transformation(self):
         """Test condition fusion combined with transformations."""
@@ -755,8 +770,8 @@ class TestOptimizationCorrectness:
 class TestIntegrationOptimization:
     """Integration tests for complex optimization scenarios"""
 
-    def test_complex_reactive_graph_optimization(self):
-        """Test optimization of a complex real-world reactive graph."""
+    def test_complex_reactive_graph_optimization_performs_fusions(self):
+        """Complex reactive graph optimization performs expected fusion operations"""
         # Simulate a complex UI component with multiple interdependent computations
 
         # Base data
@@ -801,8 +816,88 @@ class TestIntegrationOptimization:
             + results["filter_fusions"]
         ) >= 2
 
+    def test_complex_reactive_graph_optimization_reduces_graph_size(self):
+        """Complex reactive graph optimization reduces total node count"""
+        # Simulate a complex UI component with multiple interdependent computations
+
+        # Base data
+        user_data = observable({"age": 25, "score": 85, "level": 3})
+
+        # Extract fields
+        age = user_data >> (lambda d: d["age"])
+        score = user_data >> (lambda d: d["score"])
+        level = user_data >> (lambda d: d["level"])
+
+        # Computed properties
+        is_adult = age >> (lambda a: a >= 18)
+        is_high_score = score >> (lambda s: s >= 80)
+        bonus_multiplier = level >> (lambda l: 1.0 + l * 0.1)
+
+        # Complex computation using multiple fields
+        final_score = (
+            (score | bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
+        )
+
+        # Conditional display
+        display_score = final_score & is_adult & is_high_score
+
+        # Optimize the entire graph
+        all_nodes = [
+            age,
+            score,
+            level,
+            is_adult,
+            is_high_score,
+            bonus_multiplier,
+            final_score,
+            display_score,
+        ]
+
+        results, optimizer = optimize_reactive_graph(all_nodes)
+
         # Should reduce graph size through optimization
         assert results["total_nodes"] <= len(all_nodes)  # At least some reduction
+
+    def test_complex_reactive_graph_optimization_preserves_computation_correctness(
+        self,
+    ):
+        """Complex reactive graph optimization preserves computation correctness"""
+        # Simulate a complex UI component with multiple interdependent computations
+
+        # Base data
+        user_data = observable({"age": 25, "score": 85, "level": 3})
+
+        # Extract fields
+        age = user_data >> (lambda d: d["age"])
+        score = user_data >> (lambda d: d["score"])
+        level = user_data >> (lambda d: d["level"])
+
+        # Computed properties
+        is_adult = age >> (lambda a: a >= 18)
+        is_high_score = score >> (lambda s: s >= 80)
+        bonus_multiplier = level >> (lambda l: 1.0 + l * 0.1)
+
+        # Complex computation using multiple fields
+        final_score = (
+            (score | bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
+        )
+
+        # Conditional display
+        display_score = final_score & is_adult & is_high_score
+
+        # Optimize the entire graph
+        all_nodes = [
+            age,
+            score,
+            level,
+            is_adult,
+            is_high_score,
+            bonus_multiplier,
+            final_score,
+            display_score,
+        ]
+
+        results, optimizer = optimize_reactive_graph(all_nodes)
 
         # Verify all computations still work correctly
         assert is_adult.value == True
@@ -811,8 +906,8 @@ class TestIntegrationOptimization:
         assert final_score.value == int(85 * 1.3)  # 110.5 -> 110 (int)
         assert display_score.value == 110
 
-    def test_semantic_preservation_under_optimization(self):
-        """Test that all optimizations preserve observable semantics."""
+    def test_semantic_preservation_under_optimization_performs_fusions(self):
+        """Semantic preservation optimization performs expected fusion operations"""
         # Create complex chains and verify semantics preserved through optimization
         base = observable(7)
 
@@ -840,6 +935,33 @@ class TestIntegrationOptimization:
 
         # Should fuse chains efficiently
         assert results["functor_fusions"] >= 3  # At least most chains fused
+
+    def test_semantic_preservation_under_optimization_maintains_correctness(self):
+        """Semantic preservation optimization maintains computation correctness"""
+        # Create complex chains and verify semantics preserved through optimization
+        base = observable(7)
+
+        # Create multiple different computation patterns
+        patterns = [
+            # Arithmetic chain
+            base >> (lambda x: x + 3) >> (lambda x: x * 2) >> (lambda x: x - 1),
+            # String processing chain
+            base >> str >> (lambda s: f"value:{s}") >> (lambda s: s.upper()),
+            # Conditional chain
+            base >> (lambda x: x if x > 5 else 0) >> (lambda x: x**2),
+            # Complex mixed chain
+            (
+                base
+                >> (lambda x: x * 2)
+                >> (lambda x: x + 5)
+                >> str
+                >> (lambda s: f"result:{s}")
+                >> len
+            ),
+        ]
+
+        # Optimize all patterns together
+        results, optimizer = optimize_reactive_graph(patterns)
 
         # Verify all results correct
         assert patterns[0].value == ((7 + 3) * 2) - 1 == 19  # 7+3=10, 10*2=20, 20-1=19

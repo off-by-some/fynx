@@ -59,21 +59,20 @@ UserStore.age = 31      # Prints: User updated: Bob, 31
 For more examples and detailed documentation, see the README.md file.
 """
 
-__version__ = "0.0.8"
+__version__ = "0.1.0"
 __author__ = "Cassidy Bridges"
 __email__ = "cassidybridges@gmail.com"
 
-from .computed import computed
 from .observable import (
+    ConditionalNeverMet,
     ConditionalObservable,
     MergedObservable,
     Observable,
     ReactiveContext,
 )
 from .observable import SubscriptableDescriptor as Subscriptable
-from .reactive import reactive
+from .reactive import ReactiveFunctionWasCalled, reactive
 from .store import Store, observable
-from .watch import watch
 
 __all__ = [
     "Observable",
@@ -81,9 +80,9 @@ __all__ = [
     "Subscriptable",
     "MergedObservable",
     "ConditionalObservable",
+    "ConditionalNeverMet",
     "ReactiveContext",
+    "ReactiveFunctionWasCalled",
     "observable",
     "reactive",
-    "computed",
-    "watch",
 ]

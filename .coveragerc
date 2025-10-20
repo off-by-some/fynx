@@ -1,0 +1,16 @@
+[run]
+branch = True
+source =
+    fynx
+
+[report]
+show_missing = True
+skip_covered = False
+omit =
+    tests/*
+    */tests/*
+    examples/*
+    docs/*
+    */__init__.py
+
+

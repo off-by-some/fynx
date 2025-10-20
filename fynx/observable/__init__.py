@@ -143,10 +143,8 @@ temperature.set(25)     # Prints: "Maintaining temperature at 25°C"
 
 ### Computed Values
 ```python
-from fynx.computed import computed
-
-# Create computed observables
-area = computed(lambda w, h: w * h, dimensions)
+# Create computed observables using .then()
+area = dimensions.then(lambda w, h: w * h)
 print(area.value)  # 300
 
 width.set(20)
@@ -180,7 +178,7 @@ See Also
 
 from .base import Observable, ReactiveContext
 from .computed import ComputedObservable
-from .conditional import ConditionalObservable
+from .conditional import ConditionalNeverMet, ConditionalObservable
 from .descriptors import ObservableValue, SubscriptableDescriptor
 from .interfaces import (
     Conditional,
@@ -202,6 +200,7 @@ __all__ = [
     "ComputedObservable",
     "MergedObservable",
     "ConditionalObservable",
+    "ConditionalNeverMet",
     "ReactiveContext",
     "ObservableValue",
     "SubscriptableDescriptor",

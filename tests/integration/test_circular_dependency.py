@@ -4,7 +4,7 @@ Test for circular dependency detection in complex reactive chains.
 
 import pytest
 
-from fynx import Store, computed, observable
+from fynx import Store, observable
 
 
 class TestStore(Store):
@@ -20,17 +20,19 @@ def test_circular_dependency_with_conditional_chains():
     age_obs = observable(25)
 
     # Create validation computed observables
-    is_valid_email = computed(
-        lambda email: "@" in email and "." in email.split("@")[1], email_obs
+    is_valid_email = email_obs >> (
+        lambda email: "@" in email and "." in email.split("@")[1]
     )
-    is_valid_age = computed(lambda age: 0 <= age <= 150, age_obs)
+    is_valid_age = age_obs >> (lambda age: 0 <= age <= 150)
 
-    # Create conditional observable chain
-    profile_is_valid = is_valid_email & is_valid_age
+    # Create combined boolean observable for profile validity
+    profile_is_valid = (is_valid_email | is_valid_age) >> (
+        lambda email_valid, age_valid: email_valid and age_valid
+    )
 
-    # Create a computed observable that depends on the conditional observable
-    validation_status = computed(
-        lambda valid: "valid" if valid else "invalid", profile_is_valid
+    # Create a computed observable that depends on the boolean observable
+    validation_status = profile_is_valid >> (
+        lambda valid: "valid" if valid else "invalid"
     )
 
     # This should not cause a circular dependency
@@ -56,16 +58,18 @@ def test_circular_dependency_with_complex_chains():
     """Test more complex chains that were causing circular dependencies in the example."""
 
     # Simulate the pattern from advanced_user_profile.py
-    is_valid_email = computed(
-        lambda email: "@" in email and "." in email.split("@")[1], TestStore.email
+    is_valid_email = TestStore.email >> (
+        lambda email: "@" in email and "." in email.split("@")[1]
     )
-    is_valid_age = computed(lambda age: 0 <= age <= 150, TestStore.age)
+    is_valid_age = TestStore.age >> (lambda age: 0 <= age <= 150)
 
     # Conditional chain
-    profile_is_valid = is_valid_email & is_valid_age
+    profile_is_valid = (is_valid_email | is_valid_age) >> (
+        lambda email_valid, age_valid: email_valid and age_valid
+    )
 
-    # Another computed that depends on the conditional
-    can_access_feature = computed(lambda valid: valid, profile_is_valid)
+    # Another computed that depends on the boolean
+    can_access_feature = profile_is_valid >> (lambda valid: valid)
 
     # This change should trigger updates through the chain without circular dependency
     TestStore.email = "new@example.com"
@@ -87,7 +91,7 @@ def test_circular_dependency_should_be_detected():
     obs_a = observable(1)
 
     # Create computed that modifies its source
-    computed_obs = computed(lambda x: (obs_a.set(x + 1), x)[1], obs_a)
+    computed_obs = obs_a >> (lambda x: (obs_a.set(x + 1), x)[1])
 
     # The circular dependency is detected when the computed is triggered
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
@@ -102,7 +106,7 @@ def test_long_computed_chain_no_recursion():
     # Create a chain of computed observables
     chain = [base]
     for i in range(10000):  # Create 10000 levels deep to stress test
-        next_obs = computed(lambda x, i=i: x + i + 1, chain[-1])
+        next_obs = chain[-1] >> (lambda x, i=i: x + i + 1)
         chain.append(next_obs)
 
     # Setting the base should propagate through the entire chain
@@ -123,17 +127,17 @@ def test_complex_computed_web():
     c = observable(3)
 
     # Create computed observables that depend on each other
-    sum_ab = computed(lambda x, y: x + y, a | b)
-    sum_bc = computed(lambda x, y: x + y, b | c)
-    sum_ac = computed(lambda x, y: x + y, a | c)
+    sum_ab = (a | b) >> (lambda x, y: x + y)
+    sum_bc = (b | c) >> (lambda x, y: x + y)
+    sum_ac = (a | c) >> (lambda x, y: x + y)
 
     # Create higher-level computed that depend on the sums
-    total1 = computed(lambda x, y: x + y, sum_ab | sum_bc)
-    total2 = computed(lambda x, y: x + y, sum_bc | sum_ac)
-    total3 = computed(lambda x, y: x + y, sum_ac | sum_ab)
+    total1 = (sum_ab | sum_bc) >> (lambda x, y: x + y)
+    total2 = (sum_bc | sum_ac) >> (lambda x, y: x + y)
+    total3 = (sum_ac | sum_ab) >> (lambda x, y: x + y)
 
     # Create final aggregator
-    grand_total = computed(lambda x, y, z: x + y + z, total1 | total2 | total3)
+    grand_total = (total1 | total2 | total3) >> (lambda x, y, z: x + y + z)
 
     # Change one base observable and verify everything updates
     a.set(10)
@@ -155,7 +159,7 @@ def test_fan_out_many_dependents():
 
     # Create many computed observables that depend on the base
     for i in range(100):  # Create 100 dependents
-        dep = computed(lambda x, i=i: x + i, base)
+        dep = base >> (lambda x, i=i: x + i)
         dependents.append(dep)
 
     # Change the base - this should trigger all dependents to update

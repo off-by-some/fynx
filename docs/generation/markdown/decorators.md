@@ -6,7 +6,7 @@ Decorators in FynX provide the high-level API for creating reactive relationship
 
 FynX decorators fall into two main categories:
 
-- **Function Decorators**: Transform functions into reactive components (`@reactive`, `@watch`)
+- **Function Decorators**: Transform functions into reactive components (`@reactive`)
 - **Class Decorators**: Make class attributes reactive (`@observable`)
 
 ## Function Decorators
@@ -77,75 +77,26 @@ unsubscribe_func = reactive(UserStore)(on_any_user_change)
 UserStore.unsubscribe(on_any_user_change)
 ```
 
-### `@watch` - Conditional Reactions
+### Conditional Reactions with @reactive
 
-The `@watch` decorator creates reactions that only trigger when specific conditions are met. Unlike `@reactive` which triggers on every change, `@watch` only runs when conditions transition from unmet to met.
-
-#### Basic Conditional Watching
+You can use `@reactive` with conditional observables to create event-driven reactions:
 
 ```python
-from fynx import watch, observable
+from fynx import reactive, observable
 
-user_online = observable(False)
-message_count = observable(0)
+count = observable(5)
 
-@watch(
-    lambda: user_online.value,           # User must be online
-    lambda: message_count.value > 0      # Must have messages
-)
-def send_notifications():
-    print(f"📬 Sending {message_count.value} notifications!")
+# Create a conditional observable
+is_above_threshold = count >> (lambda c: c > 10)
 
-# No reaction yet - conditions not met
-message_count = 5       # User offline
-user_online = True      # Now both conditions met - triggers!
+@reactive(is_above_threshold)
+def on_threshold(is_above):
+    if is_above:
+        print("Count exceeded threshold!")
 
-# No reaction - already met conditions
-message_count = 3       # Still triggers (count changed)
-user_online = False     # Conditions no longer met
-
-user_online = True      # Triggers again - conditions newly met
-```
-
-#### Complex Conditions
-
-```python
-is_logged_in = observable(False)
-has_permissions = observable(False)
-data_loaded = observable(False)
-
-@watch(
-    lambda: is_logged_in.value,
-    lambda: has_permissions.value,
-    lambda: data_loaded.value
-)
-def enable_feature():
-    print("🎉 Feature enabled - all conditions met!")
-
-# Only triggers when ALL conditions become true after being false
-is_logged_in = True     # Not yet - missing permissions
-has_permissions = True  # Not yet - missing data
-data_loaded = True      # Now triggers!
-```
-
-#### Real-World Example: Form Validation
-
-```python
-email = observable("")
-password = observable("")
-terms_accepted = observable(False)
-
-@watch(
-    lambda: email.value and "@" in email.value,
-    lambda: len(password.value) >= 8,
-    lambda: terms_accepted.value
-)
-def enable_submit_button():
-    print("✅ Form is valid - submit button enabled")
-
-email = "user@example.com"  # Not yet - password too short
-password = "secure123"      # Not yet - terms not accepted
-terms_accepted = True       # All conditions met - triggers!
+count.set(15)  # Triggers the reaction
+count.set(8)   # No reaction (condition not met)
+count.set(12)  # Triggers the reaction again
 ```
 
 ## Class Decorators
@@ -187,14 +138,13 @@ print(CounterStore.doubled)  # 10
 
 | Decorator | Use Case | Triggers On |
 |-----------|----------|-------------|
-| `@reactive` | Side effects, UI updates, logging | Every change to dependencies |
-| `@watch` | Conditional logic, state machines, validation | Conditions becoming newly met |
+| `@reactive` | Side effects, UI updates, logging, conditional reactions | Every change to dependencies |
 | `@observable` | Reactive state in classes | N/A (attribute decorator) |
 
 ### Combining Decorators
 
 ```python
-from fynx import Store, observable, reactive, watch
+from fynx import Store, observable, reactive
 
 class TodoStore(Store):
     todos = observable([])
@@ -205,14 +155,13 @@ class TodoStore(Store):
     def update_ui(todos_list, mode):
         print(f"UI updated: {len(todos_list)} todos, filter: {mode}")
 
-    # Watch: Only when todos exist and filter changes to "completed"
-    @watch(
-        lambda: len(TodoStore.todos.value) > 0,
-        lambda: TodoStore.filter_mode.value == "completed"
-    )
-    def show_completion_message():
-        completed_count = len([t for t in TodoStore.todos.value if t["completed"]])
-        print(f"🎉 {completed_count} todos completed!")
+    # Conditional reactive: Only when todos exist and filter changes to "completed"
+    completed_filter = (todos >> (lambda t: len(t) > 0)) & (filter_mode >> (lambda f: f == "completed"))
+    @reactive(completed_filter)
+    def show_completion_message(should_show):
+        if should_show:
+            completed_count = len([t for t in TodoStore.todos if t["completed"]])
+            print(f"🎉 {completed_count} todos completed!")
 ```
 
 ### Error Handling
@@ -236,7 +185,6 @@ some_observable = 10  # Continues working: "Processed: 10"
 #### Lazy vs Eager Execution
 
 - **Reactive methods** (`@reactive`): Execute eagerly when dependencies change
-- **Watch methods** (`@watch`): Execute eagerly only when conditions are newly met
 - **Computed properties**: Execute lazily when accessed
 
 ```python
@@ -285,13 +233,13 @@ class UIStore(Store):
         else:
             print("📱 Restoring full-width layout")
 
-    @watch(lambda: UIStore.loading.value)
-    def show_loading_spinner():
-        print("⏳ Showing loading spinner")
-
-    @watch(lambda: not UIStore.loading.value)
-    def hide_loading_spinner():
-        print("✅ Hiding loading spinner")
+    # Conditional reactive for loading state
+    @reactive(loading)
+    def handle_loading_state(is_loading):
+        if is_loading:
+            print("⏳ Showing loading spinner")
+        else:
+            print("✅ Hiding loading spinner")
 ```
 
 ### Form Handling
@@ -308,14 +256,16 @@ class FormStore(Store):
         if email_val and "@" not in email_val:
             print("❌ Invalid email format")
 
-    # Watch for complete form
-    @watch(
-        lambda: FormStore.email.value and "@" in FormStore.email.value,
-        lambda: len(FormStore.password.value) >= 8,
-        lambda: FormStore.password.value == FormStore.confirm_password.value
+    # Conditional reactive for complete form
+    form_valid = (
+        email >> (lambda e: e and "@" in e) &
+        password >> (lambda p: len(p) >= 8) &
+        (password | confirm_password) >> (lambda p, c: p == c)
     )
-    def enable_submit():
-        print("✅ Form is valid and ready to submit")
+    @reactive(form_valid)
+    def enable_submit(is_valid):
+        if is_valid:
+            print("✅ Form is valid and ready to submit")
 ```
 
 ### API Integration
@@ -333,13 +283,17 @@ class ApiStore(Store):
         else:
             print("✅ Hiding loading indicator")
 
-    @watch(lambda: ApiStore.error.value is not None)
-    def show_error_message():
-        print(f"❌ Error: {ApiStore.error.value}")
+    # Conditional reactive for error state
+    @reactive(error)
+    def handle_error_state(error_val):
+        if error_val is not None:
+            print(f"❌ Error: {error_val}")
 
-    @watch(lambda: ApiStore.data.value is not None)
-    def process_successful_response():
-        print(f"📦 Processing data: {len(ApiStore.data.value)} items")
+    # Conditional reactive for successful response
+    @reactive(data)
+    def process_successful_response(data_val):
+        if data_val is not None:
+            print(f"📦 Processing data: {len(data_val)} items")
 ```
 
 ## Best Practices
@@ -394,24 +348,32 @@ def handle_api_response(response):
         show_generic_error()
 ```
 
-### 4. Prefer `@watch` for State Machines
+### 4. Use Conditional Observables for State Machines
 
 ```python
 current_state = observable("idle")
 
-@watch(lambda: current_state.value == "loading")
-def enter_loading_state():
-    show_spinner()
+# Create conditional observables for state transitions
+is_loading = current_state >> (lambda s: s == "loading")
+is_success = current_state >> (lambda s: s == "success")
+is_error = current_state >> (lambda s: s == "error")
 
-@watch(lambda: current_state.value == "success")
-def enter_success_state():
-    hide_spinner()
-    show_success_message()
+@reactive(is_loading)
+def enter_loading_state(is_loading_state):
+    if is_loading_state:
+        show_spinner()
 
-@watch(lambda: current_state.value == "error")
-def enter_error_state():
-    hide_spinner()
-    show_error_message()
+@reactive(is_success)
+def enter_success_state(is_success_state):
+    if is_success_state:
+        hide_spinner()
+        show_success_message()
+
+@reactive(is_error)
+def enter_error_state(is_error_state):
+    if is_error_state:
+        hide_spinner()
+        show_error_message()
 ```
 
 ### 5. Document Side Effects
@@ -431,4 +393,4 @@ def update_application_theme(preferences):
     save_to_localstorage("theme", preferences["theme"])
 ```
 
-Decorators are the bridge between reactive state and imperative code. They allow you to write declarative relationships while maintaining clean, maintainable code. Choose the right decorator for your use case, and remember that reactive functions should focus on side effects while computed properties handle pure transformations.
+Decorators are the bridge between reactive state and imperative code. They allow you to write declarative relationships while maintaining clean, maintainable code. Use `@reactive` for all reactive behavior, combining it with conditional observables for event-driven reactions. Remember that reactive functions should focus on side effects while computed properties handle pure transformations.

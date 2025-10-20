@@ -1,6 +1,4 @@
-from typing import Optional
-
-from fynx import Store, computed, observable, reactive, watch
+from fynx import Store, observable, reactive
 
 # ------------------------------------------------------------------------------------------------
 
@@ -161,7 +159,7 @@ ExampleStore.name = "Bob"
 
 print()
 print("=" * 100)
-print("Conditional reactions with @watch decorator")
+print("Conditional reactions with @reactive and & operator")
 print("-" * 100)
 print()
 
@@ -169,11 +167,12 @@ print()
 user_status = observable("offline")
 message_count = observable(0)
 
+# Create computed observables for the conditions
+is_online = user_status >> (lambda s: s == "online")
+has_messages = message_count >> (lambda c: c is not None and c > 0)
 
-@watch(
-    lambda: user_status.value == "online" if user_status.value is not None else False,
-    lambda: message_count.value is not None and message_count.value > 0,
-)
+
+@reactive(is_online & has_messages)
 def notify_user():
     print(f"📬 Notifying user: {message_count.value} new messages while online!")
 
@@ -232,8 +231,8 @@ bmi = bmi_data >> calculate_bmi  # Calculate BMI from height & weight
 bmi_category = bmi >> calculate_bmi_category  # Categorize BMI value
 
 # Alternative syntax (same result):
-# bmi = computed(calculate_bmi, bmi_data)
-# bmi_category = computed(calculate_bmi_category, bmi)
+# bmi = bmi_data.then(calculate_bmi)
+# bmi_category = bmi.then(calculate_bmi_category)
 
 # Show initial calculated values first
 print("Initial BMI calculation:")

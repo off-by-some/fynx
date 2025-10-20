@@ -64,9 +64,18 @@ class CartStore(Store):
     item_count = observable(1)
     price_per_item = observable(10.0)
 
-# Reactive computation
-total_price = (CartStore.item_count | CartStore.price_per_item) >> (lambda count, price: count * price)
-total_price.subscribe(lambda total: print(f"Cart Total: ${total:.2f}"))
+# Define transformation function
+def calculate_total(count_and_price):
+    count, price = count_and_price
+    return count * price
+
+# Reactive computation using .then()
+total_price = (CartStore.item_count | CartStore.price_per_item).then(calculate_total)
+
+def print_total(total):
+    print(f"Cart Total: ${total:.2f}")
+
+total_price.subscribe(print_total)
 
 # Automatic updates
 CartStore.item_count = 3          # Cart Total: $30.00
@@ -94,9 +103,9 @@ This breadth isn't accidental. The universal properties underlying FynX apply to
 
 ## The Mathematical Guarantee
 
-Here's what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct.
+Here's what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct. FynX is built on solid mathematical foundations from category theory. These aren't abstractions for their own sake—they're implementation principles that guarantee correctness and enable powerful optimizations.
 
-FynX satisfies specific universal properties from category theory. These aren't abstractions for their own sake; they're implementation principles that guarantee correctness:
+FynX satisfies specific universal properties from category theory (covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)) These aren't abstractions for their own sake; they're implementation principles that guarantee correctness:
 
 * **Functoriality**: Any function you lift with `>>` preserves composition exactly. Chain transformations freely—the order of operations is guaranteed.
 * **Products**: Combining observables with `|` creates proper categorical products. No matter how you nest combinations, the structure remains coherent.
@@ -113,6 +122,59 @@ You don't need to understand category theory to use FynX. The mathematics works 
 These same categorical structures also enable FynX's automatic optimizer—composition laws prove that `obs >> f >> g >> h` can safely fuse into a single operation, product properties allow sharing common computations, and pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness; it shows exactly which performance optimizations preserve your program's semantics.
 
 Think of it as a particularly thorough test suite—one that covers not just the cases you thought to write, but every possible case that could theoretically exist (but yes, we've got the ["real deal" tests](./tests/test_readme.py) if you want to live dangerously).
+
+
+## Performance
+
+While the theory guarantees correctness; implementation determines speed. FynX delivers both—and the mathematics directly enables the performance.
+
+```bash
+# Run the full benchmark suite
+poetry install --with benchmark
+poetry run python scripts/benchmark.py
+```
+
+Below is a sample of the output from the above command:
+```
+FynX Benchmark Configuration:
+  TIME_LIMIT_SECONDS: 1.0
+  STARTING_N: 10
+  SCALE_FACTOR: 1.5
+
+╭───────────────────────── 🎯 FynX Benchmarks ────────────────────────────────────╮
+│                    FynX Performance Benchmark Suite                             │
+╰─────────────────────────────────────────────────────────────────────────────────╯
+
+Running Observable Creation benchmark...
+✓ Observable Creation: 793,506 ops/sec (810325 items)
+Running Individual Updates benchmark...
+✓ Individual Updates: 352,902 ops/sec (360145 items)
+Running Chain Propagation benchmark...
+✓ Chain Propagation: 1,640 ops/sec (2776 links, 609μs latency)
+Running Reactive Fan-out benchmark...
+✓ Reactive Fan-out: 47,115 ops/sec (47427 items)
+
+╭─────────────────────── 🎯 Real-World Performance Translation ───────────────────╮
+│ ✓ Can handle ~47,427 UI components reacting to single state change              │
+│ ✓ Supports component trees up to 2,776 levels deep                              │
+│ ✓ Processes 353K+ state updates per second                                      │
+│ ✓ Creates 794K+ observable objects per second                                   │
+│ ✓ Average propagation latency: 609μs per dependency link                        │
+╰──────────────────────────────────────────────────────────────────────────────── ╯
+```
+
+The library processes over **353,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
+
+| Benchmark | Performance | Real-World Translation |
+|-----------|-------------|------------------------|
+| **Observable Creation** | 794K ops/sec | Create 790,000+ observable objects per second |
+| **Individual Updates** | 353K ops/sec | Process 350,000+ state changes per second |
+| **Chain Propagation** | 1.6K ops/sec | Support dependency chains 2,776 levels deep |
+| **Reactive Fan-out** | 47K ops/sec | Update 47,000+ UI components from single state change |
+
+Latency remains sub-microsecond for individual updates and averages 609μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
+
+The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
 
 ## Observables
 
@@ -153,16 +215,27 @@ Each operation creates a new observable. Chain them to build sophisticated react
 The `>>` operator transforms observables through functions. Chain multiple transformations to build [derived observables](https://off-by-some.github.io/fynx/generation/markdown/derived-observables/):
 
 ```python
-from fynx import computed
+# Define transformation functions
+def double(x):
+    return x * 2
 
-# Inline transformations
-result = (counter
-    >> (lambda x: x * 2)
-    >> (lambda x: x + 10)
-    >> (lambda x: f"Result: {x}"))
+def add_ten(x):
+    return x + 10
 
-# Reusable transformations
-doubled = computed(lambda x: x * 2, counter)
+def format_result(x):
+    return f"Result: {x}"
+
+# Chain transformations using .then()
+result_method = (counter
+    .then(double)
+    .then(add_ten)
+    .then(format_result))
+
+# Alternative syntax using >> operator
+result_operator = (counter
+    >> double
+    >> add_ten
+    >> format_result)
 ```
 
 Each transformation creates a new observable that recalculates when its source changes. This chaining works predictably because `>>` implements functorial mapping—structure preservation under transformation.
@@ -176,8 +249,16 @@ class User(Store):
     first_name = observable("John")
     last_name = observable("Doe")
 
-# Combine and transform
-full_name = (User.first_name | User.last_name) >> (lambda f, l: f"{f} {l}")
+# Define transformation function
+def join_names(first_and_last):
+    first, last = first_and_last
+    return f"{first} {last}"
+
+# Combine and transform using .then()
+full_name_method = (User.first_name | User.last_name).then(join_names)
+
+# Alternative using >> operator
+full_name_operator = (User.first_name | User.last_name) >> join_names
 ```
 
 When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.
@@ -192,19 +273,34 @@ The `&` operator filters observables to emit only when [conditions](https://off-
 uploaded_file = observable(None)
 is_processing = observable(False)
 
-# Conditional observables
-is_valid = uploaded_file >> (lambda f: f is not None)
-preview_ready = uploaded_file & is_valid & (~is_processing)
+# Define validation function
+def is_valid_file(f):
+    return f is not None
+
+# Conditional observables using .then()
+is_valid_method = uploaded_file.then(is_valid_file)
+is_valid_operator = uploaded_file >> is_valid_file
+
+# Filter using & operator
+preview_ready_method = uploaded_file & is_valid_method & (~is_processing)
+preview_ready_operator = uploaded_file & is_valid_operator & (~is_processing)
 ```
 
-The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. This filtering emerges from pullback constructions, guaranteeing consistent semantics no matter how you stack conditions.
+The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
 
 ## Reacting to Changes
 
-React to observable changes using the [`@reactive`](https://off-by-some.github.io/fynx/generation/markdown/using-reactive/) decorator, subscriptions, or the [`@watch`](https://off-by-some.github.io/fynx/generation/markdown/using-watch/) pattern:
+React to observable changes using the [`@reactive`](https://off-by-some.github.io/fynx/generation/markdown/using-reactive/) decorator or subscriptions:
 
 ```python
-from fynx import reactive, watch
+from fynx import reactive
+
+# Define reaction functions
+def handle_change(value):
+    print(f"Changed: {value}")
+
+def print_new_value(x):
+    print(f"New value: {x}")
 
 # Dedicated reaction functions
 @reactive(observable)
@@ -212,15 +308,22 @@ def handle_change(value):
     print(f"Changed: {value}")
 
 # Inline reactions
-observable.subscribe(lambda x: print(f"New value: {x}"))
+observable.subscribe(print_new_value)
 
-# Conditional reactions
+# Conditional reactions using conditional observables
 condition1 = observable(True)
 condition2 = observable(False)
 
-@watch(condition1 & condition2)
-def on_conditions_met():
-    print("All conditions satisfied!")
+def check_conditions():
+    return condition1.value and condition2.value
+
+# Create conditional observable
+all_conditions_met = (condition1 | condition2).then(check_conditions)
+
+@reactive(all_conditions_met)
+def on_conditions_met(conditions_met):
+    if conditions_met:
+        print("All conditions satisfied!")
 ```
 
 Choose the pattern that fits your context. These reactions fire automatically because the dependency graph tracks relationships through the categorical structure underlying observables.
@@ -239,229 +342,6 @@ Explore the [`examples/`](https://github.com/off-by-some/fynx/tree/main/examples
 | [`streamlit/todo_store.py`](https://github.com/off-by-some/fynx/blob/main/examples/streamlit/todo_store.py) | Todo store with computed properties, filtering, and bulk operations |
 
 These examples demonstrate how FynX's composable primitives scale from simple to sophisticated. The consistency across scales follows from the mathematical foundations.
-
-## The Mathematical Foundation
-
-Time-varying values have structure. When you create an `Observable<T>` in FynX, you're working with something that behaves like a continuous function from time to values—formally:
-
-$$
-\mathcal{T} \to T
-$$
-
-where $\mathcal{T}$ represents the temporal domain. Observables possess deeper mathematical character: they form what category theorists call an endofunctor:
-
-$$
-\mathcal{O}: \mathbf{Type} \to \mathbf{Type}
-$$
-
-on Python's type system.
-
-Functors preserve transformations. If you have a function $f: A \to B$ that transforms regular values, a functor lifts that transformation to work on structured values. The `>>` operator implements this lifting—it takes ordinary functions and makes them work on observables.
-
-```python
-# Regular function on values
-def double(x): return x * 2
-def add_ten(x): return x + 10
-
-value = 5
-result = add_ten(double(value))  # 20
-
-# Same composition, lifted to observables
-obs = observable(5)
-obs_result = obs >> double >> add_ten  # Observable(20)
-```
-
-Functors must satisfy two laws that guarantee predictable behavior:
-
-$$\mathcal{O}(\mathrm{id}) = \mathrm{id} \qquad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f$$
-
-The first law: doing nothing to an observable still does nothing. The second: composing two functions then lifting is identical to lifting each separately and composing.
-
-```python
-# Identity law: O(id) = id
-obs = observable(42)
-assert (obs >> (lambda x: x)).value == obs.value
-
-# Composition law: O(g ∘ f) = O(g) ∘ O(f)
-composed = obs >> (lambda x: add_ten(double(x)))
-chained = obs >> double >> add_ten
-assert composed.value == chained.value  # Both are 94
-```
-
-These laws mean that no matter how you chain transformations with `>>`, the order of operations preserves exactly as you'd expect from ordinary function composition.
-
-When you combine observables with `|`, you're constructing a Cartesian product in the observable category:
-
-$$
-\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)
-$$
-
-This isomorphism is elegant—combining two separate time-varying values produces a single time-varying tuple, and these perspectives are equivalent.
-
-```python
-first_name = observable("Jane")
-last_name = observable("Doe")
-
-# Product creates a tuple observable
-full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
-
-first_name.set("John")  # full_name automatically becomes "John Doe"
-```
-
-The product structure ensures that combining observables remains symmetric and associative regardless of nesting order.
-
-```python
-a = observable(1)
-b = observable(2)
-c = observable(3)
-
-# Associativity: (a | b) | c ≅ a | (b | c)
-left_assoc = (a | b) | c   # ((1, 2), 3)
-right_assoc = a | (b | c)  # (1, (2, 3))
-
-# Both represent the same product structure, just different tuple nesting
-# The mathematical product A×B×C is unique up to isomorphism
-```
-
-Filtering introduces pullbacks. When you use `&` with a predicate $p: A \to \mathbb{B}$, FynX constructs a universal way of selecting subobjects. The predicate maps values to the boolean domain $\mathbb{B}$, pulling back along the "true" morphism:
-
-$$
-\mathcal{O}(A) \xrightarrow{\mathcal{O}(p)} \mathcal{O}(\mathbb{B}) \xrightarrow{\text{true}} \mathbb{B}
-$$
-
-```python
-data = observable(42)
-is_positive = data >> (lambda x: x > 0)
-is_even = data >> (lambda x: x % 2 == 0)
-
-# Pullback: only emits when both conditions hold
-filtered = data & is_positive & is_even
-
-data.set(42)   # filtered emits: 42 (positive and even)
-data.set(-4)   # filtered doesn't emit (not positive)
-data.set(7)    # filtered doesn't emit (not even)
-```
-
-Pullbacks guarantee that combining filters with `&` behaves associatively and commutatively. Stack conditions in any order—the semantics remain consistent because they derive from a universal construction.
-
-```python
-# Commutativity: a & b ≡ b & a
-filter1 = data & is_positive & is_even
-filter2 = data & is_even & is_positive
-
-# Both represent the same pullback
-data.set(42)
-assert filter1.value == filter2.value  # Both emit 42
-```
-
-The categorical perspective provides proofs, not just patterns. When you chain operations in FynX, you're not hoping the library handles edge cases correctly—the mathematics guarantees it must.
-
-```python
-# Complex composition: all laws hold automatically
-price = observable(100.0)
-quantity = observable(3)
-discount = observable(0.1)
-is_valid = quantity >> (lambda q: q > 0)
-
-# Functor laws + product structure + pullback semantics = correct composition
-total = ((price | quantity) >> (lambda p, q: p * q)) & is_valid
-discounted = total >> (lambda t: t * (1 - discount.value))
-
-quantity.set(5)  # Everything updates correctly by mathematical necessity
-```
-
-Functoriality ensures that structure-preserving transformations in your domain remain structure-preserving when lifted to observables. Product and pullback constructions come with universal properties that dictate precisely how composition behaves. No special cases. No hidden gotchas.
-
-Changes propagate through your system correctly because the underlying category theory proves they must. FynX tracks dependencies and manages updates automatically, but that automation isn't heuristic—it follows necessarily from the categorical structure. You write declarative code describing relationships, and the functor laws, product isomorphisms, and pullback universality ensure those relationships maintain under all transformations.
-
-This is the power of building on mathematical foundations. The theory isn't ornamentation—it's why you can compose observables fearlessly. Category theory gives FynX its correctness guarantees, turning reactive programming from a collection of patterns into a rigorous calculus with laws you can depend on.
-
-## Performance
-
-While the theory guarantees correctness; implementation determines speed. FynX delivers both—and the mathematics directly enables the performance.
-
-```bash
-# Run the full benchmark suite
-poetry install --with benchmark
-poetry run python scripts/benchmark.py
-```
-
-Below is a sample of the output from the above command:
-```
-FynX Benchmark Configuration:
-  TIME_LIMIT_SECONDS: 1.0
-  STARTING_N: 10
-  SCALE_FACTOR: 1.5
-
-╭───────────────────────── 🎯 FynX Benchmarks ────────────────────────────────────╮
-│                    FynX Performance Benchmark Suite                            │
-╰─────────────────────────────────────────────────────────────────────────────────╯
-
-Running Observable Creation benchmark...
-✓ Observable Creation: 793,506 ops/sec (810325 items)
-Running Individual Updates benchmark...
-✓ Individual Updates: 352,902 ops/sec (360145 items)
-Running Chain Propagation benchmark...
-✓ Chain Propagation: 1,640 ops/sec (2776 links, 609μs latency)
-Running Reactive Fan-out benchmark...
-✓ Reactive Fan-out: 47,115 ops/sec (47427 items)
-
-╭─────────────────────── 🎯 Real-World Performance Translation ───────────────────╮
-│ ✓ Can handle ~47,427 UI components reacting to single state change              │
-│ ✓ Supports component trees up to 2,776 levels deep                              │
-│ ✓ Processes 353K+ state updates per second                                      │
-│ ✓ Creates 794K+ observable objects per second                                   │
-│ ✓ Average propagation latency: 609μs per dependency link                        │
-╰──────────────────────────────────────────────────────────────────────────────── ╯
-```
-
-The library processes over **353,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
-
-| Benchmark | Performance | Real-World Translation |
-|-----------|-------------|------------------------|
-| **Observable Creation** | 794K ops/sec | Create 790,000+ observable objects per second |
-| **Individual Updates** | 353K ops/sec | Process 350,000+ state changes per second |
-| **Chain Propagation** | 1.6K ops/sec | Support dependency chains 2,776 levels deep |
-| **Reactive Fan-out** | 47K ops/sec | Update 47,000+ UI components from single state change |
-
-Latency remains sub-microsecond for individual updates and averages 609μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
-
-
-
-## The Optimizer Behind the Speed
-
-FynX achieves this performance through a categorical graph optimizer that automatically applies four proven rewrite rules:
-
-1. **Functor Composition Collapse**: `obs >> f >> g >> h` → `obs >> (h ∘ g ∘ f)`\
-   Fuses transformation chains into single operations. The benchmark's 2,776-deep chains stay efficient because functoriality guarantees composition preserves structure.
-
-2. **Product Factorization**: `(a | b) >> f` and `(a | b) >> g` → shared `(a | b)` computation\
-   Eliminates redundant combinations through categorical products. When 47,000+ components depend on the same state, they share the product structure automatically.
-
-3. **Pullback Fusion**: `obs & cond1 & cond2` → `obs & (cond1 ∧ cond2)`\
-   Combines sequential filters into conjunctive predicates. Pullback squares guarantee this preserves semantics while reducing evaluation overhead.
-
-4. **Cost-Optimal Materialization**: Dynamic programming over the dependency graph\
-   Decides whether to cache or recompute each node using a monoidal cost functional:
-
-$$
-C(\sigma) = \alpha \cdot |\mathrm{Dep}(\sigma)| + \beta \cdot \mathbb{E}[\mathrm{Updates}(\sigma)] + \gamma \cdot \mathrm{depth}(\sigma)
-$$
-
-The optimizer runs automatically during observable composition. Chain operations freely—the categorical structure ensures rewriting terminates in a provably optimal normal form.
-
-### Why This Matters
-
-The benchmark suite measures the four fundamental operations that compose all reactive patterns. Performance scales because:
-
-* **Functoriality** means transformations compose without redundant recomputation
-* **Products** enable efficient tuple handling and common subexpression elimination
-* **Pullbacks** make filtering compositional with minimal overhead
-* **Cost functionals** follow monoidal laws, guaranteeing optimization correctness
-
-These aren't just fast implementations—they're fast *because* they respect the mathematical structure. The theory proves the optimizations are valid; profiling data guides materialization decisions; confluence checking ensures rewrite order doesn't matter.
-
-Performance, correctness, and simplicity align when the foundations are right. FynX proves you can have all three—mathematical guarantees, automatic optimization, and clean APIs—by building on category theory from the ground up.
 
 ## Design Philosophy
 

@@ -124,6 +124,21 @@ class Observable(abc.ABC, Generic[T]):
 
     @property
     @abc.abstractmethod
+    def key(self) -> str:
+        """
+        Get a unique identifier for this observable.
+
+        The key is used for debugging, serialization, and display purposes.
+        It should be unique within a given context to allow observables to be
+        distinguished from each other.
+
+        Returns:
+            A string identifier for this observable.
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
     def value(self) -> Optional[T]:
         """
         Get the current value, automatically tracking dependencies in reactive contexts.
@@ -208,3 +223,9 @@ class Conditional(Observable[T], abc.ABC):
     """
 
     _condition_observables: List[Observable[bool]]
+
+    @property
+    @abc.abstractmethod
+    def is_active(self) -> bool:
+        """Whether the conditional currently allows values through."""
+        pass

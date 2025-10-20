@@ -33,15 +33,15 @@ Observables are containers for values that change over time. Unlike regular vari
 
 **[Observable](observable.md)** — The foundation of FynX. Create observables with `observable(initial_value)`, read them with `.value`, write them with `.set(new_value)`. Every other FynX feature builds on this simple primitive.
 
-**[ComputedObservable](computed-observable.md)** — Values that automatically recalculate when their dependencies change. Create them with the `>>` operator: `full_name = (first | last) >> (lambda f, l: f"{f} {l}")`. The `>>` operator transforms observables through functions, creating a new computed observable. Alternatively, use the `computed(func, observable)` function for the same result with different syntax. FynX tracks dependencies automatically and ensures computed values always stay up-to-date.
+**[ComputedObservable](computed-observable.md)** — Values that automatically recalculate when their dependencies change. Create them with the `>>` operator: `full_name = (first | last) >> (lambda f, l: f"{f} {l}")`. The `>>` operator transforms observables through functions, creating a new computed observable. Alternatively, use the `.then(func)` method on observables for the same result. FynX tracks dependencies automatically and ensures computed values always stay up-to-date.
 
 **[MergedObservable](merged-observable.md)** — Combine multiple observables into a single reactive tuple using the `|` operator: `position = x | y | z`. When any source changes, subscribers receive all values as a tuple. This is the foundation for reactive relationships that depend on multiple values.
 
-**[ConditionalObservable](conditional-observable.md)** — Observables that only emit when conditions are satisfied. Create them with the `&` operator: `valid_submission = form_data & is_valid`. This enables sophisticated reactive logic without cluttering your code with conditional checks.
+**[ConditionalObservable](conditional-observable.md)** — Observables that emit when conditions are satisfied. Create them with the `&` operator: `valid_submission = form_data & is_valid`. This enables sophisticated reactive logic without cluttering your code with conditional checks.
 
 **[Observable Descriptors](observable-descriptors.md)** — The mechanism behind Store class attributes. When you write `name = observable("Alice")` in a Store class, you're creating a descriptor that provides clean property access without `.value` or `.set()`.
 
-**[Observable Operators](observable-operators.md)** — The operators (`|`, `>>`, `&`, `~`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
+**[Observable Operators](observable-operators.md)** — The operators (`|`, `>>`, `&`, `~`) and methods (`.then()`, `.also()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
 
 ### Stores: Organizing State
 
@@ -53,9 +53,7 @@ While standalone observables are useful for small scripts, real applications nee
 
 Decorators let you declare what should happen when observables change, without manually managing subscriptions.
 
-**[@reactive](reactive-decorator.md)** — Run functions automatically when dependencies change. This is how you implement side effects—logging, UI updates, API calls—that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes.
-
-**[@watch](watch-decorator.md)** — Like `@reactive`, but only runs when a condition becomes true. Use this for state transitions, validation triggers, and event handlers that should fire conditionally. The condition is checked reactively, so changes to observables in the condition trigger re-evaluation.
+**[@reactive](reactive-decorator.md)** — Run functions automatically when dependencies change. This is how you implement side effects—logging, UI updates, API calls—that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes. Use with conditional observables for event-driven reactions: `@reactive(condition & other_condition)`.
 
 ## API Quick Reference
 
@@ -93,10 +91,9 @@ AppStore.count = current + 1   # Write
 doubled = count >> (lambda c: c * 2)
 full_name = (first | last) >> (lambda f, l: f"{f} {l}")
 
-# Using computed() function (alternative syntax)
-from fynx import computed
-doubled = computed(lambda c: c * 2, count)
-full_name = computed(lambda f, l: f"{f} {l}", first | last)
+# Using .then() method (alternative syntax)
+doubled = count.then(lambda c: c * 2)
+full_name = (first | last).then(lambda f, l: f"{f} {l}")
 ```
 
 ### Reacting to Changes
@@ -110,10 +107,12 @@ count.subscribe(lambda val: print(f"Count: {val}"))
 def log_count(val):
     print(f"Count: {val}")
 
-# Using @watch for conditional reactions
-@watch(lambda: count.value > 10)
-def on_threshold():
-    print("Count exceeded 10!")
+# Using @reactive with conditional observables for event-driven reactions
+is_above_threshold = count >> (lambda c: c > 10)
+@reactive(is_above_threshold)
+def on_threshold(is_above):
+    if is_above:
+        print("Count exceeded 10!")
 ```
 
 ### Composing Observables
@@ -125,9 +124,8 @@ position = x | y | z
 # Transform values with >> operator
 doubled = count >> (lambda c: c * 2)
 
-# Or use computed() function
-from fynx import computed
-doubled = computed(lambda c: c * 2, count)
+# Or use .then() method
+doubled = count.then(lambda c: c * 2)
 
 # Filter conditionally
 should_save = has_changes & is_valid
@@ -141,7 +139,7 @@ is_idle = ~is_busy
 Here's how these concepts work together in a realistic scenario:
 
 ```python
-from fynx import Store, observable, reactive, watch
+from fynx import Store, observable, reactive
 
 class ShoppingCartStore(Store):
     # Basic reactive state
@@ -172,10 +170,11 @@ can_checkout = has_items & total_positive
 def update_ui_total(t):
     print(f"💰 New total: ${t:.2f}")
 
-# Only react when condition is met
-@watch(can_checkout)
-def enable_checkout_button():
-    print("✅ Checkout button enabled")
+# React to checkout eligibility using conditional observables
+@reactive(can_checkout)
+def enable_checkout_button(can_checkout_val):
+    if can_checkout_val:
+        print("✅ Checkout button enabled")
 
 # Use the store
 ShoppingCartStore.items = [
@@ -201,13 +200,13 @@ Throughout this reference, we follow consistent patterns:
 ## Navigating This Reference
 
 ### New to FynX?
-Read in order: [Observable](observable.md) → [Store](store.md) → [@reactive](reactive-decorator.md) → [ConditionalObservable](conditional-observable.md) → [@watch](watch-decorator.md)
+Read in order: [Observable](observable.md) → [Store](store.md) → [@reactive](reactive-decorator.md) → [ConditionalObservable](conditional-observable.md)
 
 ### Building an application?
 Focus on: [Store](store.md), [Observable Operators](observable-operators.md) (especially `>>`), [@reactive](reactive-decorator.md)
 
 ### Need complex state logic?
-Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@watch](watch-decorator.md)
+Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@reactive](reactive-decorator.md)
 
 ### Performance optimization?
 See: [ComputedObservable](computed-observable.md) for memoization, [Observable](observable.md) for subscription management
@@ -217,4 +216,4 @@ Explore: [Observable Descriptors](observable-descriptors.md) to understand how t
 
 ---
 
-For conceptual introductions and tutorials, return to the [main documentation](../index.md). For practical examples and patterns, see the [Cookbook](../cookbook.md).
+For conceptual introductions and tutorials, return to the [main documentation](../../index.md).

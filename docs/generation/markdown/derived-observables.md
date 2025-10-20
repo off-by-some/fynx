@@ -1,8 +1,8 @@
-# Derived Observables: Transforming Data with `>>`
+# Derived Observables: Transforming Data with `.then()` and `>>`
 
 Observables hold reactive values, and conditionals filter them. But what truly unlocks FynX's power is transformation—the ability to derive new values from existing ones automatically.
 
-That's what the `>>` operator does. It's FynX's transformation engine. It takes an observable and a function, and creates a new observable that automatically stays in sync. When the source changes, the function runs, and the derived observable updates.
+FynX provides two ways to create derived observables: the `.then()` method and the `>>` operator. Both create computed observables that automatically stay in sync with their sources. When the source changes, the transformation function runs, and the derived observable updates.
 
 This is where reactive programming stops being about "responding to changes" and starts being about "declaring relationships." You describe how values relate to each other, and FynX handles the synchronization.
 
@@ -48,7 +48,7 @@ Every time state changes, you have to remember to update all the derived values.
 
 ## The Solution: Declarative Derivation
 
-With FynX's `>>` operator, you declare the relationships once:
+With FynX's `.then()` method and `>>` operator, you declare the relationships once:
 
 ```python
 from fynx import observable
@@ -57,17 +57,42 @@ cart_items = observable([{'name': 'Widget', 'price': 10, 'quantity': 2}])
 tax_rate = observable(0.08)
 shipping_threshold = observable(50)
 
-# Declarative transformations
-subtotal = cart_items >> (lambda items: sum(item['price'] * item['quantity'] for item in items))
-tax = subtotal >> (lambda st: st * tax_rate.value)
-shipping = subtotal >> (lambda st: 0 if st >= shipping_threshold.value else 5.99)
-total = (subtotal | tax | shipping) >> (lambda st, t, s: st + t + s)
+# Define transformation functions
+def calculate_subtotal(items):
+    return sum(item['price'] * item['quantity'] for item in items)
+
+def calculate_tax(subtotal):
+    return subtotal * tax_rate.value
+
+def calculate_shipping(subtotal):
+    return 0 if subtotal >= shipping_threshold.value else 5.99
+
+def calculate_total(subtotal, tax, shipping):
+    return subtotal + tax + shipping
+
+# Declarative transformations using .then()
+subtotal = cart_items.then(calculate_subtotal)
+tax = subtotal.then(calculate_tax)
+shipping = subtotal.then(calculate_shipping)
+total = (subtotal | tax | shipping).then(calculate_total)
 
 # Subscribe to see results
-subtotal.subscribe(lambda s: print(f"Subtotal: ${s:.2f}"))
-tax.subscribe(lambda t: print(f"Tax: ${t:.2f}"))
-shipping.subscribe(lambda s: print(f"Shipping: ${s:.2f}"))
-total.subscribe(lambda t: print(f"Total: ${t:.2f}"))
+def print_subtotal(s):
+    print(f"Subtotal: ${s:.2f}")
+
+def print_tax(t):
+    print(f"Tax: ${t:.2f}")
+
+def print_shipping(s):
+    print(f"Shipping: ${s:.2f}")
+
+def print_total(t):
+    print(f"Total: ${t:.2f}")
+
+subtotal.subscribe(print_subtotal)
+tax.subscribe(print_tax)
+shipping.subscribe(print_shipping)
+total.subscribe(print_total)
 
 # Now just change the source data
 cart_items.set(cart_items.value + [{'name': 'Gadget', 'price': 15, 'quantity': 1}])
@@ -76,40 +101,60 @@ cart_items.set(cart_items.value + [{'name': 'Gadget', 'price': 15, 'quantity': 1
 
 You declare what each value means in terms of others. Changes propagate automatically. No manual recalculation. No stale data. No forgotten updates.
 
-## How `>>` Works: Function Application
+## How `.then()` and `>>` Work: Function Application
 
-The `>>` operator creates a computed observable: `source_observable >> transformation_function`
+Both `.then()` and `>>` create computed observables, but with slightly different syntax:
 
-- Takes the current value from the source observable
-- Passes it to your transformation function immediately (eager evaluation)
-- Wraps the result in a new observable
-- Automatically re-runs the transformation when the source changes
+- **`.then()`**: `source_observable.then(transformation_function)` - Method syntax
+- **`>>`**: `source_observable >> transformation_function` - Operator syntax
+
+Both approaches:
+- Take the current value from the source observable
+- Pass it to your transformation function immediately (eager evaluation)
+- Wrap the result in a new observable
+- Automatically re-run the transformation when the source changes
 
 ```python
 numbers = observable([1, 2, 3])
 
-# Transformation runs immediately with initial value
-total = numbers >> (lambda nums: sum(nums))  # total.value is 6
+def sum_numbers(nums):
+    return sum(nums)
+
+# Both approaches work identically
+total_method = numbers.then(sum_numbers)  # Using .then()
+total_operator = numbers >> sum_numbers    # Using >>
+
+# Both total_method.value and total_operator.value are 6
 
 # Transformation re-runs when source changes
-numbers.set([4, 5, 6])  # total.value becomes 15
+numbers.set([4, 5, 6])  # Both become 15
 ```
 
 ### Chaining and Multiple Transformations
 
-Since `>>` returns a new observable, you can chain transformations:
+Since both `.then()` and `>>` return new observables, you can chain transformations:
 
 ```python
 numbers = observable([1, 2, 3])
 
-# Chain: transform → transform again
-total = numbers >> (lambda nums: sum(nums))
-description = total >> (lambda t: f"Total: {t}")
+def sum_numbers(nums):
+    return sum(nums)
 
-description.subscribe(lambda d: print(f"Result: {d}"))
+def format_total(total):
+    return f"Total: {total}"
+
+# Chain using .then()
+total_method = numbers.then(sum_numbers)
+description_method = total_method.then(format_total)
+
+# Chain using >> (more concise)
+description_operator = numbers >> sum_numbers >> format_total
+
+description_method.subscribe(print)
+description_operator.subscribe(print)
 
 numbers.set([4, 5, 6])
-# Prints: "Result: Total: 15"
+# Both print: "Total: 15"
 ```
 
 ### Function Signatures
@@ -119,12 +164,22 @@ Your transformation functions receive the source observable's value as their fir
 ```python
 # Single observable transformation
 name = observable("alice")
-greeting = name >> (lambda n: f"Hello, {n.title()}!")
+
+def create_greeting(n):
+    return f"Hello, {n.title()}!"
+
+greeting_method = name.then(create_greeting)
+greeting_operator = name >> create_greeting
 
 # Multiple observables (using | first)
 first = observable("John")
 last = observable("Doe")
-full_name = (first | last) >> (lambda f, l: f"{f} {l}")
+
+def combine_names(first_name, last_name):
+    return f"{first_name} {last_name}"
+
+full_name_method = (first | last).then(combine_names)
+full_name_operator = (first | last) >> combine_names
 ```
 
 ### Return Values
@@ -134,56 +189,96 @@ Your functions can return anything—a number, string, list, dictionary, even an
 ```python
 data = observable({'users': [{'name': 'Alice'}, {'name': 'Bob'}]})
 
+def extract_user_count(d):
+    return len(d['users'])
+
+def extract_user_names(d):
+    return [u['name'] for u in d['users']]
+
+def create_count_observable(d):
+    return observable(len(d['users']))
+
 # Extract user count
-user_count = data >> (lambda d: len(d['users']))
+user_count = data.then(extract_user_count)
 
 # Extract user names
-user_names = data >> (lambda d: [u['name'] for u in d['users']])
+user_names = data.then(extract_user_names)
 
 # Create a derived observable
-user_count_obs = data >> (lambda d: observable(len(d['users'])))
+user_count_obs = data.then(create_count_observable)
 ```
 
 ## Chaining Transformations
 
-Since `>>` returns a new observable, you can chain transformations:
+Since both `.then()` and `>>` return new observables, you can chain transformations:
 
 ```python
 raw_data = observable([1, 2, 3, None, 4, None])
 
-# Chain: filter → clean → sum → format
-result = (raw_data
-    >> (lambda data: [x for x in data if x is not None])  # Filter out None
-    >> (lambda clean: [x for x in clean if x > 0])        # Filter positive
-    >> (lambda filtered: sum(filtered))                    # Sum
-    >> (lambda total: f"Total: {total}"))                  # Format
+def filter_none(data):
+    return [x for x in data if x is not None]
 
-result.subscribe(lambda r: print(r))
+def filter_positive(clean):
+    return [x for x in clean if x > 0]
+
+def sum_values(filtered):
+    return sum(filtered)
+
+def format_result(total):
+    return f"Total: {total}"
+
+# Chain using .then() - explicit and readable
+result_method = (raw_data
+    .then(filter_none)      # Filter out None
+    .then(filter_positive)  # Filter positive
+    .then(sum_values)       # Sum
+    .then(format_result))   # Format
+
+# Chain using >> - more concise
+result_operator = (raw_data
+    >> filter_none
+    >> filter_positive
+    >> sum_values
+    >> format_result)
+
+result_method.subscribe(print)
+result_operator.subscribe(print)
 
 raw_data.set([5, None, -1, 10])
-# Prints: "Total: 15"
+# Both print: "Total: 15"
 ```
 
 Each step in the chain is reactive. Change the input and the entire pipeline recalculates automatically.
 
 ## Combining with Other Operators
 
-The `>>` operator works beautifully with FynX's other operators:
+Both `.then()` and `>>` work beautifully with FynX's other operators:
 
 ```python
 prices = observable([10, 20, 30])
 discount_rate = observable(0.1)
 
-# Use | to combine, then >> to transform
-discounted_total = (prices | discount_rate) >> (
-    lambda p, r: sum(price * (1 - r) for price in p)
-)
+def calculate_discounted_total(prices_and_rate):
+    prices, rate = prices_and_rate
+    return sum(price * (1 - rate) for price in prices)
 
-# Use & for conditions, then >> for formatting
-is_expensive = discounted_total >> (lambda t: t > 50)
-expensive_message = (discounted_total & is_expensive) >> (
-    lambda t: f"High-value order: ${t:.2f}"
-)
+def is_expensive(total):
+    return total > 50
+
+def format_expensive_message(total_and_is_expensive):
+    total, is_exp = total_and_is_expensive
+    return f"High-value order: ${total:.2f}"
+
+# Use | to combine, then transform
+discounted_total_method = (prices | discount_rate).then(calculate_discounted_total)
+discounted_total_operator = (prices | discount_rate) >> calculate_discounted_total
+
+# Use & for conditions, then format
+is_expensive_method = discounted_total_method.then(is_expensive)
+is_expensive_operator = discounted_total_method >> is_expensive
+
+expensive_message_method = (discounted_total_method | is_expensive_method).then(format_expensive_message)
+expensive_message_operator = (discounted_total_method | is_expensive_operator) >> format_expensive_message
 ```
 
 ## Performance Characteristics
@@ -195,8 +290,14 @@ Derived observables are lazy and efficient:
 - **No Redundant Work**: If a transformation result hasn't changed, downstream observers don't re-run
 
 ```python
+def slow_computation(data):
+    # Simulate expensive operation
+    time.sleep(0.1)
+    return data * 2
+
 # This transformation only runs when expensive_data changes
-expensive_result = expensive_data >> (lambda d: slow_computation(d))
+expensive_result_method = expensive_data.then(slow_computation)
+expensive_result_operator = expensive_data >> slow_computation
 
 # If expensive_data stays the same, slow_computation doesn't re-run
 expensive_data.set(same_value)  # No recalculation
@@ -209,8 +310,12 @@ Transformations can fail. FynX evaluates transformations eagerly when they're cr
 ```python
 data = observable({'value': 42})
 
+def access_missing_key(d):
+    return d['missing_key'] * 2  # KeyError here!
+
 # This will throw a KeyError immediately when the transformation is created
-result = data >> (lambda d: d['missing_key'] * 2)  # KeyError here!
+result_method = data.then(access_missing_key)  # KeyError!
+result_operator = data >> access_missing_key   # KeyError!
 ```
 
 Handle errors by ensuring your data is in the expected format before creating transformations, or by transforming the data to a safe format first.
@@ -245,7 +350,11 @@ When you access `.value`, you're saying "I need this data right now for a calcul
 total = items.value.reduce(sum)  # Just a number, won't update
 
 # Good: Keeps reactivity by transforming the observable
-total = items >> (lambda item_list: sum(item_list))  # Updates when items changes
+def sum_items(item_list):
+    return sum(item_list)
+
+total_method = items.then(sum_items)  # Updates when items changes
+total_operator = items >> sum_items   # Updates when items changes
 ```
 
 The moment you call `.value`, you extract the data and break the reactive chain. If you're building something that should update automatically when the source changes, work with the observable itself, not its value.
@@ -254,23 +363,33 @@ The moment you call `.value`, you extract the data and break the reactive chain.
 
 ```python
 # These operators expect observables, not values
-derived = count >> (lambda c: c * 2)           # Pass count, not count.value
-merged = first_name | last_name                # Pass observables, not .value
-filtered = items & is_valid                    # Pass observables, not .value
+def double_count(c):
+    return c * 2
+
+derived_method = count.then(double_count)  # Pass count, not count.value
+derived_operator = count >> double_count   # Pass count, not count.value
+merged = first_name | last_name            # Pass observables, not .value
+filtered = items & is_valid                # Pass observables, not .value
 ```
 
-The operators (`>>`, `|`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
+The operators (`.then()`, `>>`, `|`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
 
 **Inside subscribers and reactive functions, `.value` is fine:**
 
 ```python
 counter = observable(0)
 
+def print_count(count):
+    print(f"Count: {count}")
+
 # The function receives the value directly as an argument
-counter.subscribe(lambda count: print(f"Count: {count}"))
+counter.subscribe(print_count)
+
+def print_double_count_and_age(count):
+    print(f"Double count: {count}, Age: {age.value}")
 
 # But if you need to read OTHER observables inside, use .value
-counter.subscribe(lambda count: print(f"Double count: {count}, Age: {age.value}"))
+counter.subscribe(print_double_count_and_age)
 ```
 
 When your function is already being called reactively (through a subscription or decorator), using `.value` inside it to read other observables is perfectly appropriate. You're already in a reactive context.
@@ -302,8 +421,12 @@ external_multiplier = 2
 
 counter = observable(0)
 
+def multiply_by_external(c):
+    return c * external_multiplier
+
 # This depends on external_multiplier, but FynX doesn't know
-doubled = counter >> (lambda c: c * external_multiplier)
+doubled_method = counter.then(multiply_by_external)
+doubled_operator = counter >> multiply_by_external
 
 external_multiplier = 3
 counter.set(5)  # Still uses old multiplier value (2), result = 10
@@ -317,10 +440,20 @@ If your transformation depends on variables outside the observable, FynX won't t
 
 ```python
 # Good - Pure function, same input always gives same output
-uppercase = name >> (lambda n: n.upper())
+def to_uppercase(n):
+    return n.upper()
+
+uppercase_method = name.then(to_uppercase)
+uppercase_operator = name >> to_uppercase
 
 # Avoid - Impure function, depends on external state
-random_case = name >> (lambda n: n.upper() if random.random() > 0.5 else n.lower())
+import random
+
+def random_case(n):
+    return n.upper() if random.random() > 0.5 else n.lower()
+
+random_case_method = name.then(random_case)  # Unpredictable
+random_case_operator = name >> random_case   # Unpredictable
 ```
 
 Pure functions make your reactive system predictable and testable.
@@ -329,10 +462,18 @@ Pure functions make your reactive system predictable and testable.
 
 ```python
 # Good - Handles empty lists gracefully
-average = numbers >> (lambda nums: sum(nums) / len(nums) if nums else 0)
+def safe_average(nums):
+    return sum(nums) / len(nums) if nums else 0
+
+average_method = numbers.then(safe_average)
+average_operator = numbers >> safe_average
 
 # Avoid - Will crash on empty list
-average = numbers >> (lambda nums: sum(nums) / len(nums))
+def unsafe_average(nums):
+    return sum(nums) / len(nums)
+
+unsafe_method = numbers.then(unsafe_average)  # Crashes on empty list
+unsafe_operator = numbers >> unsafe_average   # Crashes on empty list
 ```
 
 Defensive programming prevents runtime errors in your reactive pipelines.
@@ -341,13 +482,29 @@ Defensive programming prevents runtime errors in your reactive pipelines.
 
 ```python
 # Clear intent
-user_age = birth_date >> (lambda date: calculate_age(date))
-is_adult = user_age >> (lambda age: age >= 18)
-eligible_for_voting = is_adult & has_citizenship
+def calculate_age(date):
+    return (datetime.now() - date).days // 365
+
+def is_adult(age):
+    return age >= 18
+
+user_age_method = birth_date.then(calculate_age)
+user_age_operator = birth_date >> calculate_age
+
+is_adult_method = user_age_method.then(is_adult)
+is_adult_operator = user_age_operator >> is_adult
+
+eligible_for_voting = is_adult_method & has_citizenship
 
 # Unclear intent
-transformed = birth_date >> (lambda d: calculate_age(d))
-filtered = transformed & has_citizenship
+def transform(d):
+    return calculate_age(d)
+
+def filter_age(age):
+    return age >= 18
+
+transformed_method = birth_date.then(transform)
+filtered_method = transformed_method.then(filter_age)
 ```
 
 Descriptive names make your reactive graphs self-documenting.
@@ -356,12 +513,31 @@ Descriptive names make your reactive graphs self-documenting.
 
 ```python
 # Good - Break complex transformations into steps
-user_data = api_response >> (lambda r: r['user'])
-user_age = user_data >> (lambda u: u['age'])
-is_adult = user_age >> (lambda a: a >= 18)
+def extract_user_data(response):
+    return response['user']
+
+def extract_user_age(user_data):
+    return user_data['age']
+
+def is_adult(age):
+    return age >= 18
+
+# Each of these are identical
+user_data_method = api_response.then(extract_user_data)
+user_data_operator = api_response >> extract_user_data
+
+user_age_method = user_data_method.then(extract_user_age)
+user_age_operator = user_data_operator >> extract_user_age
+
+is_adult_method = user_age_method.then(is_adult)
+is_adult_operator = user_age_operator >> is_adult
 
 # Avoid - Hard to debug and modify
-is_adult = api_response >> (lambda r: r['user']['age'] >= 18)
+def complex_extraction(response):
+    return response['user']['age'] >= 18
+
+complex_method = api_response.then(complex_extraction)
+complex_operator = api_response >> complex_extraction
 ```
 
 Small, focused transformations are easier to test and maintain.
@@ -370,10 +546,18 @@ Small, focused transformations are easier to test and maintain.
 
 ```python
 # Good - Efficient for large lists
-summed = large_list >> (lambda lst: sum(lst))
+def sum_list(lst):
+    return sum(lst)
+
+summed_method = large_list.then(sum_list)
+summed_operator = large_list >> sum_list
 
 # Better - Lazy evaluation with generator
-summed = large_list >> (lambda lst: sum(x for x in lst))
+def sum_generator(lst):
+    return sum(x for x in lst)
+
+summed_lazy_method = large_list.then(sum_generator)
+summed_lazy_operator = large_list >> sum_generator
 ```
 
 Be mindful of performance, especially with large data structures.
@@ -385,15 +569,29 @@ Be mindful of performance, especially with large data structures.
 ```python
 email = observable("user@")
 
-is_valid_email = email >> (lambda e: "@" in e and "." in e.split("@")[1])
-email_feedback = is_valid_email >> (lambda valid: "Valid" if valid else "Invalid")
+def validate_email(e):
+    return "@" in e and "." in e.split("@")[1]
+
+def email_feedback(valid):
+    return "Valid" if valid else "Invalid"
+
+is_valid_email_method = email.then(validate_email)
+is_valid_email_operator = email >> validate_email
+
+email_feedback_method = is_valid_email_method.then(email_feedback)
+email_feedback_operator = is_valid_email_operator >> email_feedback
 ```
 
 ### Data Formatting
 
 ```python
 price = observable(29.99)
-formatted_price = price >> (lambda p: f"${p:.2f}")
+
+def format_price(p):
+    return f"${p:.2f}"
+
+formatted_price_method = price.then(format_price)
+formatted_price_operator = price >> format_price
 ```
 
 ### Collection Operations
@@ -401,14 +599,26 @@ formatted_price = price >> (lambda p: f"${p:.2f}")
 ```python
 items = observable([1, 2, 3, 4, 5])
 
+def filter_evens(lst):
+    return [x for x in lst if x % 2 == 0]
+
+def double_items(lst):
+    return [x * 2 for x in lst]
+
+def sum_items(lst):
+    return sum(lst)
+
 # Filter
-evens = items >> (lambda lst: [x for x in lst if x % 2 == 0])
+evens_method = items.then(filter_evens)
+evens_operator = items >> filter_evens
 
 # Map
-doubled = items >> (lambda lst: [x * 2 for x in lst])
+doubled_method = items.then(double_items)
+doubled_operator = items >> double_items
 
 # Reduce
-total = items >> (lambda lst: sum(lst))
+total_method = items.then(sum_items)
+total_operator = items >> sum_items
 ```
 
 ### State Derivation
@@ -416,14 +626,28 @@ total = items >> (lambda lst: sum(lst))
 ```python
 app_state = observable("loading")
 
-is_loading = app_state >> (lambda s: s == "loading")
-is_error = app_state >> (lambda s: s == "error")
-is_ready = app_state >> (lambda s: s == "ready")
+def is_loading_state(s):
+    return s == "loading"
+
+def is_error_state(s):
+    return s == "error"
+
+def is_ready_state(s):
+    return s == "ready"
+
+is_loading_method = app_state.then(is_loading_state)
+is_loading_operator = app_state >> is_loading_state
+
+is_error_method = app_state.then(is_error_state)
+is_error_operator = app_state >> is_error_state
+
+is_ready_method = app_state.then(is_ready_state)
+is_ready_operator = app_state >> is_ready_state
 ```
 
 ## The Big Picture
 
-The `>>` operator transforms FynX from a simple notification system into a powerful data transformation engine. You stop writing imperative update code and start declaring relationships:
+Both `.then()` and `>>` transform FynX from a simple notification system into a powerful data transformation engine. You stop writing imperative update code and start declaring relationships:
 
 - **From**: "When X changes, update Y, then update Z"
 - **To**: "Y is a transformation of X, Z is a transformation of Y"

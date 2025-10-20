@@ -8,7 +8,7 @@ verification and a regression test suite.
 
 import pytest
 
-from fynx import Store, computed, observable, reactive, watch
+from fynx import Store, observable, reactive
 
 
 class TestReadmeExamples:
@@ -72,7 +72,7 @@ class TestReadmeExamples:
         assert result.value == "Result: 20"
 
         # Reusable transformations
-        doubled = computed(lambda x: x * 2, counter)
+        doubled = counter.then(lambda x: x * 2)
         assert doubled.value == 10
 
     def test_combining_observables_with_or(self):
@@ -98,8 +98,11 @@ class TestReadmeExamples:
         is_valid = uploaded_file >> (lambda f: f is not None)
         preview_ready = uploaded_file & is_valid & (~is_processing)
 
-        # Initially None (file is None, so is_valid is False)
-        assert preview_ready.value is None
+        # Initially conditions never met, so accessing value raises ConditionalNeverMet
+        from fynx.observable.conditional import ConditionalNeverMet
+
+        with pytest.raises(ConditionalNeverMet):
+            _ = preview_ready.value
 
         # Set file - now all conditions are met, so preview_ready should be "file.txt"
         uploaded_file.set("file.txt")
@@ -108,7 +111,14 @@ class TestReadmeExamples:
 
         # Set processing to True - should block
         is_processing.set(True)
-        assert preview_ready.value is None
+
+        # Accessing value when conditions are unmet should raise ConditionalNotMet
+        from fynx.observable.conditional import ConditionalNotMet
+
+        with pytest.raises(
+            ConditionalNotMet, match="Conditions are not currently satisfied"
+        ):
+            _ = preview_ready.value
 
         # Clear processing - should unblock
         is_processing.set(False)
@@ -145,8 +155,8 @@ class TestReadmeExamples:
         condition2 = observable(False)
         watch_log = []
 
-        @watch(condition1 & condition2)
-        def on_conditions_met():
+        @reactive(condition1 & condition2)
+        def on_conditions_met(value):
             watch_log.append("All conditions satisfied!")
 
         # Initially conditions not met (condition2 is False)
@@ -237,10 +247,22 @@ class TestReadmeExamples:
         assert filtered.value == 42
 
         data.set(-4)  # not positive
-        assert filtered.value is None
+
+        # Accessing value when conditions are unmet should raise ConditionalNotMet
+        from fynx.observable.conditional import ConditionalNotMet
+
+        with pytest.raises(
+            ConditionalNotMet, match="Conditions are not currently satisfied"
+        ):
+            _ = filtered.value
 
         data.set(7)  # not even
-        assert filtered.value is None
+
+        # Still throws error
+        with pytest.raises(
+            ConditionalNotMet, match="Conditions are not currently satisfied"
+        ):
+            _ = filtered.value
 
         data.set(10)  # positive and even
         assert filtered.value == 10

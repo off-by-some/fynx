@@ -350,5 +350,15 @@ class SubscriptableDescriptor(Generic[T]):
             else:
                 raise AttributeError("Cannot set value on uninitialized descriptor")
 
-        observable = getattr(target_class, f"_{self.attr_name}_observable")
+        # Create the observable if it doesn't exist (same logic as __get__)
+        obs_key = f"_{self.attr_name}_observable"
+        if obs_key not in target_class.__dict__:
+            # Use the original observable if provided, otherwise create a new one
+            if self._original_observable is not None:
+                obs = self._original_observable
+            else:
+                obs = ObservableImpl(self.attr_name or "unknown", self._initial_value)
+            setattr(target_class, obs_key, obs)
+
+        observable = getattr(target_class, obs_key)
         observable.set(value)

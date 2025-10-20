@@ -35,14 +35,14 @@ echo "🧪 Running functionality tests..."
 
 TEST_CMD="python -c \"
 import fynx
-from fynx import observable, computed
+from fynx import observable
 
 # Test basic observables
 print('✅ FynX imported successfully')
 
 # Test observable creation and reactivity
 counter = observable(0)
-double_counter = computed(lambda value: value * 2, counter)
+double_counter = counter.then(lambda value: value * 2)
 
 print('✅ Observables and computed values work')
 print('📊 Initial counter:', counter.value)

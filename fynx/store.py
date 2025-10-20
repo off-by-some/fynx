@@ -121,40 +121,6 @@ AppStore.theme = "dark"
 UserStore.name = "Bob"
 ```
 
-Store Lifecycle
----------------
-
-Stores automatically manage the lifecycle of their observables:
-
-1. **Creation**: When you define a Store subclass, the metaclass automatically
-   converts `observable()` calls into reactive descriptors.
-
-2. **Access**: When you access store attributes, you get transparent reactive values
-   that behave like regular Python attributes.
-
-3. **Updates**: When you assign to store attributes, the underlying observables are
-   updated and all dependent computations and reactions are notified.
-
-4. **Cleanup**: Reactive contexts are automatically cleaned up when no longer needed.
-
-Performance Considerations
---------------------------
-
-- **Efficient Updates**: Only notifies subscribers when values actually change
-- **Lazy Evaluation**: Computed properties only recalculate when accessed
-- **Memory Management**: Automatic cleanup of unused reactive contexts
-- **Batch Updates**: Multiple changes in quick succession are efficiently handled
-
-Best Practices
---------------
-
-- **Group Related State**: Keep related observables together in the same store
-- **Use Descriptive Names**: Name your stores and observables clearly
-- **Avoid Large Stores**: Split very large stores into smaller, focused ones
-- **Use Computed for Derived State**: Don't store derived values manually
-- **Handle Errors**: Reactive functions should handle exceptions gracefully
-- **Document Store Purpose**: Use docstrings to explain what each store manages
-
 Common Patterns
 ---------------
 
@@ -169,72 +135,7 @@ class GlobalStore(Store):
 GlobalStore.is_loading = True
 ```
 
-**Instance Stores**: Create store instances for per-component state:
 
-```python
-class TodoStore(Store):
-    items = observable([])
-    filter = observable("all")
-
-store = TodoStore()  # Instance with its own state
-```
-
-**Store Communication**: Stores can reference each other:
-
-```python
-class AuthStore(Store):
-    is_logged_in = observable(False)
-    user_id = observable(None)
-
-class DataStore(Store):
-    @computed
-    def can_fetch_data(self):
-        return AuthStore.is_logged_in
-```
-
-Migration from Plain Observables
----------------------------------
-
-If you're using plain observables and want to migrate to Stores:
-
-```python
-# Before: Plain observables
-user_name = observable("Alice")
-user_age = observable(30)
-
-# After: Store-based
-class UserStore(Store):
-    name = observable("Alice")
-    age = observable(30)
-
-# Access remains similar
-UserStore.name = "Bob"  # Instead of user_name.set("Bob")
-```
-
-Error Handling
---------------
-
-Stores handle errors gracefully:
-
-- Observable updates that fail don't break the reactive system
-- Computed property errors are logged but don't prevent other updates
-- Store serialization handles missing or invalid data
-
-Debugging
----------
-
-Use StoreSnapshot for debugging:
-
-```python
-# Capture current state
-snapshot = StoreSnapshot(CounterStore, CounterStore._get_observable_attrs())
-print(snapshot)  # Shows all observable values
-
-# Compare states
-old_snapshot = snapshot
-# ... do some operations ...
-new_snapshot = StoreSnapshot(CounterStore, CounterStore._get_observable_attrs())
-# Compare old_snapshot and new_snapshot
 ```
 
 See Also

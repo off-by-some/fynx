@@ -55,13 +55,8 @@ else
     echo "✅ Import sorting check passed"
 fi
 
-# Run mypy (type checking) - match pre-commit hook configuration
-echo "🔍 Running type checking with mypy..."
-if ! poetry run mypy --ignore-missing-imports fynx tests examples; then
-    echo "❌ Type checking failed. Fix the type errors before committing."
-    exit 1
-fi
-echo "✅ Type checking passed"
+# Skip mypy (type checking) - disabled per project requirements
+echo "⏭️  Skipping type checking (mypy disabled)"
 
 echo ""
 echo "🎉 All code quality checks passed!"

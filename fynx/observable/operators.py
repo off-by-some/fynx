@@ -149,6 +149,7 @@ See Also
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 from .interfaces import Conditional, Mergeable
+from .operations import OperationsMixin
 
 if TYPE_CHECKING:
     from .base import Observable
@@ -160,7 +161,7 @@ U = TypeVar("U")
 # Operator Mixins for consolidating operator overloading logic
 
 
-class OperatorMixin:
+class OperatorMixin(OperationsMixin):
     """
     Mixin class providing common reactive operators for observable classes.
 
@@ -192,14 +193,7 @@ class OperatorMixin:
         Returns:
             A MergedObservable containing both values as a tuple
         """
-        from .merged import MergedObservable  # Import here to avoid circular import
-
-        if isinstance(other, MergedObservable):
-            # If other is already merged, combine our observable with its sources
-            return MergedObservable(self, *other._source_observables)  # type: ignore
-        else:
-            # Standard case: combine two regular observables
-            return MergedObservable(self, other)  # type: ignore
+        return self.alongside(other)  # type: ignore
 
     def __rshift__(self, func: Callable) -> "Observable":
         """
@@ -214,9 +208,7 @@ class OperatorMixin:
         Returns:
             A new computed Observable containing the transformed values
         """
-        from .operators import rshift_operator
-
-        return rshift_operator(self, func)  # type: ignore
+        return self.then(func)
 
     def __and__(self, condition) -> "Conditional":
         """
@@ -226,14 +218,12 @@ class OperatorMixin:
         specified conditions are True, enabling precise control over reactive updates.
 
         Args:
-            condition: A boolean Observable that acts as a gate
+            condition: A boolean Observable, callable, or compound condition
 
         Returns:
             A ConditionalObservable that filters values based on the condition
         """
-        from .operators import and_operator
-
-        return and_operator(self, condition)  # type: ignore
+        return self.also(condition)  # type: ignore
 
     def __invert__(self) -> "Observable[bool]":
         """
@@ -245,7 +235,7 @@ class OperatorMixin:
         Returns:
             A computed Observable[bool] with negated boolean value
         """
-        return self >> (lambda x: not x)  # type: ignore
+        return self.negate()  # type: ignore
 
 
 class TupleMixin:
@@ -354,22 +344,34 @@ class ValueMixin:
         unwrapped_other = self._unwrap_operand(other)  # type: ignore
         from .merged import MergedObservable
 
-        return MergedObservable(self._observable, unwrapped_other)  # type: ignore
+        return MergedObservable(self._observable, unwrapped_other)  # type: ignore[attr-defined]
 
     def __and__(self, condition) -> "Conditional":
         """Support conditional observables with & operator."""
         unwrapped_condition = self._unwrap_operand(condition)  # type: ignore
-        from .conditional import ConditionalObservable
 
-        return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore
+        # Handle callable conditions by creating computed observables
+        if callable(unwrapped_condition) and not hasattr(unwrapped_condition, "value"):
+            # Create a computed observable that evaluates the condition
+            bool_condition = self._observable.then(
+                lambda x: x is not None and bool(unwrapped_condition(x))
+            )
+            from .conditional import ConditionalObservable
+
+            return ConditionalObservable(self._observable, bool_condition)  # type: ignore[attr-defined]
+        else:
+            # Boolean observable
+            from .conditional import ConditionalObservable
+
+            return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore[attr-defined]
 
     def __invert__(self):
         """Support negating conditions with ~ operator."""
-        return self._observable.__invert__()  # type: ignore
+        return self._observable.__invert__()  # type: ignore[attr-defined]
 
     def __rshift__(self, func):
         """Support computed observables with >> operator."""
-        return self._observable >> func  # type: ignore
+        return self._observable >> func  # type: ignore[attr-defined]
 
 
 def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable[U]":
@@ -427,24 +429,12 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
         - **Typical speedup**: 1000× - 10000× for deep reactive graphs
 
     See Also:
-        computed: The underlying function that creates computed observables
+        Observable.then: The method that creates computed observables
         MergedObservable: For combining multiple observables with `|`
         optimizer: The categorical optimization system
     """
-    # Import here to avoid circular import
-    from ..computed import computed
-    from ..optimizer import OptimizationContext
-    from .computed import ComputedObservable
-
-    # Create the computed observable
-    result = computed(func, obs)
-
-    # Register with current optimization context for automatic optimization
-    context = OptimizationContext.current()
-    if context is not None:
-        context.register_observable(result)
-
-    return result
+    # Delegate to the observable's optimized _create_computed method
+    return obs._create_computed(func, obs)
 
 
 def and_operator(obs, condition):
@@ -499,22 +489,20 @@ def and_operator(obs, condition):
         ConditionalObservable: The class that implements conditional behavior
         Observable.__and__: The magic method that calls this operator
     """
-    from ..computed import computed
     from .conditional import ConditionalObservable
 
     # Handle both observables and functions as conditions
     if callable(condition) and not hasattr(condition, "value"):
         # If condition is a function, create a computed observable
         # For conditionals, the condition should depend on the source value, not the conditional result
-        from .conditional import ConditionalObservable
 
         if isinstance(obs, ConditionalObservable):
             # Condition should depend on the conditional's source
             source = obs._source_observable
-            condition_obs = computed(condition, source)
+            condition_obs = source._create_computed(condition, source)
         else:
             # Normal case: condition depends on the observable
-            condition_obs = computed(condition, obs)
+            condition_obs = obs._create_computed(condition, obs)
     else:
         # If condition is already an observable, use it directly
         condition_obs = condition

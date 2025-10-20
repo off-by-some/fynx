@@ -22,7 +22,6 @@ transparent dependency tracking and automatic change propagation.
 
 from typing import (
     Callable,
-    Generic,
     List,
     Optional,
     Set,
@@ -31,7 +30,6 @@ from typing import (
 )
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
-from .interfaces import Conditional, Mergeable
 from .interfaces import Observable as ObservableInterface
 from .interfaces import ReactiveContext as ReactiveContextInterface
 from .operators import OperatorMixin
@@ -120,6 +118,9 @@ class ReactiveContext(ReactiveContextInterface):
         if observable not in self.dependencies:
             self.dependencies.add(observable)
             observable.add_observer(self.run)
+
+            # Note: Instance dependency graphs are maintained separately
+            # The reactive context handles the main dependency tracking
 
     def dispose(self) -> None:
         """Stop  the reactive computation and remove all observers."""
@@ -226,9 +227,14 @@ class Observable(ObservableInterface[T], OperatorMixin):
                  If None, will be set to "<unnamed>" and updated in __set_name__.
             initial_value: The initial value to store
         """
-        self.key = key or "<unnamed>"
+        self._key = key or "<unnamed>"
         self._value = initial_value
         self._observers: Set[Callable] = set()
+
+    @property
+    def key(self) -> str:
+        """Get the unique identifier for this observable."""
+        return self._key
 
     @property
     def value(self) -> Optional[T]:
@@ -298,7 +304,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
         current_context = Observable._current_context
         if current_context and self in current_context.dependencies:
             error_msg = f"Circular dependency detected in reactive computation!\n"
-            error_msg += f"Observable '{self.key}' is being modified while computing a value that depends on it.\n"
+            error_msg += f"Observable '{self._key}' is being modified while computing a value that depends on it.\n"
             error_msg += f"This creates a circular dependency."
             raise RuntimeError(error_msg)
 
@@ -334,17 +340,52 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     @classmethod
     def _process_notifications(cls) -> None:
-        """Process all pending notifications in batch for high performance."""
-        # Process all pending notifications in breadth-first order
-        # to avoid deep recursion in long chains
+        """Process all pending notifications in topological order for correct dependency evaluation."""
         try:
             while cls._pending_notifications:
                 pending = cls._pending_notifications.copy()
                 cls._pending_notifications.clear()
-                for observable in pending:
+
+                # Sort pending notifications in topological order (dependencies first)
+                ordered_notifications = cls._topological_sort_notifications(pending)
+
+                for observable in ordered_notifications:
                     observable._notify_observers()
         finally:
             cls._notification_scheduled = False
+
+    @classmethod
+    def _topological_sort_notifications(
+        cls, observables: Set["Observable"]
+    ) -> List["Observable"]:
+        """
+        Sort observables in topological order for correct notification processing.
+
+        Dependencies must be notified before their dependents to ensure that when
+        a conditional observable checks its condition values, they have been updated
+        with the latest values.
+        """
+        # 1. Source observables (no computation) first
+        # 2. Computed observables
+        # 3. Conditional observables last (they depend on others)
+
+        sources = []
+        computed = []
+        conditionals = []
+
+        for obs in observables:
+            from .computed import ComputedObservable
+            from .conditional import ConditionalObservable
+
+            if isinstance(obs, ConditionalObservable):
+                conditionals.append(obs)
+            elif isinstance(obs, ComputedObservable):
+                computed.append(obs)
+            else:
+                sources.append(obs)
+
+        # Return sources first, then computed, then conditionals
+        return sources + computed + conditionals
 
     def add_observer(self, observer: Callable) -> None:
         """
@@ -529,7 +570,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             print(repr(obs))  # Observable('counter', 42)
             ```
         """
-        return f"Observable({self.key!r}, {self._value!r})"
+        return f"Observable({self._key!r}, {self._value!r})"
 
     def __eq__(self, other: object) -> bool:
         """
@@ -620,12 +661,12 @@ class Observable(ObservableInterface[T], OperatorMixin):
             ```
         """
         # Update key if it was defaulted to "<unnamed>"
-        if self.key == "<unnamed>":
+        if self._key == "<unnamed>":
             # Check if this is a computed observable by checking for the _is_computed attribute
             if getattr(self, "_is_computed", False):
-                self.key = f"<computed:{name}>"
+                self._key = f"<computed:{name}>"
             else:
-                self.key = name
+                self._key = name
 
         # Skip processing for computed observables - they should remain as-is
         if getattr(self, "_is_computed", False):

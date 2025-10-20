@@ -10,7 +10,7 @@ and state persistence.
 from datetime import datetime
 from typing import Optional
 
-from fynx import Store, computed, observable, reactive, watch
+from fynx import Store, observable, reactive, watch
 from fynx.observable.computed import ComputedObservable
 
 
@@ -90,47 +90,43 @@ UserProfile.phone = ""  # This should decrease completeness
 print("\nCreating computed properties...")
 
 # Build complex computed properties from simpler transformations
-full_name = computed(
-    lambda f, l: f"{f} {l}".strip(), (UserProfile.first_name | UserProfile.last_name)
+full_name = (UserProfile.first_name | UserProfile.last_name).then(
+    lambda f, l: f"{f} {l}".strip()
 )
 
 # Age category based on age
-age_category = computed(
+age_category = UserProfile.age.then(
     lambda age: (
         "unknown"
         if age is None
         else ("minor" if age < 18 else "adult" if age < 65 else "senior")
-    ),
-    UserProfile.age,
+    )
 )
 
 # Account status combining multiple factors
-account_status = computed(
+account_status = (
+    UserProfile.is_active | UserProfile.is_verified | UserProfile.subscription_tier
+).then(
     lambda active, verified, tier: (
         "premium_active"
         if active and verified and tier == "premium"
         else "active" if active else "inactive"
-    ),
-    (UserProfile.is_active | UserProfile.is_verified | UserProfile.subscription_tier),
+    )
 )
 
 # Profile completeness score (0-100)
-profile_completeness = computed(
-    lambda fn, ln, em, ph: sum([bool(fn), bool(ln), bool(em), bool(ph)]) / 4 * 100,
-    (
-        UserProfile.first_name
-        | UserProfile.last_name
-        | UserProfile.email
-        | UserProfile.phone
-    ),
-)
+profile_completeness = (
+    UserProfile.first_name
+    | UserProfile.last_name
+    | UserProfile.email
+    | UserProfile.phone
+).then(lambda fn, ln, em, ph: sum([bool(fn), bool(ln), bool(em), bool(ph)]) / 4 * 100)
 
 # Display name with fallback logic
-display_name = computed(
+display_name = (full_name | UserProfile.email).then(
     lambda name, email: (
         name if name.strip() else email.split("@")[0] if email else "Anonymous"
-    ),
-    (full_name | UserProfile.email),
+    )
 )
 
 # Subscribe to computed properties
@@ -148,23 +144,22 @@ print("-" * 100)
 print()
 
 # Email validation
-is_valid_email: ComputedObservable[bool] = computed(
-    lambda email: "@" in email and "." in email.split("@")[1], UserProfile.email
+is_valid_email: ComputedObservable[bool] = UserProfile.email.then(
+    lambda email: "@" in email and "." in email.split("@")[1]
 )
 
 # Age validation (reasonable range)
-is_valid_age: ComputedObservable[bool] = computed(
-    lambda age: 0 <= age <= 150, UserProfile.age
+is_valid_age: ComputedObservable[bool] = UserProfile.age.then(
+    lambda age: 0 <= age <= 150
 )
 
 # Phone validation (basic format check)
-is_valid_phone: ComputedObservable[bool] = computed(
+is_valid_phone: ComputedObservable[bool] = UserProfile.phone.then(
     lambda phone: not phone
     or (
         len(phone) >= 10
         and phone.replace("-", "").replace("+", "").replace(" ", "").isdigit()
-    ),
-    UserProfile.phone,
+    )
 )
 
 # Overall profile validity - using conditional observables for complex logic
@@ -179,8 +174,8 @@ def validate_profile(is_valid):
 
 
 # Premium feature access validation
-can_access_premium = computed(
-    lambda tier: tier in ["premium", "enterprise"], UserProfile.subscription_tier
+can_access_premium = UserProfile.subscription_tier.then(
+    lambda tier: tier in ["premium", "enterprise"]
 )
 
 premium_access_granted = (
@@ -230,21 +225,25 @@ name_observables = UserProfile.first_name | UserProfile.last_name
 name_observables.subscribe(on_name_change)
 
 
-# Pattern 3: Conditional notifications with @watch
-@watch(
-    lambda: UserProfile.age.value is not None and UserProfile.age.value >= 18,
-    lambda: UserProfile.subscription_tier.value == "premium",
-)
+# Pattern 3: Conditional notifications with @reactive and &
+# Create computed observables for conditions
+is_adult = UserProfile.age >> (lambda age: age is not None and age >= 18)
+is_premium = UserProfile.subscription_tier >> (lambda tier: tier == "premium")
+
+
+@reactive(is_adult & is_premium)
 def on_eligible_user():
     print("🎯 User is now eligible for premium features!")
 
 
-@watch(
-    lambda: UserProfile.login_count.value is not None
-    and UserProfile.login_count.value > 5,
-    lambda: UserProfile.notifications_enabled.value is not None
-    and not UserProfile.notifications_enabled.value,
+# More complex conditions
+many_logins = UserProfile.login_count >> (lambda count: count is not None and count > 5)
+notifications_disabled = UserProfile.notifications_enabled >> (
+    lambda enabled: enabled is not None and not enabled
 )
+
+
+@reactive(many_logins & notifications_disabled)
 def on_suspicious_activity():
     print("🚨 Suspicious activity detected - many logins with notifications disabled")
 
@@ -285,13 +284,19 @@ def simulate_login():
 
 
 # Welcome message for new users
-@watch(lambda: UserProfile.login_count.value == 1)
+first_login = UserProfile.login_count >> (lambda count: count == 1)
+
+
+@reactive(first_login)
 def welcome_new_user():
     print("🎊 Welcome! This is your first login!")
 
 
 # Reward milestones
-@watch(lambda: UserProfile.login_count.value == 10)
+tenth_login = UserProfile.login_count >> (lambda count: count == 10)
+
+
+@reactive(tenth_login)
 def reward_milestone():
     print("🏆 Milestone reached: 10 logins! Here's a virtual badge!")
 
@@ -353,26 +358,24 @@ print("-" * 100)
 print()
 
 # User engagement score based on multiple factors
-engagement_factors = computed(
+engagement_factors = (
+    profile_completeness
+    | UserProfile.login_count
+    | UserProfile.is_verified
+    | age_category
+).then(
     lambda completeness, logins, verified, age_cat: (
-        completeness / 100 * 0.4
-    )  # 40% weight on profile completeness
-    + (min(logins / 20, 1) * 0.3)  # 30% weight on activity (capped at 20 logins)
-    + (0.2 if verified else 0)  # 20% bonus for verification
-    + (0.1 if age_cat == "adult" else 0),  # 10% bonus for adult users
-    (
-        profile_completeness
-        | UserProfile.login_count
-        | UserProfile.is_verified
-        | age_category
-    ),
+        (completeness / 100 * 0.4)  # 40% weight on profile completeness
+        + (min(logins / 20, 1) * 0.3)  # 30% weight on activity (capped at 20 logins)
+        + (0.2 if verified else 0)  # 20% bonus for verification
+        + (0.1 if age_cat == "adult" else 0)  # 10% bonus for adult users
+    )
 )
 
 # Auto-upgrade eligibility (complex business logic)
-can_auto_upgrade = computed(
-    lambda engagement, tier, active: active and tier == "free" and engagement > 0.7,
-    (engagement_factors | UserProfile.subscription_tier | UserProfile.is_active),
-)
+can_auto_upgrade = (
+    engagement_factors | UserProfile.subscription_tier | UserProfile.is_active
+).then(lambda engagement, tier, active: active and tier == "free" and engagement > 0.7)
 
 
 @reactive(can_auto_upgrade)
@@ -383,10 +386,9 @@ def check_auto_upgrade(eligible):
 
 
 # Dynamic feature access based on multiple conditions
-age_eligible = computed(lambda age: age >= 13, UserProfile.age)
-advanced_features_access = computed(
-    lambda premium, valid, age_ok: premium and valid and age_ok,
-    (can_access_premium | profile_is_valid | age_eligible),
+age_eligible = UserProfile.age.then(lambda age: age >= 13)
+advanced_features_access = (can_access_premium | profile_is_valid | age_eligible).then(
+    lambda premium, valid, age_ok: premium and valid and age_ok
 )
 
 

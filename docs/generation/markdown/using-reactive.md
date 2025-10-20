@@ -529,11 +529,9 @@ def queue_save(content):
 
 ## What's Next
 
-`@reactive` gives you automatic reactions to state changes, but it runs unconditionally—every time the observable changes, the function runs. Sometimes you want more control. Sometimes you only care about specific transitions, like "when the user becomes eligible for checkout" or "when validation passes for the first time."
+`@reactive` gives you automatic reactions to state changes. You can combine it with conditional observables to create event-driven reactions when specific conditions are met. This covers the full spectrum of reactive behaviors—from "keep this in sync" to "do this when that happens."
 
-That's where `@watch` comes in. While `@reactive` says "run this whenever these observables change," `@watch` says "run this when a condition becomes true." It's the difference between reacting to every change and reacting to specific *events* within your state.
-
-In the next section, you'll learn how to express conditional reactive logic declaratively, without cluttering your code with manual state tracking and conditional checks.
+With observables, stores, and `@reactive`, you have everything you need to build sophisticated reactive applications where state changes automatically propagate through your system, and important transitions trigger the right behaviors at the right times.
 
 ## Summary
 
@@ -541,9 +539,10 @@ The `@reactive` decorator transforms functions into automatic reactions that run
 
 - **Declarative subscriptions** — No manual `.subscribe()` calls to manage
 - **Runs immediately and on changes** — Get initial state and all updates
-- **Works with any observable** — Standalone, Store attributes, computed values, merged observables
+- **Works with any observable** — Standalone, Store attributes, computed values, merged observables, conditional observables
 - **Multiple observable support** — React to several sources, receive values as arguments
 - **Store-level reactions** — React to any change in an entire Store
+- **Conditional reactions** — Use with conditional observables for event-driven behavior
 - **Side effects, not state changes** — Reactive functions should perform effects, not modify watched observables
 
 With `@reactive`, you declare *what should happen* when state changes. FynX ensures it happens automatically, in the right order, every time. This eliminates a whole category of synchronization bugs and makes your reactive systems self-maintaining.

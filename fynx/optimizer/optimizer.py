@@ -80,6 +80,7 @@ from typing import (
     Deque,
     Dict,
     List,
+    NamedTuple,
     Optional,
     Set,
     Tuple,
@@ -89,224 +90,26 @@ from typing import (
 
 from ..observable.base import Observable
 from ..observable.computed import ComputedObservable
+from ..observable.conditional import ConditionalObservable
 from ..observable.merged import MergedObservable
+from .dependency_graph import DependencyGraph
+from .dependency_graph import DependencyNode as BaseDependencyNode
+from .dependency_graph import get_graph_statistics
+from .morphism import Morphism, MorphismParser
 
 T = TypeVar("T")
 
 
-@dataclass(frozen=True)
-class Morphism:
+class DependencyNode(BaseDependencyNode):
     """
-    Data structure representing a morphism in the reactive category.
+    Extended dependency node with optimization-specific features.
 
-    Morphisms can be:
-    - Identity: represents no transformation
-    - Single: represents a single computation step
-    - Compose: represents composition of two morphisms
-    """
-
-    _type: str
-    _name: Optional[str] = None
-    _left: Optional["Morphism"] = None
-    _right: Optional["Morphism"] = None
-
-    @staticmethod
-    def identity() -> "Morphism":
-        """Create an identity morphism."""
-        return Morphism(_type="identity")
-
-    @staticmethod
-    def single(name: str) -> "Morphism":
-        """Create a single morphism with the given name."""
-        return Morphism(_type="single", _name=name)
-
-    @staticmethod
-    def compose(left: "Morphism", right: "Morphism") -> "Morphism":
-        """Create a composition of two morphisms."""
-        return Morphism(_type="compose", _left=left, _right=right)
-
-    def normalize(self) -> "Morphism":
-        """
-        Normalize this morphism using category theory identities.
-
-        Identity laws: f ∘ id = f, id ∘ f = f
-        Associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)
-        """
-        match self._type:
-            case "identity":
-                return self
-            case "single":
-                return self
-            case "compose":
-                # Recursively normalize components
-                assert self._left is not None and self._right is not None
-                left_norm = self._left.normalize()
-                right_norm = self._right.normalize()
-
-                # Apply identity laws
-                if left_norm._type == "identity":
-                    return right_norm
-                if right_norm._type == "identity":
-                    return left_norm
-
-                # Associativity: flatten nested compositions
-                if left_norm._type == "compose":
-                    assert left_norm._left is not None and left_norm._right is not None
-                    return Morphism.compose(
-                        left_norm._left, Morphism.compose(left_norm._right, right_norm)
-                    ).normalize()
-
-                return Morphism.compose(left_norm, right_norm)
-            case _:
-                # This should never happen with valid morphism types
-                return self
-
-    def canonical_form(self) -> Tuple[str, ...]:
-        """
-        Get a canonical tuple representation for equality comparison.
-        """
-        normalized = self.normalize()
-        match normalized._type:
-            case "identity":
-                return ("identity",)
-            case "single":
-                return ("single", normalized._name or "")
-            case "compose":
-                assert normalized._left is not None and normalized._right is not None
-                left_form = normalized._left.canonical_form()
-                right_form = normalized._right.canonical_form()
-                return ("compose",) + left_form + right_form
-            case _:
-                # This should never happen with valid morphism types
-                return ("unknown",)
-
-    def __eq__(self, other: object) -> bool:
-        """Check structural equality after normalization."""
-        if not isinstance(other, Morphism):
-            return NotImplemented
-        return self.canonical_form() == other.canonical_form()
-
-    def __hash__(self) -> int:
-        """Hash based on canonical form."""
-        return hash(self.canonical_form())
-
-    def __str__(self) -> str:
-        """Convert back to string representation."""
-        match self._type:
-            case "identity":
-                return "id"
-            case "single":
-                return self._name or "unknown"
-            case "compose":
-                assert self._left is not None and self._right is not None
-                return f"({self._left}) ∘ ({self._right})"
-            case _:
-                return f"unknown({self._type})"
-
-    def __repr__(self) -> str:
-        return f"Morphism({self})"
-
-
-class MorphismParser:
-    """
-    Parser for morphism signature strings into Morphism objects.
-    """
-
-    @staticmethod
-    def parse(signature: str) -> Morphism:
-        """Parse a morphism signature string into a Morphism object."""
-        signature = signature.strip()
-
-        # Strip outer parentheses
-        while signature.startswith("(") and signature.endswith(")"):
-            inner = signature[1:-1].strip()
-            if MorphismParser._is_balanced(inner):
-                signature = inner
-            else:
-                break
-
-        # Handle identity
-        if signature == "id":
-            return Morphism.identity()
-
-        # Handle single morphisms (no composition)
-        if " ∘ " not in signature:
-            return Morphism.single(signature)
-
-        # Parse composition - split by top-level " ∘ " operators
-        parts = MorphismParser._split_composition(signature)
-        if not parts:
-            return Morphism.identity()
-
-        # Build composition tree from right to left (functional composition)
-        result = MorphismParser.parse(parts[-1])
-        for part in reversed(parts[:-1]):
-            result = Morphism.compose(MorphismParser.parse(part), result)
-
-        return result
-
-    @staticmethod
-    def _is_balanced(s: str) -> bool:
-        """Check if parentheses are balanced."""
-        count = 0
-        for char in s:
-            if char == "(":
-                count += 1
-            elif char == ")":
-                count -= 1
-                if count < 0:
-                    return False
-        return count == 0
-
-    @staticmethod
-    def _split_composition(sig: str) -> List[str]:
-        """Split by ' ∘ ' at top level, respecting parentheses."""
-        parts = []
-        current = ""
-        paren_depth = 0
-        i = 0
-
-        while i < len(sig):
-            if sig[i : i + 3] == " ∘ " and paren_depth == 0:
-                if current.strip():
-                    parts.append(current.strip())
-                current = ""
-                i += 3
-                continue
-            elif sig[i] == "(":
-                paren_depth += 1
-                current += sig[i]
-            elif sig[i] == ")":
-                paren_depth -= 1
-                current += sig[i]
-            else:
-                current += sig[i]
-            i += 1
-
-        if current.strip():
-            parts.append(current.strip())
-
-        return parts
-
-
-class DependencyNode:
-    """
-    Node in the dependency graph representing an observable and its relationships.
-
-    Each node tracks:
-    - The observable it represents
-    - Incoming dependencies (observables this one depends on)
-    - Outgoing dependents (observables that depend on this one)
-    - Computation function and metadata
-    - Cost model parameters and optimization state
+    This extends the base DependencyNode with cost modeling, profiling,
+    and optimization state for reactive graph optimization.
     """
 
     def __init__(self, observable: Observable):
-        self.observable = observable
-        self.incoming: Set["DependencyNode"] = set()  # Dependencies
-        self.outgoing: Set["DependencyNode"] = set()  # Dependents
-        self.computation_func: Optional[Callable] = None
-        self.source_observable: Optional[Observable] = None
+        super().__init__(observable)
 
         # Cost model parameters: C(σ) = α·|Dep(σ)| + β·E[Updates(σ)] + γ·depth(σ)
         self.cost_alpha = 1.0  # Memory cost coefficient (per materialized node)
@@ -316,11 +119,9 @@ class DependencyNode:
         # Optimization state
         self.is_materialized = True  # Whether this node should be kept
         self.equivalence_class: Optional[int] = None  # For DAG quotient
-        self.visit_count = 0  # For cycle detection and analysis
 
         # Cached cost computations
         self._cached_cost: Optional[float] = None
-        self._cached_depth: Optional[int] = None
         self._materialize_cost: Optional[float] = None
         self._recompute_cost: Optional[float] = None
 
@@ -331,19 +132,6 @@ class DependencyNode:
             "last_updated": None,  # Timestamp of last update
             "avg_execution_time": None,  # Cached average
         }
-
-    @property
-    def depth(self) -> int:
-        """Maximum depth from source nodes to this node."""
-        if self._cached_depth is not None:
-            return self._cached_depth
-
-        if not self.incoming:
-            self._cached_depth = 0
-        else:
-            self._cached_depth = 1 + max(parent.depth for parent in self.incoming)
-
-        return self._cached_depth
 
     def record_execution_time(self, execution_time: float) -> None:
         """Record a measured execution time for profiling."""
@@ -586,9 +374,6 @@ class DependencyNode:
 
         return total_cost
 
-    def __repr__(self) -> str:
-        return f"Node({self.observable.key}, depth={self.depth}, deps={len(self.incoming)})"
-
 
 class OptimizationContext:
     """
@@ -649,21 +434,20 @@ class OptimizationContext:
                     self.optimizer.get_or_create_node(obs)
 
 
-class ReactiveGraph:
+class ReactiveGraph(DependencyGraph):
     """
-    Dependency graph of a reactive observable network.
+    Reactive graph optimizer extending the base dependency graph.
 
-    Provides methods for:
+    Provides reactive-specific functionality:
     - Graph construction from observable relationships
     - Semantic equivalence analysis (DAG quotient)
     - Categorical rewrite rule application
     - Cost-based optimization
+    - Profiling and performance analysis
     """
 
     def __init__(self):
-        self.nodes: Dict[Observable, DependencyNode] = {}
-        self.roots: Set[DependencyNode] = set()
-        self._node_cache = weakref.WeakKeyDictionary()
+        super().__init__()
 
     def get_or_create_node(self, observable: Observable) -> DependencyNode:
         """Get existing node or create new one for observable."""
@@ -683,11 +467,30 @@ class ReactiveGraph:
 
         return node
 
+    def _find_all_computation_paths(
+        self, start: DependencyNode, end: DependencyNode, max_depth: int = 10
+    ) -> List[List[DependencyNode]]:
+        """Find all computation paths from start to end node (alias for find_paths)."""
+        return self.find_paths(start, end, max_depth)
+
+    def _morphism_signature(self, path: List[DependencyNode]) -> str:
+        """Create a structural signature string for a computation path.
+
+        The signature encodes, in order, each node's observable type, key, and whether
+        it represents a computed step or a source. This is used only for structural
+        comparison in tests and helper utilities; it does not affect runtime behavior.
+        """
+        parts: List[str] = []
+        for node in path:
+            obs = node.observable
+            node_type = type(obs).__name__
+            step_kind = "computed" if node.computation_func else "source"
+            key = getattr(obs, "key", getattr(obs, "_key", "<unknown>"))
+            parts.append(f"{node_type}:{key}:{step_kind}")
+        return " -> ".join(parts)
+
     def build_from_observables(self, observables: List[Observable]) -> None:
         """Build dependency graph starting from given observables."""
-        # Import here to avoid circular import issues
-        from ..observable.conditional import ConditionalObservable
-
         visited: Set[Observable] = set()
         queue: Deque[Observable] = deque(observables)
 
@@ -722,22 +525,28 @@ class ReactiveGraph:
                     node.incoming.add(source_node)
                     source_node.outgoing.add(node)
 
-            # For conditional observables, add both source and condition dependencies
+            # For conditional observables, add both source and all dependency conditions
             elif isinstance(obs, ConditionalObservable):
+                # Explicitly add source dependency
                 if obs._source_observable is not None:
-                    source = obs._source_observable
-                    if source not in visited:
-                        queue.append(source)
-                    source_node = self.get_or_create_node(source)
-                    node.incoming.add(source_node)
-                    source_node.outgoing.add(node)
+                    src = obs._source_observable
+                    if src not in visited:
+                        queue.append(src)
+                    src_node = self.get_or_create_node(src)
+                    node.incoming.add(src_node)
+                    src_node.outgoing.add(node)
 
-                for condition in obs._condition_observables:
-                    if condition not in visited:
-                        queue.append(condition)  # type: ignore
-                    condition_node = self.get_or_create_node(condition)  # type: ignore
-                    node.incoming.add(condition_node)
-                    condition_node.outgoing.add(node)
+                # Add observable conditions as dependencies
+                for condition in getattr(obs, "_processed_conditions", []):
+                    # Duck-type: treat as observable if it has value and add_observer
+                    if hasattr(condition, "value") and hasattr(
+                        condition, "add_observer"
+                    ):
+                        if condition not in visited:
+                            queue.append(condition)
+                        cond_node = self.get_or_create_node(condition)  # type: ignore
+                        node.incoming.add(cond_node)
+                        cond_node.outgoing.add(node)
 
     def compute_equivalence_classes(self) -> Dict[int, List[DependencyNode]]:
         """
@@ -1073,8 +882,6 @@ class ReactiveGraph:
 
                         if shared_node is None:
                             # Create new shared node representing the factored computation
-                            from ..computed import ComputedObservable
-
                             shared_obs: "ComputedObservable[Any]" = ComputedObservable(
                                 shared_key, None
                             )
@@ -1127,9 +934,6 @@ class ReactiveGraph:
         """
         fusions = 0
 
-        # Import here to avoid circular import issues
-        from ..observable.conditional import ConditionalObservable
-
         # Find chains of conditional observables that can form pullbacks
         for node in list(self.nodes.values()):
             if isinstance(node.observable, ConditionalObservable):
@@ -1161,10 +965,10 @@ class ReactiveGraph:
 
                             # Get condition observables from both parent and child
                             parent_conditions = getattr(
-                                node.observable, "_condition_observables", []
+                                node.observable, "_processed_conditions", []
                             )
                             child_conditions = getattr(
-                                child.observable, "_condition_observables", []
+                                child.observable, "_processed_conditions", []
                             )
 
                             # Combine all conditions (conjunctive semantics)
@@ -1192,11 +996,44 @@ class ReactiveGraph:
 
                             # Remove the intermediate filtered nodes
                             # (they're now redundant due to the pullback)
-                            if node.observable in self.nodes:
+                            # But keep root observables - update them in place instead
+                            if (
+                                node.observable in self.nodes
+                                and node.observable
+                                not in getattr(self, "root_observables", set())
+                            ):
                                 del self.nodes[node.observable]
+
                             if child.observable in self.nodes:
-                                del self.nodes[child.observable]
-                            self.nodes[fused_obs] = fused_node
+                                # If child is a root observable, update its internals to match the fused observable
+                                if child.observable in getattr(
+                                    self, "root_observables", set()
+                                ):
+                                    # Update the child observable's internals to match the fused observable
+                                    child.observable._source_observable = (
+                                        fused_obs._source_observable
+                                    )
+                                    child.observable._processed_conditions = (
+                                        fused_obs._processed_conditions
+                                    )
+                                    child.observable._conditions = fused_obs._conditions
+                                    child.observable._conditions_met = (
+                                        fused_obs._conditions_met
+                                    )
+                                    child.observable._has_ever_had_valid_value = (
+                                        fused_obs._has_ever_had_valid_value
+                                    )
+                                    child.observable._all_dependencies = (
+                                        fused_obs._all_dependencies
+                                    )
+                                    # Update node to point to updated observable instead of fused_obs
+                                    fused_node.observable = child.observable
+                                    self.nodes[child.observable] = fused_node
+                                else:
+                                    del self.nodes[child.observable]
+                                    self.nodes[fused_obs] = fused_node
+                            else:
+                                self.nodes[fused_obs] = fused_node
 
                             fusions += 1
 
@@ -1219,7 +1056,7 @@ class ReactiveGraph:
         """
         # Process nodes in topological order (sources first) using efficient traversal
         # instead of sorting all nodes by depth (O(n log n))
-        nodes_in_order = self._topological_sort()
+        nodes_in_order = self.topological_sort()
 
         # Build the materialized set incrementally
         materialized_set = set()
@@ -1267,7 +1104,6 @@ class ReactiveGraph:
         2. Verifying that different rule application orders converge to the same result
         3. Analyzing the termination properties of the rewrite system
         """
-        from typing import NamedTuple
 
         class RewriteRule(NamedTuple):
             name: str
@@ -1288,7 +1124,7 @@ class ReactiveGraph:
             max_iterations: int = 10,
         ) -> Tuple[ReactiveGraph, List[str]]:
             """Compute normal form by exhaustive rewriting, return (graph, reduction_sequence)."""
-            test_graph = self._copy_graph()
+            test_graph = self.copy_graph()
             reduction_sequence = []
             total_changes = 0
 
@@ -1429,7 +1265,8 @@ class ReactiveGraph:
                 len(node1.incoming) != len(node2.incoming)
                 or len(node1.outgoing) != len(node2.outgoing)
                 or bool(node1.computation_func) != bool(node2.computation_func)
-                or node1.is_materialized != node2.is_materialized
+                or getattr(node1, "is_materialized", True)
+                != getattr(node2, "is_materialized", True)
             ):
                 return False
 
@@ -1491,7 +1328,7 @@ class ReactiveGraph:
                 [2, 1, 0],  # pullback, product, functor
             ]
         ):
-            test_graph = self._copy_graph()
+            test_graph = self.copy_graph()
             reduction_steps = []
 
             # Apply rules in this specific order, each rule exhaustively before next
@@ -1537,69 +1374,6 @@ class ReactiveGraph:
             "reduction_sequence": normal_sequence,
         }
 
-    def _copy_graph(self) -> "ReactiveGraph":
-        """Create a deep copy of the current graph."""
-        new_graph = ReactiveGraph()
-        node_map = {}
-
-        # Create new nodes
-        for obs, node in self.nodes.items():
-            new_node = DependencyNode(obs)
-            new_node.computation_func = node.computation_func
-            new_node.source_observable = node.source_observable
-            new_node.is_materialized = node.is_materialized
-            new_graph.nodes[obs] = new_node
-            node_map[node] = new_node
-
-        # Copy edges (only for nodes that still exist in the mapping)
-        for obs, node in self.nodes.items():
-            new_node = new_graph.nodes[obs]
-            new_node.incoming = {
-                node_map[pred] for pred in node.incoming if pred in node_map
-            }
-            new_node.outgoing = {
-                node_map[succ] for succ in node.outgoing if succ in node_map
-            }
-
-        return new_graph
-
-    def _topological_sort(self) -> List[DependencyNode]:
-        """
-        Perform topological sort using Kahn's algorithm.
-
-        Returns nodes in topological order (sources first).
-        """
-        # Calculate incoming degrees for current nodes only
-        current_nodes = set(self.nodes.values())
-        in_degree = {}
-        for node in current_nodes:
-            # Count only incoming edges from nodes that still exist
-            in_degree[node] = len(
-                [pred for pred in node.incoming if pred in current_nodes]
-            )
-
-        # Start with nodes that have no incoming edges from current nodes (sources)
-        queue = [node for node in current_nodes if in_degree[node] == 0]
-        result = []
-
-        while queue:
-            current = queue.pop(0)
-            result.append(current)
-
-            # For each dependent of current node that still exists
-            for dependent in list(current.outgoing):
-                if dependent in current_nodes and dependent in in_degree:
-                    in_degree[dependent] -= 1
-                    if in_degree[dependent] == 0:
-                        queue.append(dependent)
-
-        # Check if we got all current nodes
-        if len(result) != len(current_nodes):
-            # If there are cycles or other issues, fall back to depth-based sorting
-            return sorted(current_nodes, key=lambda n: n.depth)
-
-        return result
-
     def verify_universal_properties(self) -> Dict[str, Any]:
         """
         Verify that optimized structures satisfy their universal properties.
@@ -1620,8 +1394,6 @@ class ReactiveGraph:
                     verified_products.append(node)
 
         # Check pullback candidates (conditional nodes that could be pullbacks)
-        from ..observable.conditional import ConditionalObservable
-
         for node in self.nodes.values():
             if isinstance(node.observable, ConditionalObservable):
                 if self._verify_pullback_universal_property(node):
@@ -1814,8 +1586,6 @@ class ReactiveGraph:
 
         For conditional observables, this corresponds to filtering based on conjunctive conditions.
         """
-        from ..observable.conditional import ConditionalObservable
-
         if not isinstance(pullback_node.observable, ConditionalObservable):
             return False
 
@@ -2061,25 +1831,36 @@ class ReactiveGraph:
                 # Wrap the computation function to measure execution time
                 original_func = node.computation_func
 
-                def profiled_computation(*args, **kwargs):
-                    start_time = time.perf_counter()
-                    try:
-                        result = original_func(*args, **kwargs)
-                        execution_time = time.perf_counter() - start_time
-                        node.record_execution_time(execution_time)
-                        return result
-                    except Exception as e:
-                        execution_time = time.perf_counter() - start_time
-                        node.record_execution_time(execution_time)
-                        raise e
+                def _make_profiled(node_ref, orig):
+                    def profiled_computation(*args, **kwargs):
+                        start_time = time.perf_counter()
+                        try:
+                            result = orig(*args, **kwargs)
+                            execution_time = time.perf_counter() - start_time
+                            node_ref.record_execution_time(execution_time)
+                            return result
+                        except Exception as e:
+                            execution_time = time.perf_counter() - start_time
+                            node_ref.record_execution_time(execution_time)
+                            raise e
 
-                # Preserve function metadata
-                profiled_computation.__name__ = getattr(
-                    original_func, "__name__", "profiled_func"
-                )
-                profiled_computation.__doc__ = getattr(original_func, "__doc__", None)
+                    profiled_computation.__name__ = getattr(
+                        orig, "__name__", "profiled_func"
+                    )
+                    profiled_computation.__doc__ = getattr(orig, "__doc__", None)
+                    return profiled_computation
 
-                node.computation_func = profiled_computation
+                node.computation_func = _make_profiled(node, original_func)
+
+                # Also attempt to wrap the underlying ComputedObservable's stored function
+                if (
+                    isinstance(node.observable, ComputedObservable)
+                    and hasattr(node.observable, "_computation_func")
+                    and node.observable._computation_func is not None
+                ):
+                    node.observable._computation_func = _make_profiled(
+                        node, node.observable._computation_func
+                    )
 
     def get_profiling_summary(self) -> Dict[str, Any]:
         """
@@ -2158,163 +1939,6 @@ class ReactiveGraph:
             hom_set.add(morphism_sig)
 
         return hom_set
-
-    def _find_all_computation_paths(
-        self, start: DependencyNode, end: DependencyNode, max_depth: int = 6
-    ) -> List[List[DependencyNode]]:
-        """
-        Find all computation paths from start to end node up to max_depth.
-
-        Computation paths respect reactive semantics:
-        - Must follow the direction of data flow
-        - Account for computation composition
-        - Avoid cycles in the dependency graph
-
-        Uses DFS with early termination and path deduplication.
-        """
-        paths = []
-        visited_states: Set[Tuple["DependencyNode", str]] = (
-            set()
-        )  # For memoization of (current, path_signature)
-
-        def dfs(
-            current: DependencyNode,
-            path: List[DependencyNode],
-            depth: int,
-            visited: Set[DependencyNode],
-        ):
-            if depth > max_depth:
-                return
-
-            # Check for cycles (a node can appear at most once in a computation path)
-            if current in visited:
-                return
-
-            # Early termination: if we're too deep and haven't found the end, prune
-            if depth > max_depth // 2 and current != end:
-                # Check if any outgoing neighbor could lead to end (heuristic)
-                can_reach_end = any(
-                    self._can_reach(end, neighbor, max_depth - depth - 1)
-                    for neighbor in current.outgoing
-                )
-                if not can_reach_end:
-                    return
-
-            path.append(current)
-
-            if (
-                current == end and len(path) > 1
-            ):  # Found a valid path (exclude trivial path)
-                paths.append(path.copy())
-            else:
-                # Continue along outgoing edges (data flow direction)
-                visited.add(current)
-
-                # Sort neighbors by heuristic distance to end for better pruning
-                neighbors = sorted(
-                    current.outgoing,
-                    key=lambda n: self._heuristic_distance_to_end(n, end),
-                )
-
-                for neighbor in neighbors:
-                    dfs(neighbor, path, depth + 1, visited)
-                visited.remove(current)
-
-            path.pop()
-
-        dfs(start, [], 0, set())
-
-        # Remove duplicate paths (same sequence of nodes)
-        unique_paths = []
-        seen_paths = set()
-
-        for path in paths:
-            path_tuple = tuple(n.observable.key for n in path)
-            if path_tuple not in seen_paths:
-                seen_paths.add(path_tuple)
-                unique_paths.append(path)
-
-        return unique_paths
-
-    def _can_reach(
-        self, target: DependencyNode, current: DependencyNode, max_hops: int
-    ) -> bool:
-        """
-        Check if target is reachable from current within max_hops.
-
-        Uses BFS for reachability checking with depth limit.
-        """
-        if current == target:
-            return True
-
-        visited = set()
-        queue = deque([(current, 0)])
-
-        while queue:
-            node, depth = queue.popleft()
-
-            if depth >= max_hops:
-                continue
-
-            if node in visited:
-                continue
-            visited.add(node)
-
-            for neighbor in node.outgoing:
-                if neighbor == target:
-                    return True
-                if neighbor not in visited:
-                    queue.append((neighbor, depth + 1))
-
-        return False
-
-    def _heuristic_distance_to_end(
-        self, node: DependencyNode, end: DependencyNode
-    ) -> int:
-        """
-        Heuristic estimate of distance from node to end.
-
-        Uses graph distance and structural similarity as heuristics.
-        """
-        # Simple heuristic: prefer nodes that are closer in the dependency graph
-        if node == end:
-            return 0
-
-        # Count shared dependents as a similarity measure
-        shared_dependents = len(node.outgoing & end.outgoing)
-        return max(1, 10 - shared_dependents)  # Lower score for more shared dependents
-
-    def _morphism_signature(self, path: List[DependencyNode]) -> str:
-        """
-        Create a canonical signature for a morphism (computation path).
-
-        The signature captures the computational essence of the morphism,
-        invariant under node renaming but sensitive to computation structure.
-        """
-        if len(path) <= 1:
-            return "id"
-
-        # Build signature from computation sequence
-        computations = []
-
-        for i in range(len(path) - 1):
-            current_node = path[i]
-            next_node = path[i + 1]
-
-            # The morphism between nodes is determined by next_node's computation
-            if next_node.computation_func:
-                # Use function name and type information for canonical representation
-                func_name = getattr(next_node.computation_func, "__name__", "lambda")
-                comp_type = type(next_node.observable).__name__
-                computations.append(f"{func_name}_{comp_type}")
-            else:
-                # Direct morphism (no computation)
-                computations.append(f"direct_{type(next_node.observable).__name__}")
-
-        # Create canonical signature
-        return " ∘ ".join(
-            reversed(computations)
-        )  # Reverse for functional composition notation
 
     def _hom_sets_isomorphic(self, hom1: Set[str], hom2: Set[str]) -> bool:
         """
@@ -2446,6 +2070,7 @@ def optimize_reactive_graph(
     """
     # Build dependency graph
     optimizer = ReactiveGraph()
+    optimizer.root_observables = set(root_observables)  # Track root observables
     optimizer.build_from_observables(root_observables)
 
     # Run optimization
@@ -2454,28 +2079,11 @@ def optimize_reactive_graph(
     return results, optimizer
 
 
-def get_graph_statistics(optimizer: ReactiveGraph) -> Dict[str, Any]:
-    """Get statistics about the reactive graph."""
-    if not optimizer.nodes:
-        return {"total_nodes": 0, "max_depth": 0, "total_edges": 0}
-
-    max_depth = max((node.depth for node in optimizer.nodes.values()), default=0)
-    total_edges = sum(len(node.incoming) for node in optimizer.nodes.values())
-
-    return {
-        "total_nodes": len(optimizer.nodes),
-        "max_depth": max_depth,
-        "total_edges": total_edges,
-        "roots": len([n for n in optimizer.nodes.values() if not n.incoming]),
-        "leaves": len([n for n in optimizer.nodes.values() if not n.outgoing]),
-    }
-
-
 # Example usage of OptimizationContext for explicit optimization control
 """
 Example: Using OptimizationContext for explicit optimization
 
-from fynx import observable, computed
+from fynx import observable
 from fynx.optimizer import OptimizationContext
 
 # Create observables within an optimization context

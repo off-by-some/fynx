@@ -7,13 +7,12 @@ based on category theory principles. It performs global analysis and transformat
 of dependency graphs to minimize computational cost while preserving semantic equivalence.
 """
 
+from .dependency_graph import get_graph_statistics
+from .morphism import Morphism, MorphismParser
 from .optimizer import (
     DependencyNode,
-    Morphism,
-    MorphismParser,
     OptimizationContext,
     ReactiveGraph,
-    get_graph_statistics,
     optimize_reactive_graph,
 )
 

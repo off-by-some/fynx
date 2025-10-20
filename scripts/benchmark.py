@@ -31,7 +31,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table, box
 
-from fynx import computed, observable
+from fynx import observable
 
 
 @dataclass
@@ -171,7 +171,7 @@ def _create_chain_of_length(n: int):
     current = base
 
     for i in range(n):
-        current = computed(lambda x, i=i: x + i, current)
+        current = current.then(lambda x, i=i: x + i)
 
     return current
 
@@ -182,7 +182,7 @@ def _create_fanout_of_size(n: int):
     dependents = []
 
     for i in range(n):
-        dep = computed(lambda x, i=i: x + i, base)
+        dep = base.then(lambda x, i=i: x + i)
         dependents.append(dep)
 
     return dependents
@@ -256,7 +256,7 @@ class FynxTUIBenchmark:
         base = observable(1)
         current = base
         for i in range(200):  # Larger chain
-            current = computed(lambda x, i=i: x + i, current)
+            current = current.then(lambda x, i=i: x + i)
         base.set(2)
         # Force GC collection to measure it (marked as forced)
         self._in_forced_collection = True
@@ -269,7 +269,7 @@ class FynxTUIBenchmark:
         base = observable(42)
         dependents = []
         for i in range(2000):  # Larger fan-out
-            dep = computed(lambda x, i=i: x + i, base)
+            dep = base.then(lambda x, i=i: x + i)
             dependents.append(dep)
         base.set(100)
         # Force GC collection to measure it (marked as forced)
@@ -498,7 +498,7 @@ class FynxTUIBenchmark:
         self.console.print("┣━ Creation: [observable(i) for i in range(N)]")
         self.console.print("┣━ Updates: obs.set(new_value) × N observables")
         self.console.print("┣━ Chains: base → computed₁ → ... → computedₙ")
-        self.console.print("┗━ Fan-out: base → [computed₁, ..., computedₙ]")
+        self.console.print("┗━ Fan-out: base → [computed₁, ...ₙ]")
 
         # Show GC metrics if available
         if hasattr(self, "gc_metrics") and self.gc_metrics:
@@ -646,7 +646,7 @@ class FynxTUIBenchmark:
             base = observable(1)
             current = base
             for i in range(n):
-                current = computed(lambda x, i=i: x + i, current)
+                current = current.then(lambda x, i=i: x + i)
 
             # Measure just the propagation time
             start_time = time.time()
@@ -672,7 +672,7 @@ class FynxTUIBenchmark:
             base = observable(42)
             dependents = []
             for i in range(n):
-                dep = computed(lambda x, i=i: x + i, base)
+                dep = base.then(lambda x, i=i: x + i)
                 dependents.append(dep)
 
             # Measure just the update time
