@@ -27,5 +27,5 @@ echo "   Press Ctrl+C to stop the server"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MKDOCS_CONFIG="$SCRIPT_DIR/../mkdocs.yml"
-poetry run mkdocs serve -f "$MKDOCS_CONFIG"
+cd "$SCRIPT_DIR/.."
+poetry run mkdocs serve --dev-addr=127.0.0.1:8000

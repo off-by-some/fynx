@@ -66,10 +66,10 @@ def test_total_maintains_price_times_quantity_relationship():
     price.set(10)
     quantity.set(3)
     assert total.value == 30  # First output check
-    
+
     price.set(5)
     assert total.value == 15  # Relationship still holds
-    
+
     quantity.set(10)
     assert total.value == 50  # Still maintained
 ```
@@ -92,9 +92,9 @@ def test_observable_notifies_subscriber_on_value_change():
     obs = observable(10)
     received = []
     obs.subscribe(lambda val: received.append(val))
-    
+
     obs.set(20)
-    
+
     assert received == [20]
 ```
 
@@ -107,18 +107,18 @@ def test_observable_subscription_system():
     """Test the subscription system"""
     obs = observable(10)
     received1, received2 = [], []
-    
+
     # Test basic subscription
     sub1 = obs.subscribe(lambda val: received1.append(val))
     obs.set(20)
     assert received1 == [20]
-    
+
     # Test multiple subscribers
     sub2 = obs.subscribe(lambda val: received2.append(val))
     obs.set(30)
     assert received1 == [20, 30]
     assert received2 == [30]
-    
+
     # Test unsubscription
     sub1.unsubscribe()
     obs.set(40)
@@ -143,10 +143,10 @@ def test_derived_observable_recalculates_when_source_changes():
     # Arrange: Create source and derived observable
     source = observable(5)
     doubled = source >> (lambda x: x * 2)
-    
+
     # Act: Change the source value
     source.set(10)
-    
+
     # Assert: Derived value updates correctly
     assert doubled.value == 20
 ```
@@ -171,10 +171,10 @@ Good names document your system. In fact, you should be able to understand what 
 ```python
 def test_store_provides_class_level_access_to_observables():
     """Store observables can be accessed and modified through class attributes"""
-    
+
 def test_reactive_decorator_triggers_on_observable_change():
     """Functions decorated with @reactive execute when their observable updates"""
-    
+
 def test_functor_composition_preserves_transformation_order():
     """Chaining transformations with >> maintains left-to-right evaluation"""
 ```
@@ -196,7 +196,7 @@ def create_diamond_dependency():
     path_a = source >> (lambda x: x + 5)
     path_b = source >> (lambda x: x * 2)
     combined = (path_a | path_b) >> (lambda a, b: a + b)
-    
+
     return source, path_a, path_b, combined
 ```
 
@@ -205,9 +205,9 @@ Now tests become clear about what they're actually testing:
 ```python
 def test_diamond_dependency_updates_from_single_source():
     source, path_a, path_b, combined = create_diamond_dependency()
-    
+
     source.set(20)
-    
+
     assert combined.value == 65  # (20 + 5) + (20 * 2)
 ```
 
@@ -224,10 +224,10 @@ def subscription_tracker():
     class Tracker:
         def __init__(self):
             self.values = []
-            
+
         def record(self, value):
             self.values.append(value)
-    
+
     return Tracker()
 ```
 
@@ -237,9 +237,9 @@ Then inject it cleanly:
 def test_multiple_subscribers_receive_independent_notifications(subscription_tracker):
     obs = observable(0)
     obs.subscribe(subscription_tracker.record)
-    
+
     obs.set(5)
-    
+
     assert subscription_tracker.values == [5]
 ```
 
@@ -266,19 +266,19 @@ def test_observable_subscription_receives_updates():
     obs = observable(0)  # Fresh for this test
     received = []
     obs.subscribe(lambda val: received.append(val))
-    
+
     obs.set(5)
-    
+
     assert received == [5]
 
 def test_observable_subscription_can_unsubscribe():
     obs = observable(0)  # Completely independent
     received = []
     sub = obs.subscribe(lambda val: received.append(val))
-    
+
     sub.unsubscribe()
     obs.set(5)
-    
+
     assert received == []
 ```
 
@@ -333,13 +333,13 @@ from unittest.mock import Mock
 def test_reactive_pipeline_caches_transformation_results():
     mock_fetcher = Mock()
     mock_fetcher.fetch_data.return_value = {"value": 100}
-    
+
     source = observable(None)
     transformed = source >> (lambda _: mock_fetcher.fetch_data()) \
                          >> (lambda data: data["value"] * 2)
-    
+
     source.set("trigger")
-    
+
     assert transformed.value == 200
     mock_fetcher.fetch_data.assert_called_once()
 ```
@@ -368,9 +368,9 @@ Parameterized tests let you verify the same behavior across different inputs wit
 ])
 def test_observable_updates_to_new_value(initial, update, expected):
     obs = observable(initial)
-    
+
     obs.set(obs.value + update)
-    
+
     assert obs.value == expected
 ```
 
@@ -427,7 +427,7 @@ Edge cases and error conditions hide bugs that only surface in production. Test 
 def test_derived_observable_handles_initial_none_value():
     source = observable(None)
     transformed = source >> (lambda x: x or "default")
-    
+
     assert transformed.value == "default"
 ```
 
@@ -438,10 +438,10 @@ def test_observable_handles_rapid_successive_updates():
     obs = observable(0)
     received = []
     obs.subscribe(lambda val: received.append(val))
-    
+
     for i in range(100):
         obs.set(i)
-    
+
     assert received[-1] == 99
     assert len(received) == 100
 ```
@@ -451,7 +451,7 @@ def test_observable_handles_rapid_successive_updates():
 ```python
 def test_circular_dependency_raises_error():
     a = observable(1)
-    
+
     with pytest.raises(ValueError, match="circular"):
         # Attempting to create a circular dependency
         # Your implementation should detect and prevent this
@@ -466,18 +466,18 @@ def test_circular_dependency_raises_error():
 def test_subscription_with_failing_callback_doesnt_break_observable():
     obs = observable(0)
     successful_calls = []
-    
+
     def failing_callback(val):
         raise RuntimeError("Subscriber error")
-    
+
     def working_callback(val):
         successful_calls.append(val)
-    
+
     obs.subscribe(failing_callback)
     obs.subscribe(working_callback)
-    
+
     obs.set(5)
-    
+
     assert successful_calls == [5]
 ```
 
@@ -495,9 +495,9 @@ Test extremes systematically:
 ])
 def test_value_categorization_handles_range(value, expected_category):
     obs = observable(value)
-    category = obs >> (lambda x: "zero" if x == 0 else 
+    category = obs >> (lambda x: "zero" if x == 0 else
                                  "positive" if x > 0 else "negative")
-    
+
     assert category.value == expected_category
 ```
 
@@ -528,9 +528,9 @@ def test_observable_notifies_subscriber_on_change():
     obs = observable(0)
     received = []
     obs.subscribe(lambda val: received.append(val))
-    
+
     obs.set(5)
-    
+
     assert received == [5]
 ```
 
@@ -585,9 +585,9 @@ def test_store_computed_properties_react_to_observable_changes():
     class TemperatureMonitor(Store):
         celsius = observable(0.0)
         fahrenheit = celsius.then(lambda c: c * 9/5 + 32)
-    
+
     TemperatureMonitor.celsius = 100.0
-    
+
     assert TemperatureMonitor.fahrenheit.value == 212.0
 ```
 
@@ -598,13 +598,13 @@ def test_store_computed_properties_react_to_observable_changes():
 def test_diamond_dependency_resolves_correctly():
     """Verifies that diamond-shaped dependency graphs compute correctly"""
     source = observable(10)
-    
+
     path_a = source >> (lambda x: x + 5)
     path_b = source >> (lambda x: x * 2)
     combined = (path_a | path_b) >> (lambda a, b: a + b)
-    
+
     assert combined.value == 35  # (10 + 5) + (10 * 2)
-    
+
     source.set(20)
     assert combined.value == 65  # (20 + 5) + (20 * 2)
 ```
@@ -1040,9 +1040,9 @@ def get_value_or_default(obs, default=None):
 # Add focused test
 def test_get_value_or_default_returns_default_when_observable_is_none():
     obs = observable(None)
-    
+
     result = get_value_or_default(obs, default="fallback")
-    
+
     assert result == "fallback"
 ```
 

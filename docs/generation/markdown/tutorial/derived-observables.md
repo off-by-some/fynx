@@ -1,4 +1,4 @@
-# Derived Observables: Transforming Data with `.then()` and `>>`
+# Transforming Data with `.then()` and `>>`
 
 Observables hold reactive values, and conditionals filter them. But what truly unlocks FynX's power is transformation—the ability to derive new values from existing ones automatically.
 
@@ -105,14 +105,15 @@ You declare what each value means in terms of others. Changes propagate automati
 
 Both `.then()` and `>>` create computed observables, but with slightly different syntax:
 
-- **`.then()`**: `source_observable.then(transformation_function)` - Method syntax
-- **`>>`**: `source_observable >> transformation_function` - Operator syntax
+* **`.then()`**: `source_observable.then(transformation_function)` - Method syntax
+* **`>>`**: `source_observable >> transformation_function` - Operator syntax
 
 Both approaches:
-- Take the current value from the source observable
-- Pass it to your transformation function immediately (eager evaluation)
-- Wrap the result in a new observable
-- Automatically re-run the transformation when the source changes
+
+* Take the current value from the source observable
+* Pass it to your transformation function immediately (eager evaluation)
+* Wrap the result in a new observable
+* Automatically re-run the transformation when the source changes
 
 ```python
 numbers = observable([1, 2, 3])
@@ -285,9 +286,9 @@ expensive_message_operator = (discounted_total_method | is_expensive_operator) >
 
 Derived observables are lazy and efficient:
 
-- **Memoization**: Results are cached until source values change
-- **Selective Updates**: Only recalculates when dependencies actually change
-- **No Redundant Work**: If a transformation result hasn't changed, downstream observers don't re-run
+* **Memoization**: Results are cached until source values change
+* **Selective Updates**: Only recalculates when dependencies actually change
+* **No Redundant Work**: If a transformation result hasn't changed, downstream observers don't re-run
 
 ```python
 def slow_computation(data):
@@ -649,14 +650,14 @@ is_ready_operator = app_state >> is_ready_state
 
 Both `.then()` and `>>` transform FynX from a simple notification system into a powerful data transformation engine. You stop writing imperative update code and start declaring relationships:
 
-- **From**: "When X changes, update Y, then update Z"
-- **To**: "Y is a transformation of X, Z is a transformation of Y"
+* **From**: "When X changes, update Y, then update Z"
+* **To**: "Y is a transformation of X, Z is a transformation of Y"
 
 This declarative approach eliminates entire categories of bugs:
 
-- **No stale data**: Derived values always reflect current source values
-- **No forgotten updates**: The reactive graph handles all propagation
-- **No manual synchronization**: Relationships are maintained automatically
+* **No stale data**: Derived values always reflect current source values
+* **No forgotten updates**: The reactive graph handles all propagation
+* **No manual synchronization**: Relationships are maintained automatically
 
 Combined with conditionals (`&`) and merging (`|`), derived observables give you a complete toolkit for building reactive data pipelines. You describe what your data should look like, and FynX ensures it stays that way.
 

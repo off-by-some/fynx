@@ -1,7 +1,5 @@
 # API Reference
 
-
-
 This reference provides comprehensive documentation of FynX's public API. FynX is a reactive programming library that makes your application state respond automatically to changes—think of it as a spreadsheet for your code, where updating one cell automatically recalculates all the formulas that depend on it.
 
 ## A Mental Model for FynX
@@ -12,7 +10,7 @@ Before diving into the API details, it helps to understand FynX's core philosoph
 
 **FynX is declarative**: You describe *relationships* between values, and FynX handles the updates automatically. Change a value once, and everything that depends on it updates correctly, in the right order, every time.
 
-This mental shift—from managing updates to declaring relationships—is the key to thinking reactively.
+This mental shift—from managing updates to declaring relationships—is what makes thinking reactively so powerful.
 
 ## Your Learning Path
 
@@ -191,29 +189,34 @@ ShoppingCartStore.discount_code = "SAVE20"
 
 Throughout this reference, we follow consistent patterns:
 
-- **Type signatures** use Python type hints for clarity and enable IDE autocomplete
-- **Examples progress from simple to complex** within each page
-- **Notes highlight gotchas** that trip up newcomers
-- **Performance tips** appear when relevant to optimization decisions
-- **See also links** connect related concepts and alternative approaches
+* **Type signatures** use Python type hints for clarity and enable IDE autocomplete
+* **Examples progress from simple to complex** within each page
+* **Notes highlight gotchas** that trip up newcomers
+* **Performance tips** appear when relevant to optimization decisions
+* **See also links** connect related concepts and alternative approaches
 
 ## Navigating This Reference
 
 ### New to FynX?
+
 Read in order: [Observable](observable.md) → [Store](store.md) → [@reactive](reactive-decorator.md) → [ConditionalObservable](conditional-observable.md)
 
 ### Building an application?
+
 Focus on: [Store](store.md), [Observable Operators](observable-operators.md) (especially `>>`), [@reactive](reactive-decorator.md)
 
 ### Need complex state logic?
+
 Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@reactive](reactive-decorator.md)
 
 ### Performance optimization?
+
 See: [ComputedObservable](computed-observable.md) for memoization, [Observable](observable.md) for subscription management
 
 ### Curious about implementation?
+
 Explore: [Observable Descriptors](observable-descriptors.md) to understand how the magic works
 
----
+***
 
 For conceptual introductions and tutorials, return to the [main documentation](../../index.md).

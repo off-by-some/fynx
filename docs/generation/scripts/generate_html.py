@@ -27,11 +27,11 @@ def generate_html_docs() -> None:
             sys.exit(1)
 
         # Ensure docs directory and index.md exist
-        docs_dir = Path("docs")
-        index_md = docs_dir / "index.md"
+        markdown_dir = Path(__file__).parent.parent / "markdown"
+        index_md = markdown_dir / "index.md"
         if not index_md.exists():
             print(f"❌ Index file not found at {index_md}")
-            print("   Please ensure docs/index.md exists")
+            print("   Please ensure docs/generation/markdown/index.md exists")
             sys.exit(1)
 
         # Build the HTML documentation
@@ -43,11 +43,14 @@ def generate_html_docs() -> None:
         project_root = Path(__file__).parent.parent.parent.parent
         env["PYTHONPATH"] = str(project_root)
 
+        # Change to the generation directory where mkdocs.yml is located
+        generation_dir = Path(__file__).parent.parent
+
         result = subprocess.run(
-            ["poetry", "run", "mkdocs", "build", "-f", str(mkdocs_config_path)],
+            ["poetry", "run", "mkdocs", "build"],
             capture_output=True,
             text=True,
-            cwd=".",
+            cwd=str(generation_dir),
             env=env,
         )
 

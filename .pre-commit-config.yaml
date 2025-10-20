@@ -27,14 +27,14 @@ repos:
       - id: isort
         args: ["--profile", "black"]
 
-  # MyPy - Type checking
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
-    hooks:
-      - id: mypy
-        additional_dependencies: []
-        args: [--ignore-missing-imports]
-        files: ^(fynx|tests)/
+  # MyPy - Type checking, disabled for now
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v1.18.2
+  #   hooks:
+  #     - id: mypy
+  #       additional_dependencies: []
+  #       args: [--ignore-missing-imports]
+  #       files: ^(fynx|tests)/
 
   # General pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

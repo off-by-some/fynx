@@ -58,7 +58,7 @@ result = count >> double >> add_one
 
 ## Key Properties
 
-- **Reactive**: Automatically update when source observables change
-- **Immutable**: Don't modify source values, create new derived values
-- **Composable**: Can be chained and combined with other observables
-- **Lazy**: Only compute when subscribed to or when source changes
+* **Reactive**: Automatically update when source observables change
+* **Immutable**: Don't modify source values, create new derived values
+* **Composable**: Can be chained and combined with other observables
+* **Lazy**: Only compute when subscribed to or when source changes

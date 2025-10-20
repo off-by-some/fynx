@@ -1,42 +1,52 @@
 site_name: FynX
 site_description: "Python Reactive State Management Library"
 site_url: https://off-by-some.github.io/fynx/
-docs_dir: ..
+docs_dir: markdown
 site_dir: ../../site
 
 # Ignore template files during MkDocs processing
 exclude_docs: |
   build/templates/**
 
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/off-by-some/fynx
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/fynx/
+
 nav:
-  - Home: index.md
+  - Introduction:
+      - Home: index.md
+  - Tutorial:
+      - Getting Started: tutorial/observables.md
+      - Derived Observables: tutorial/derived-observables.md
+      - Conditionals: tutorial/conditionals.md
+      - Stores: tutorial/stores.md
+      - Using @reactive: tutorial/using-reactive.md
   - API Reference:
-      - Overview: generation/markdown/api.md
-      - Observables: generation/markdown/observables.md
-      - Derived Observables: generation/markdown/derived-observables.md
-      - Conditionals: generation/markdown/conditionals.md
-      - Stores: generation/markdown/stores.md
-      - Using @reactive: generation/markdown/using-reactive.md
-      - Reference:
-          - Observable Types:
-              - Observable: generation/markdown/observable.md
-              - ComputedObservable: generation/markdown/computed-observable.md
-              - MergedObservable: generation/markdown/merged-observable.md
-              - ConditionalObservable: generation/markdown/conditional-observable.md
-              - Observable Descriptors: generation/markdown/observable-descriptors.md
-              - Observable Operators: generation/markdown/observable-operators.md
-          - Reactive Decorators:
-              - "@reactive": generation/markdown/reactive-decorator.md
-              - "Decorators": generation/markdown/decorators.md
-              - "Store & @observable": generation/markdown/store.md
-  - Mathematical Foundations: generation/markdown/mathematical-foundations.md
+      - Overview: reference/api.md
+      - Observable Types:
+          - Observable: reference/observable.md
+          - Observable Operators: reference/observable-operators.md
+          - ComputedObservable: reference/computed-observable.md
+          - MergedObservable: reference/merged-observable.md
+          - ConditionalObservable: reference/conditional-observable.md
+          - Observable Descriptors: reference/observable-descriptors.md
+      - Stores: reference/store.md
+      - Reactive Decorators:
+          - "@reactive": reference/reactive-decorator.md
+  - Mathematical Foundations:
+      - Mathematical Foundations: mathematical/mathematical-foundations.md
   - Roadmap:
-      - v1.0 Roadmap: specs/v1.0-roadmap.md
+      - v1.0 Roadmap: ../specs/v1.0-roadmap.md
 
 theme:
   name: material
-  favicon: images/icon_350x350.png
-  logo: images/icon_350x350.png
+  favicon: assets/images/icon_350x350.png
+  logo: assets/images/icon_350x350.png
   logo_text: FynX
   logo_text_align: center
   palette:
@@ -108,20 +118,11 @@ markdown_extensions:
   - toc:
       permalink: true
 
-extra:
-  version:
-    provider: mike
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/off-by-some/fynx
-    - icon: fontawesome/brands/python
-      link: https://pypi.org/project/fynx/
-
 extra_css:
-  - ../stylesheets/extra.css
+  - assets/stylesheets/extra.css
 
 extra_javascript:
-  - javascripts/mathjax.js
+  - assets/javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 

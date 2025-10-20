@@ -12,5 +12,3 @@ omit =
     examples/*
     docs/*
     */__init__.py
-
-

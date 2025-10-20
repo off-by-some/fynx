@@ -47,7 +47,8 @@ export PYTHONPATH="$PROJECT_ROOT"
 
 # Step 1: Generate HTML Documentation with MkDocs
 print_status "Step 1: Generating HTML documentation with MkDocs..."
-if poetry run python docs/generation/scripts/generate_html.py; then
+cd docs/generation
+if poetry run python scripts/generate_html.py; then
     print_success "HTML documentation generated successfully"
 else
     print_error "Failed to generate HTML documentation"
@@ -56,7 +57,7 @@ fi
 
 # Step 2: Verify documentation was built
 print_status "Step 2: Verifying documentation build..."
-if [ -d "site" ] && [ -f "site/index.html" ]; then
+if [ -d "../../site" ] && [ -f "../../site/index.html" ]; then
     print_success "Documentation build verified - site/ directory created"
 else
     print_error "Documentation build verification failed - site/ directory not found"
@@ -65,7 +66,8 @@ fi
 
 # Step 3: Deploy to GitHub Pages
 print_status "Step 3: Deploying to GitHub Pages..."
-if poetry run mkdocs gh-deploy -f docs/generation/mkdocs.yml --force; then
+cd docs/generation
+if poetry run mkdocs gh-deploy --force; then
     print_success "Documentation deployed to GitHub Pages successfully!"
     echo ""
     echo "🎉 Documentation collection complete!"
@@ -74,12 +76,12 @@ if poetry run mkdocs gh-deploy -f docs/generation/mkdocs.yml --force; then
     echo "  https://off-by-some.github.io/fynx/"
     echo ""
     echo "Local preview available with:"
-    echo "  poetry run mkdocs serve -f docs/generation/mkdocs.yml"
+    echo "  cd docs/generation && poetry run mkdocs serve"
 else
     print_error "Failed to deploy to GitHub Pages"
     echo ""
     print_warning "You can still deploy manually with:"
-    echo "  poetry run mkdocs gh-deploy -f docs/generation/mkdocs.yml"
+    echo "  cd docs/generation && poetry run mkdocs gh-deploy"
     exit 1
 fi
 

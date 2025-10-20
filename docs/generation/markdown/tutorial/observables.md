@@ -202,24 +202,23 @@ This is what observables enable: **declarative state management**. You describe 
 
 Observables shine in situations where:
 
-- **Multiple things depend on the same state** — One change needs to update several downstream systems
-- **State changes frequently** — User interactions, real-time data, animated values
-- **Dependencies are complex** — Value A depends on B and C, which depend on D and E
-- **You want to avoid manual synchronization** — Eliminating update code reduces bugs
+* **Multiple things depend on the same state** — One change needs to update several downstream systems
+* **State changes frequently** — User interactions, real-time data, animated values
+* **Dependencies are complex** — Value A depends on B and C, which depend on D and E
+* **You want to avoid manual synchronization** — Eliminating update code reduces bugs
 
 Observables add overhead compared to plain variables. For simple scripts or one-off calculations, that overhead isn't worth it. But for interactive applications, data pipelines, or anything with non-trivial state management, observables pay for themselves quickly.
-
 
 ## What's Next
 
 Observables are more than containers—they're nodes in a reactive graph. But standalone observables are just the beginning. The real power emerges when you learn to:
 
-- **Transform observables** using the `>>` operator to create derived values that update automatically
-- **Combine observables** using the `|` operator to work with multiple sources of data
-- **Filter observables** using the `&` operator to apply conditional logic and control when data flows
-- **Organize observables** into Stores for cleaner application architecture
-- **Automate reactions** with decorators that eliminate subscription boilerplate
+* **Transform observables** using the `>>` operator to create derived values that update automatically
+* **Combine observables** using the `|` operator to work with multiple sources of data
+* **Filter observables** using the `&` operator to apply conditional logic and control when data flows
+* **Organize observables** into Stores for cleaner application architecture
+* **Automate reactions** with decorators that eliminate subscription boilerplate
 
 Each of these builds on the foundation you've just learned. Observables are simple, but their composition creates sophisticated reactive systems.
 
-The key insight to carry forward: **observables aren't just containers—they're nodes in a reactive graph**. When you change one node, effects ripple through the entire structure automatically. That's the power FynX gives you.
+The insight to carry forward: **observables aren't just containers—they're nodes in a reactive graph**. When you change one node, effects ripple through the entire structure automatically. That's the power FynX gives you.

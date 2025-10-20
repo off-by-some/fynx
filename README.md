@@ -199,20 +199,21 @@ Stores provide structure for related state and enable features like store-level 
 
 ## The Four Reactive Operators
 
-FynX provides four composable operators that form a complete algebra for reactive programming:
+FynX provides four composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `|`, `&`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.negate()`):
 
-| Operator | Operation | Purpose | Example |
-|----------|-----------|---------|---------|
-| `>>` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
-| `\|` | Combine | Merge observables into tuples | `(first \| last) >> join` |
-| `&` | Filter | Gate based on conditions | `file & valid & ~processing` |
-| `~` | Negate | Invert boolean conditions | `~is_loading` |
+| Operator | Method | Operation | Purpose | Example |
+|----------|--------|-----------|---------|---------|
+| `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
+| `\|` | `.alongside()` | Combine | Merge observables into tuples | `(first \| last) >> join` |
+| `&` | `.also()` | Filter | Gate based on conditions | `file & valid & ~processing` |
+| `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
+| | `.either()` | Logical OR | Combine boolean conditions | *(coming soon)* |
 
 Each operation creates a new observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that guarantee correct behavior under composition.
 
-## Transforming Data with `>>`
+## Transforming Data with `>>` or `.then()`
 
-The `>>` operator transforms observables through functions. Chain multiple transformations to build [derived observables](https://off-by-some.github.io/fynx/generation/markdown/derived-observables/):
+The `>>` operator (or `.then()` method) transforms observables through functions. Chain multiple transformations to build [derived observables](https://off-by-some.github.io/fynx/generation/markdown/derived-observables/):
 
 ```python
 # Define transformation functions
@@ -240,9 +241,9 @@ result_operator = (counter
 
 Each transformation creates a new observable that recalculates when its source changes. This chaining works predictably because `>>` implements functorial mapping—structure preservation under transformation.
 
-## Combining Observables with `|`
+## Combining Observables with `|` or `.alongside()`
 
-Use `|` to combine multiple observables into reactive tuples:
+Use `|` (or `.alongside()`) to combine multiple observables into reactive tuples:
 
 ```python
 class User(Store):
@@ -265,9 +266,9 @@ When any combined observable changes, downstream values recalculate automaticall
 
 > **Note:** The `|` operator will transition to `@` in a future release to support logical OR operations.
 
-## Filtering with `&` and `~`
+## Filtering with `&`, `.also()`, `~`, and `.negate()`
 
-The `&` operator filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` to negate:
+The `&` operator (or `.also()`) filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` (or `.negate()`) to invert:
 
 ```python
 uploaded_file = observable(None)
@@ -281,52 +282,80 @@ def is_valid_file(f):
 is_valid_method = uploaded_file.then(is_valid_file)
 is_valid_operator = uploaded_file >> is_valid_file
 
-# Filter using & operator
-preview_ready_method = uploaded_file & is_valid_method & (~is_processing)
+# Filter using & operator (or .also() method)
+preview_ready_method = uploaded_file.also(is_valid_method).also(is_processing.negate())
 preview_ready_operator = uploaded_file & is_valid_operator & (~is_processing)
 ```
 
 The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
 
+
 ## Reacting to Changes
 
-React to observable changes using the [`@reactive`](https://off-by-some.github.io/fynx/generation/markdown/using-reactive/) decorator or subscriptions:
+React to observable changes using the [`@reactive`](https://off-by-some.github.io/fynx/generation/markdown/using-reactive/) decorator or subscriptions.
 
+**The fundamental principle**: `@reactive` is for side effects only—UI updates, logging, network calls, and other operations that interact with the outside world. For deriving new values from existing data, use the `>>` operator instead. This separation keeps your reactive system predictable and maintainable.
+
+**Important note on timing**: Reactive functions don't fire immediately when created—they only fire when their dependencies *change*. This follows from FynX's pullback semantics in category theory. If you need initialization logic, handle it separately before setting up the reaction.
 ```python
 from fynx import reactive
 
-# Define reaction functions
-def handle_change(value):
-    print(f"Changed: {value}")
+# GOOD: Side effects with @reactive
+@reactive(user_count)
+def update_dashboard(count):
+    render_ui(f"Users: {count}")  # Side effect: UI update
 
-def print_new_value(x):
-    print(f"New value: {x}")
+@reactive(data_stream)
+def sync_to_server(data):
+    api.post('/sync', data)  # Side effect: network I/O
 
-# Dedicated reaction functions
-@reactive(observable)
-def handle_change(value):
-    print(f"Changed: {value}")
+@reactive(error_log)
+def log_errors(error):
+    print(f"Error: {error}")  # Side effect: logging
 
-# Inline reactions
-observable.subscribe(print_new_value)
+# GOOD: Data transformations with >> operator
+doubled = count >> (lambda x: x * 2)  # Pure transformation
+formatted = doubled >> (lambda x: f"${x:.2f}")  # Pure transformation
 
-# Conditional reactions using conditional observables
-condition1 = observable(True)
-condition2 = observable(False)
+# Inline subscriptions for dynamic behavior
+observable.subscribe(lambda x: print(f"New value: {x}"))
 
-def check_conditions():
-    return condition1.value and condition2.value
+# Conditional reactions using boolean operators
+is_logged_in = observable(False)
+has_data = observable(False)
+is_loading = observable(True)
 
-# Create conditional observable
-all_conditions_met = (condition1 | condition2).then(check_conditions)
+# React only when logged in AND has data AND NOT loading
+@reactive(is_logged_in & has_data & ~is_loading)
+def sync_when_ready(should_sync):
+    if should_sync:
+        perform_sync()  # Side effect: network operation
 
-@reactive(all_conditions_met)
-def on_conditions_met(conditions_met):
-    if conditions_met:
-        print("All conditions satisfied!")
+# Multiple observables via derived state
+first_name = observable("Alice")
+last_name = observable("Smith")
+
+# Derive first, then react
+full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
+
+@reactive(full_name)
+def update_greeting(name):
+    display_message(f"Hello, {name}!")  # Side effect: UI update
 ```
 
-Choose the pattern that fits your context. These reactions fire automatically because the dependency graph tracks relationships through the categorical structure underlying observables.
+**Lifecycle management**: Use `.unsubscribe()` to stop reactive behavior when cleaning up components or changing modes. After unsubscribing, the function returns to normal, non-reactive behavior and can be called manually again.
+```python
+@reactive(data_stream)
+def process_data(data):
+    handle_data(data)
+
+# Later, during cleanup
+process_data.unsubscribe()  # Stops reacting to changes
+```
+
+**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `|`, `&`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
+
+
 
 ## Additional Examples
 

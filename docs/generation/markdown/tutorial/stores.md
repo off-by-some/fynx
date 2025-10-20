@@ -482,6 +482,7 @@ Each Store maintains its own domain, but computed values can reach across Store 
 Use Stores when you have:
 
 **Related state that belongs together:**
+
 ```python
 # Good: Cart-related state in CartStore
 class CartStore(Store):
@@ -491,6 +492,7 @@ class CartStore(Store):
 ```
 
 **State that needs derived values:**
+
 ```python
 # Good: Computed values with their source state
 class FormStore(Store):
@@ -503,6 +505,7 @@ class FormStore(Store):
 ```
 
 **State that needs encapsulated modification:**
+
 ```python
 # Good: Methods that maintain invariants
 class AccountStore(Store):
@@ -552,9 +555,9 @@ print(ChildStore.count)  # 10 (completely separate)
 
 **Key Behavior:** Unlike standard Python inheritance where child classes share parent attributes, Store inheritance creates separate observable instances for each class. This ensures clean state isolation:
 
-- `BaseStore.count` and `ChildStore.count` are completely independent
-- Changes to one don't affect the other
-- Each class maintains its own reactive state
+* `BaseStore.count` and `ChildStore.count` are completely independent
+* Changes to one don't affect the other
+* Each class maintains its own reactive state
 
 **Explicit Overrides:** You can still override inherited observables:
 
@@ -653,14 +656,14 @@ price = items >> (lambda items: sum(item['price'] for item in items))
 
 Stores organize your reactive state into cohesive, testable units. They combine observables, computed values, and methods into structures that represent distinct domains of your application.
 
-Key concepts:
+Core concepts:
 
-- **Stores group related observables** — Keep state that belongs together in the same Store
-- **Observable descriptors enable clean syntax** — Read and write Store attributes naturally
-- **The `>>` operator creates computed values** — Derived state updates automatically
-- **The `|` operator merges observables** — Combine multiple sources for multi-input computations
-- **Always create new values** — Never mutate observable contents in place
-- **Methods encapsulate state changes** — Define clear APIs for modifying state
-- **Stores can depend on other Stores** — Build modular applications with cross-Store relationships
+* **Stores group related observables** — Keep state that belongs together in the same Store
+* **Observable descriptors enable clean syntax** — Read and write Store attributes naturally
+* **The `>>` operator creates computed values** — Derived state updates automatically
+* **The `|` operator merges observables** — Combine multiple sources for multi-input computations
+* **Always create new values** — Never mutate observable contents in place
+* **Methods encapsulate state changes** — Define clear APIs for modifying state
+* **Stores can depend on other Stores** — Build modular applications with cross-Store relationships
 
-With Stores, you can build reactive applications that scale from simple counters to complex, multi-domain state management systems. The key is organization: each Store owns its domain, exposes a clean API, and lets FynX handle all the synchronization automatically.
+With Stores, you can build reactive applications that scale from simple counters to complex, multi-domain state management systems. The secret is organization: each Store owns its domain, exposes a clean API, and lets FynX handle all the synchronization automatically.

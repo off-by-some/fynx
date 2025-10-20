@@ -193,7 +193,7 @@ Passenger Data
      ↓
 [Passport Control] ← is_in_range check
      ↓
-[Security Screening] ← is_stable check  
+[Security Screening] ← is_stable check
      ↓
 [Boarding Pass Validation] ← has_signal check
      ↓
@@ -209,7 +209,7 @@ When you write `data & condition1 & condition2`, you're building this chain of c
 ```python
 sensor_reading.set(42.5)  # All conditions pass → gate opens
 sensor_reading.set(150)   # Fails range check → gate closes
-sensor_reading.set(-10)   # Fails range check → gate stays closed  
+sensor_reading.set(-10)   # Fails range check → gate stays closed
 sensor_reading.set(55.0)  # All conditions pass → gate opens again
 ```
 
@@ -319,7 +319,7 @@ We're interested in values where all conditions map to `True`. Visually, for a s
 ```
     ConditionalObservable ----→ {True}
             |                      |
-            | π                    | 
+            | π                    |
             ↓                      ↓
     Source Observable ---c--→ Observable[Bool]
 ```
@@ -328,7 +328,7 @@ This is a pullback along the morphism selecting `True` from the boolean domain. 
 
 For multiple conditions, we're taking the intersection of multiple such fibers:
 
-$\text{ConditionalObservable}(s, c_1, \ldots, c_n) \cong \{ x \in s \mid c_1(x) \wedge c_2(x) \wedge \cdots \wedge c_n(x) \}$
+$$\text{ConditionalObservable}(s, c_1, \ldots, c_n) \cong \{ x \in s \mid c_1(x) \wedge c_2(x) \wedge \cdots \wedge c_n(x) \}$$
 
 Each condition creates a checkpoint. The conditional observable represents values that clear all checkpoints—the pullback ensures this subset is well-defined categorically.
 
@@ -430,7 +430,7 @@ The optimizer applies four types of rewrites, each justified by category theory.
 
 The composition law proves that sequential transformations can safely fuse:
 
-$$\text{obs} \gg f \gg g \gg h \rightsquigarrow \text{obs} \gg (h \circ g \circ f)$$
+$$\text{obs} \gg f \gg g \gg h \rightarrow \text{obs} \gg (h \circ g \circ f)$$
 
 Instead of creating intermediate observables for each `>>`, FynX fuses the entire chain into a single computed observable. This is why deep chains stay efficient—they're not actually thousands of separate observables, just composed functions in one observable.
 
@@ -459,7 +459,7 @@ The product is computed once. When 47,000 components depend on a single product,
 
 The commutativity and associativity of Boolean pullbacks allow combining sequential filters:
 
-$$\text{obs} \& c_1 \& c_2 \& c_3 \rightsquigarrow \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
+$$\text{obs} \& c_1 \& c_2 \& c_3 \rightarrow \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
 
 Multiple conditional checks become one. The algebraic structure proves this fusion preserves semantics.
 
@@ -467,7 +467,7 @@ Multiple conditional checks become one. The algebraic structure proves this fusi
 
 The optimizer decides whether to cache or recompute each node using a cost model:
 
-$C(\sigma) = \alpha \cdot |\text{Dep}(\sigma)| + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)$
+$$C(\sigma) = \alpha \cdot |\text{Dep}(\sigma)| + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)$$
 
 This cost functional has important mathematical structure. It's a monoidal functor from the reactive category to the ordered monoid $(\mathbb{R}^+, +, 0)$. This means:
 
@@ -557,7 +557,7 @@ This batching provides two benefits: each observable updates once per batch rath
 FynX's benchmark suite measures fundamental operations:
 
 - Observable creation: 794,000 ops/sec
-- Individual updates: 353,000 ops/sec  
+- Individual updates: 353,000 ops/sec
 - Chain propagation: 1,640 ops/sec for 2,776-link chains
 - Reactive fan-out: 47,000 ops/sec with 47,427 dependent components
 

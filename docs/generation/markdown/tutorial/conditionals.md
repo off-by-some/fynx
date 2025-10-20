@@ -25,7 +25,7 @@ This works, but it's verbose. You have to write filtering logic in every subscri
 
 ## The Solution: Conditional Observables
 
-FynX gives you operators that create filtered, conditional observables. The key insight: separate the condition logic from the filtering operation.
+FynX gives you operators that create filtered, conditional observables. The insight: separate the condition logic from the filtering operation.
 
 ```python
 temperature = observable(20)
@@ -402,11 +402,11 @@ form_valid = (email_ok & (lambda _: True)) & (password_ok & (lambda _: True))
 
 Conditionals transform your reactive system from "process everything" to "process only what matters":
 
-- **`&` operator**: Filter data streams based on predicates
-- **`~` operator**: Invert boolean conditions
-- **Performance**: Skip unnecessary computations
-- **Clarity**: Separate filtering logic from reaction logic
-- **Composition**: Combine conditions with other operators
+* **`&` operator**: Filter data streams based on predicates
+* **`~` operator**: Invert boolean conditions
+* **Performance**: Skip unnecessary computations
+* **Clarity**: Separate filtering logic from reaction logic
+* **Composition**: Combine conditions with other operators
 
 Think of conditionals as reactive filters. They let you create observables that only emit valuable data, reducing noise and improving performance. Combined with transformations (`>>`) and reactions (`@reactive`), they give you a complete toolkit for building sophisticated reactive applications.
 
