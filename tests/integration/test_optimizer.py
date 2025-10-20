@@ -134,7 +134,7 @@ class TestChainFusion:
         b = observable(2)
 
         # Create merged observable, then chain
-        merged = a | b
+        merged = a + b
         chain = (
             merged
             >> (lambda x, y: x + y)  # Add them
@@ -192,7 +192,7 @@ class TestProductFactorization:
 
         left = base >> (lambda x: x + 1)
         right = base >> (lambda x: x * 2)
-        combine = (left | right) >> (lambda l, r: l + r)
+        combine = (left + right) >> (lambda l, r: l + r)
 
         results, optimizer = optimize_reactive_graph([combine])
 
@@ -789,7 +789,7 @@ class TestIntegrationOptimization:
 
         # Complex computation using multiple fields
         final_score = (
-            (score | bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
+            (score + bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
         )
 
         # Conditional display
@@ -835,7 +835,7 @@ class TestIntegrationOptimization:
 
         # Complex computation using multiple fields
         final_score = (
-            (score | bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
+            (score + bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
         )
 
         # Conditional display
@@ -879,7 +879,7 @@ class TestIntegrationOptimization:
 
         # Complex computation using multiple fields
         final_score = (
-            (score | bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
+            (score + bonus_multiplier) >> (lambda s, m: s * m) >> (lambda s: int(s))
         )
 
         # Conditional display

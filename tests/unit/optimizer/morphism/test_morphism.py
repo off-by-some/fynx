@@ -20,8 +20,8 @@ def test_morphism_parser_handles_edge_cases_with_empty_parts():
     # Test cases that should result in special morphisms
     assert MorphismParser.parse(" ∘ ") == Morphism.single("∘")
     assert MorphismParser.parse(" ∘  ∘ ") == Morphism.single("∘  ∘")
-    assert MorphismParser.parse("") == Morphism.single("")
-    assert MorphismParser.parse("   ") == Morphism.single("")
+    assert MorphismParser.parse("") == Morphism.identity()
+    assert MorphismParser.parse("   ") == Morphism.identity()
 
 
 @pytest.mark.unit

@@ -32,7 +32,7 @@ def test_optimize_materialization_sets_flags_across_graph():
     # Create a small diamond to trigger decisions
     left = base >> (lambda x: x + 1)
     right = base >> (lambda x: x + 2)
-    out = (left | right) >> (lambda l, r: l + r)
+    out = (left + right) >> (lambda l, r: l + r)
 
     rg = ReactiveGraph()
     rg.build_from_observables([out])

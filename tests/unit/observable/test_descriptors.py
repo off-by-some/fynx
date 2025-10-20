@@ -88,8 +88,8 @@ def test_observable_value_supports_reactive_operators():
     doubled = obs_value1 >> (lambda x: x * 2)
     assert doubled.value == 20
 
-    # Test | operator (merge)
-    merged = obs_value1 | obs_value2
+    # Test + operator (merge)
+    merged = obs_value1 + obs_value2
     assert merged.value == (10, 20)
 
     # Test & operator (conditional)

@@ -62,5 +62,5 @@ count.set(4)   # Prints: Positive even: 4
 
 * **Filtering**: Only emit values that satisfy all conditions
 * **Reactive**: Automatically re-evaluate conditions when source changes
-* **Composable**: Can be combined with other observables using `&`, `|`, and `>>`
+* **Composable**: Can be combined with other observables using `&`, `+`, and `>>`
 * **Efficient**: Conditions are only evaluated when source values change

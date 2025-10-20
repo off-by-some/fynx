@@ -28,7 +28,7 @@ reactive capabilities.
 automatic dependency tracking and coordinating updates when dependencies change.
 
 **MergedObservable**: Combines multiple observables into a single reactive unit using
-the `|` operator. Useful for coordinating related values and passing them as a group
+the `+` operator. Useful for coordinating related values and passing them as a group
 to computed functions.
 
 **ConditionalObservable**: Filters reactive streams based on boolean conditions using
@@ -48,9 +48,9 @@ Reactive Operators
 
 FynX provides intuitive operators for composing reactive behaviors:
 
-**Merge (`|`)**: Combines observables into tuples for coordinated updates:
+**Merge (`+`)**: Combines observables into tuples for coordinated updates:
 ```python
-point = x | y  # Creates (x.value, y.value) that updates when either changes
+point = x + y  # Creates (x.value, y.value) that updates when either changes
 ```
 
 **Transform (`>>`)**: Applies functions to create computed values:
@@ -115,7 +115,7 @@ width = Observable("width", 10)
 height = Observable("height", 20)
 
 # Merge them into a single reactive unit
-dimensions = width | height
+dimensions = width + height
 print(dimensions.value)  # (10, 20)
 
 # Changes to either update the merged observable

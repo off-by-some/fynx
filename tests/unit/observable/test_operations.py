@@ -65,7 +65,7 @@ def test_then_method_with_merged_observable_registers_with_context():
     """then() method with merged observable registers with optimization context."""
     obs1 = Observable("obs1", 3)
     obs2 = Observable("obs2", 4)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Create optimization context
     with OptimizationContext() as context:

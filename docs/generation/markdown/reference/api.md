@@ -31,15 +31,15 @@ Observables are containers for values that change over time. Unlike regular vari
 
 **[Observable](observable.md)** — The foundation of FynX. Create observables with `observable(initial_value)`, read them with `.value`, write them with `.set(new_value)`. Every other FynX feature builds on this simple primitive.
 
-**[ComputedObservable](computed-observable.md)** — Values that automatically recalculate when their dependencies change. Create them with the `>>` operator: `full_name = (first | last) >> (lambda f, l: f"{f} {l}")`. The `>>` operator transforms observables through functions, creating a new computed observable. Alternatively, use the `.then(func)` method on observables for the same result. FynX tracks dependencies automatically and ensures computed values always stay up-to-date.
+**[ComputedObservable](computed-observable.md)** — Values that automatically recalculate when their dependencies change. Create them with the `>>` operator: `full_name = (first + last) >> (lambda f, l: f"{f} {l}")`. The `>>` operator transforms observables through functions, creating a new computed observable. Alternatively, use the `.then(func)` method on observables for the same result. FynX tracks dependencies automatically and ensures computed values always stay up-to-date.
 
-**[MergedObservable](merged-observable.md)** — Combine multiple observables into a single reactive tuple using the `|` operator: `position = x | y | z`. When any source changes, subscribers receive all values as a tuple. This is the foundation for reactive relationships that depend on multiple values.
+**[MergedObservable](merged-observable.md)** — Combine multiple observables into a single reactive tuple using the `+` operator: `position = x + y + z`. When any source changes, subscribers receive all values as a tuple. This is the foundation for reactive relationships that depend on multiple values.
 
 **[ConditionalObservable](conditional-observable.md)** — Observables that emit when conditions are satisfied. Create them with the `&` operator: `valid_submission = form_data & is_valid`. This enables sophisticated reactive logic without cluttering your code with conditional checks.
 
 **[Observable Descriptors](observable-descriptors.md)** — The mechanism behind Store class attributes. When you write `name = observable("Alice")` in a Store class, you're creating a descriptor that provides clean property access without `.value` or `.set()`.
 
-**[Observable Operators](observable-operators.md)** — The operators (`|`, `>>`, `&`, `~`) and methods (`.then()`, `.also()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
+**[Observable Operators](observable-operators.md)** — The operators (`+`, `>>`, `&`, `~`) and methods (`.then()`, `.also()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
 
 ### Stores: Organizing State
 
@@ -87,11 +87,11 @@ AppStore.count = current + 1   # Write
 ```python
 # Using the >> operator (recommended)
 doubled = count >> (lambda c: c * 2)
-full_name = (first | last) >> (lambda f, l: f"{f} {l}")
+full_name = (first + last) >> (lambda f, l: f"{f} {l}")
 
 # Using .then() method (alternative syntax)
 doubled = count.then(lambda c: c * 2)
-full_name = (first | last).then(lambda f, l: f"{f} {l}")
+full_name = (first + last).then(lambda f, l: f"{f} {l}")
 ```
 
 ### Reacting to Changes
@@ -117,7 +117,7 @@ def on_threshold(is_above):
 
 ```python
 # Merge multiple sources
-position = x | y | z
+position = x + y + z
 
 # Transform values with >> operator
 doubled = count >> (lambda c: c * 2)
@@ -149,12 +149,12 @@ subtotal = ShoppingCartStore.items >> (
     lambda items: sum(item['price'] * item['quantity'] for item in items)
 )
 
-discount_amount = (ShoppingCartStore.items | ShoppingCartStore.discount_code) >> (
+discount_amount = (ShoppingCartStore.items + ShoppingCartStore.discount_code) >> (
     lambda items, code: sum(item['price'] * item['quantity'] for item in items) * 0.20
     if code == "SAVE20" else 0.0
 )
 
-total = (subtotal | discount_amount) >> (
+total = (subtotal + discount_amount) >> (
     lambda sub, disc: sub - disc
 )
 

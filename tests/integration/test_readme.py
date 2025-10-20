@@ -22,7 +22,7 @@ class TestReadmeExamples:
             price_per_item = observable(10.0)
 
         # Reactive computation
-        total_price = (CartStore.item_count | CartStore.price_per_item) >> (
+        total_price = (CartStore.item_count + CartStore.price_per_item) >> (
             lambda count, price: count * price
         )
 
@@ -76,14 +76,14 @@ class TestReadmeExamples:
         assert doubled.value == 10
 
     def test_combining_observables_with_or(self):
-        """Test the | operator examples."""
+        """Test the + operator examples."""
 
         class User(Store):
             first_name = observable("John")
             last_name = observable("Doe")
 
         # Combine and transform
-        full_name = (User.first_name | User.last_name) >> (lambda f, l: f"{f} {l}")
+        full_name = (User.first_name + User.last_name) >> (lambda f, l: f"{f} {l}")
         assert full_name.value == "John Doe"
 
         User.first_name = "Jane"
@@ -210,7 +210,7 @@ class TestReadmeExamples:
         last_name = observable("Doe")
 
         # Product creates a tuple observable
-        full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
+        full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
         assert full_name.value == "Jane Doe"
 
         first_name.set("John")  # full_name automatically becomes "John Doe"
@@ -222,9 +222,9 @@ class TestReadmeExamples:
         b = observable(2)
         c = observable(3)
 
-        # Associativity: (a | b) | c ≅ a | (b | c)
-        left_assoc = (a | b) | c  # ((1, 2), 3) -> (1, 2, 3)
-        right_assoc = a | (b | c)  # (1, (2, 3)) -> (1, 2, 3)
+        # Associativity: (a + b) + c ≅ a + (b + c)
+        left_assoc = (a + b) + c  # ((1, 2), 3) -> (1, 2, 3)
+        right_assoc = a + (b + c)  # (1, (2, 3)) -> (1, 2, 3)
 
         # Both should flatten to the same tuple
         assert left_assoc.value == (1, 2, 3)
@@ -291,7 +291,7 @@ class TestReadmeExamples:
         discount = observable(0.1)
         is_valid = quantity >> (lambda q: q > 0)
 
-        total = ((price | quantity) >> (lambda p, q: p * q)) & is_valid
+        total = ((price + quantity) >> (lambda p, q: p * q)) & is_valid
         discounted = total >> (
             lambda t: t * (1 - discount.value) if t is not None else 0
         )

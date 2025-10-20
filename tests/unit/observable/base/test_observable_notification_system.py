@@ -130,7 +130,7 @@ def test_merged_observable_subscription_notifies_on_any_source_change():
     # Arrange
     obs1 = Observable("key1", 1)
     obs2 = Observable("key2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     callback_executed = False
     received_values = None
@@ -158,7 +158,7 @@ def test_merged_observable_subscription_receives_current_values():
     # Arrange
     obs1 = Observable("key1", "hello")
     obs2 = Observable("key2", "world")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     received_args = None
 
@@ -183,7 +183,7 @@ def test_merged_observable_subscribe_supports_chaining():
     # Arrange
     obs1 = Observable("key1", 1)
     obs2 = Observable("key2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act
     result = merged.subscribe(lambda: None)
@@ -200,7 +200,7 @@ def test_merged_observable_unsubscribe_removes_specific_callback():
     # Arrange
     obs1 = Observable("key1", 1)
     obs2 = Observable("key2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     call_count = 0
 
@@ -232,7 +232,7 @@ def test_merged_observable_unsubscribe_handles_nonexistent_callback():
     # Arrange
     obs1 = Observable("key1", 1)
     obs2 = Observable("key2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     def callback():
         pass

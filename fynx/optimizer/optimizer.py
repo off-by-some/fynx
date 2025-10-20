@@ -2091,7 +2091,7 @@ with OptimizationContext() as ctx:
     base = observable(5)
     computed1 = base >> (lambda x: x * 2)
     computed2 = base >> (lambda x: x + 10)
-    result = (computed1 | computed2) >> (lambda a, b: a + b)
+    result = (computed1 + computed2) >> (lambda a, b: a + b)
 
     # Get optimization statistics
     stats = get_graph_statistics(ctx.optimizer)

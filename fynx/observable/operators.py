@@ -16,7 +16,7 @@ reactive relationships using familiar operators:
 
 - `observable >> function` - Transform values reactively
 - `observable & condition` - Filter values conditionally
-- `obs1 | obs2 | obs3` - Combine observables
+- `obs1 + obs2 + obs3` - Combine observables
 
 This approach makes reactive code more declarative and easier to understand.
 
@@ -33,14 +33,14 @@ doubled = counter >> (lambda x: x * 2)
 valid_data = data & is_valid
 ```
 
-**Combine (`|`)**: Merge multiple observables into tuples
+**Combine (`+`)**: Merge multiple observables into tuples
 ```python
-coordinates = x | y | z
+coordinates = x + y + z
 ```
 
 These operators work together to create complex reactive pipelines:
 ```python
-result = (x | y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
+result = (x + y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
 ```
 
 Operator Mixins
@@ -48,7 +48,7 @@ Operator Mixins
 
 This module also provides mixin classes that consolidate operator overloading logic:
 
-**OperatorMixin**: Provides common reactive operators (__or__, __rshift__, __and__, __invert__)
+**OperatorMixin**: Provides common reactive operators (__add__, __rshift__, __and__, __invert__)
 for all observable types that support reactive composition.
 
 **TupleMixin**: Adds tuple-like behavior (__iter__, __len__, __getitem__, __setitem__) for
@@ -102,9 +102,9 @@ price = observable(10.0)
 quantity = observable(1)
 tax_rate = observable(0.08)
 
-subtotal = (price | quantity) >> (lambda p, q: p * q)
+subtotal = (price + quantity) >> (lambda p, q: p * q)
 tax = subtotal >> (lambda s: s * tax_rate.value)
-total = (subtotal | tax) >> (lambda s, t: s + t)
+total = (subtotal + tax) >> (lambda s, t: s + t)
 ```
 
 Error Handling
@@ -167,11 +167,11 @@ class OperatorMixin(OperationsMixin):
 
     This mixin consolidates the operator overloading logic that was previously
     duplicated across multiple observable classes. It provides the core reactive
-    operators (__or__, __rshift__, __and__, __invert__) that enable FynX's fluent
+    operators (__add__, __rshift__, __and__, __invert__) that enable FynX's fluent
     reactive programming syntax.
 
     Classes inheriting from this mixin get automatic support for:
-    - Merging with `|` operator
+    - Merging with `+` operator
     - Transformation with `>>` operator
     - Conditional filtering with `&` operator
     - Boolean negation with `~` operator
@@ -180,9 +180,9 @@ class OperatorMixin(OperationsMixin):
     need to support reactive composition operations.
     """
 
-    def __or__(self, other) -> "Mergeable":
+    def __add__(self, other) -> "Mergeable":
         """
-        Combine this observable with another using the | operator.
+        Combine this observable with another using the + operator.
 
         This creates a merged observable that contains a tuple of both values
         and updates automatically when either observable changes.
@@ -194,6 +194,21 @@ class OperatorMixin(OperationsMixin):
             A MergedObservable containing both values as a tuple
         """
         return self.alongside(other)  # type: ignore
+
+    def __radd__(self, other) -> "Mergeable":
+        """
+        Support right-side addition for merging observables.
+
+        This enables expressions like `other + self` to work correctly,
+        ensuring that merged observables can be chained properly.
+
+        Args:
+            other: Another Observable to combine with
+
+        Returns:
+            A MergedObservable containing both values as a tuple
+        """
+        return other.alongside(self)  # type: ignore
 
     def __rshift__(self, func: Callable) -> "Observable":
         """
@@ -287,7 +302,7 @@ class ValueMixin:
 
     Classes inheriting from this mixin get automatic support for:
     - Value-like behavior (equality, string conversion, etc.)
-    - Reactive operators (__or__, __and__, __invert__, __rshift__)
+    - Reactive operators (__add__, __and__, __invert__, __rshift__)
     - Transparent access to the wrapped observable
     """
 
@@ -339,12 +354,19 @@ class ValueMixin:
             return operand.observable  # type: ignore
         return operand
 
-    def __or__(self, other) -> "Mergeable":
-        """Support merging observables with | operator."""
+    def __add__(self, other) -> "Mergeable":
+        """Support merging observables with + operator."""
         unwrapped_other = self._unwrap_operand(other)  # type: ignore
         from .merged import MergedObservable
 
         return MergedObservable(self._observable, unwrapped_other)  # type: ignore[attr-defined]
+
+    def __radd__(self, other) -> "Mergeable":
+        """Support right-side addition for merging observables."""
+        unwrapped_other = self._unwrap_operand(other)  # type: ignore
+        from .merged import MergedObservable
+
+        return MergedObservable(unwrapped_other, self._observable)  # type: ignore[attr-defined]
 
     def __and__(self, condition) -> "Conditional":
         """Support conditional observables with & operator."""
@@ -391,12 +413,12 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
     The optimization uses a cost functional C(σ) = α·|Dep(σ)| + β·E[Updates(σ)] + γ·depth(σ)
     to find semantically equivalent observables with minimal computational cost.
 
-    For merged observables (created with `|`), the function receives multiple arguments
+    For merged observables (created with `+`), the function receives multiple arguments
     corresponding to the tuple values. For single observables, it receives one argument.
 
     Args:
         obs: The source observable(s) to transform. Can be a single Observable or
-             a MergedObservable (from `|` operator).
+             a MergedObservable (from `+` operator).
         func: A pure function that transforms the observable value(s). For merged
               observables, receives unpacked tuple values as separate arguments.
 
@@ -417,8 +439,8 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
         # Complex reactive pipelines are optimized globally
         width = Observable("width", 10)
         height = Observable("height", 20)
-        area = (width | height) >> (lambda w, h: w * h)
-        volume = (width | height | Observable("depth", 5)) >> (lambda w, h, d: w * h * d)
+        area = (width + height) >> (lambda w, h: w * h)
+        volume = (width + height + Observable("depth", 5)) >> (lambda w, h, d: w * h * d)
         # Shared width/height computations are factored out automatically
         ```
 
@@ -430,7 +452,7 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
 
     See Also:
         Observable.then: The method that creates computed observables
-        MergedObservable: For combining multiple observables with `|`
+        MergedObservable: For combining multiple observables with `+`
         optimizer: The categorical optimization system
     """
     # Delegate to the observable's optimized _create_computed method

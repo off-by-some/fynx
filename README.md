@@ -65,12 +65,11 @@ class CartStore(Store):
     price_per_item = observable(10.0)
 
 # Define transformation function
-def calculate_total(count_and_price):
-    count, price = count_and_price
+def calculate_total(count, price):
     return count * price
 
 # Reactive computation using .then()
-total_price = (CartStore.item_count | CartStore.price_per_item).then(calculate_total)
+total_price = (CartStore.item_count + CartStore.price_per_item).then(calculate_total)
 
 def print_total(total):
     print(f"Cart Total: ${total:.2f}")
@@ -108,7 +107,7 @@ Here's what makes FynX different: the reactive behavior doesn't just work for th
 FynX satisfies specific universal properties from category theory (covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)) These aren't abstractions for their own sake; they're implementation principles that guarantee correctness:
 
 * **Functoriality**: Any function you lift with `>>` preserves composition exactly. Chain transformations freely—the order of operations is guaranteed.
-* **Products**: Combining observables with `|` creates proper categorical products. No matter how you nest combinations, the structure remains coherent.
+* **Products**: Combining observables with `+` creates proper categorical products. No matter how you nest combinations, the structure remains coherent.
 * **Pullbacks**: Filtering with `&` constructs mathematical pullbacks. Stack conditions in any order—the semantics stay consistent.
 
 The functoriality property guarantees that lifted functions preserve composition:
@@ -123,7 +122,6 @@ These same categorical structures also enable FynX's automatic optimizer—compo
 
 Think of it as a particularly thorough test suite—one that covers not just the cases you thought to write, but every possible case that could theoretically exist (but yes, we've got the ["real deal" tests](./tests/test_readme.py) if you want to live dangerously).
 
-
 ## Performance
 
 While the theory guarantees correctness; implementation determines speed. FynX delivers both—and the mathematics directly enables the performance.
@@ -135,6 +133,7 @@ poetry run python scripts/benchmark.py
 ```
 
 Below is a sample of the output from the above command:
+
 ```
 FynX Benchmark Configuration:
   TIME_LIMIT_SECONDS: 1.0
@@ -199,12 +198,12 @@ Stores provide structure for related state and enable features like store-level 
 
 ## The Four Reactive Operators
 
-FynX provides four composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `|`, `&`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.negate()`):
+FynX provides four composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `+`, `&`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.negate()`):
 
 | Operator | Method | Operation | Purpose | Example |
 |----------|--------|-----------|---------|---------|
 | `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
-| `\|` | `.alongside()` | Combine | Merge observables into tuples | `(first \| last) >> join` |
+| `+` | `.alongside()` | Combine | Merge observables into tuples | `(first + last) >> join` |
 | `&` | `.also()` | Filter | Gate based on conditions | `file & valid & ~processing` |
 | `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
 | | `.either()` | Logical OR | Combine boolean conditions | *(coming soon)* |
@@ -241,9 +240,9 @@ result_operator = (counter
 
 Each transformation creates a new observable that recalculates when its source changes. This chaining works predictably because `>>` implements functorial mapping—structure preservation under transformation.
 
-## Combining Observables with `|` or `.alongside()`
+## Combining Observables with `+` or `.alongside()`
 
-Use `|` (or `.alongside()`) to combine multiple observables into reactive tuples:
+Use `+` (or `.alongside()`) to combine multiple observables into reactive tuples:
 
 ```python
 class User(Store):
@@ -256,15 +255,13 @@ def join_names(first_and_last):
     return f"{first} {last}"
 
 # Combine and transform using .then()
-full_name_method = (User.first_name | User.last_name).then(join_names)
+full_name_method = (User.first_name + User.last_name).then(join_names)
 
 # Alternative using >> operator
-full_name_operator = (User.first_name | User.last_name) >> join_names
+full_name_operator = (User.first_name + User.last_name) >> join_names
 ```
 
 When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.
-
-> **Note:** The `|` operator will transition to `@` in a future release to support logical OR operations.
 
 ## Filtering with `&`, `.also()`, `~`, and `.negate()`
 
@@ -289,7 +286,6 @@ preview_ready_operator = uploaded_file & is_valid_operator & (~is_processing)
 
 The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
 
-
 ## Reacting to Changes
 
 React to observable changes using the [`@reactive`](https://off-by-some.github.io/fynx/generation/markdown/using-reactive/) decorator or subscriptions.
@@ -297,6 +293,7 @@ React to observable changes using the [`@reactive`](https://off-by-some.github.i
 **The fundamental principle**: `@reactive` is for side effects only—UI updates, logging, network calls, and other operations that interact with the outside world. For deriving new values from existing data, use the `>>` operator instead. This separation keeps your reactive system predictable and maintainable.
 
 **Important note on timing**: Reactive functions don't fire immediately when created—they only fire when their dependencies *change*. This follows from FynX's pullback semantics in category theory. If you need initialization logic, handle it separately before setting up the reaction.
+
 ```python
 from fynx import reactive
 
@@ -336,7 +333,7 @@ first_name = observable("Alice")
 last_name = observable("Smith")
 
 # Derive first, then react
-full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
+full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 
 @reactive(full_name)
 def update_greeting(name):
@@ -344,6 +341,7 @@ def update_greeting(name):
 ```
 
 **Lifecycle management**: Use `.unsubscribe()` to stop reactive behavior when cleaning up components or changing modes. After unsubscribing, the function returns to normal, non-reactive behavior and can be called manually again.
+
 ```python
 @reactive(data_stream)
 def process_data(data):
@@ -353,9 +351,7 @@ def process_data(data):
 process_data.unsubscribe()  # Stops reacting to changes
 ```
 
-**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `|`, `&`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
-
-
+**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `+`, `&`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
 
 ## Additional Examples
 
@@ -376,7 +372,7 @@ These examples demonstrate how FynX's composable primitives scale from simple to
 
 Deep mathematics should enable simpler code, not complicate it. FynX grounds itself in category theory precisely because those abstractions—functors, products, pullbacks—capture the essence of composition without the accidents of implementation. Users benefit from mathematical rigor whether they recognize the theory or not.
 
-The interface reflects this. Observables feel like ordinary values—read them, write them, pass them around. Reactivity works behind the scenes, tracking dependencies through categorical structure without requiring explicit wiring. Method chaining flows naturally: `observable(42).subscribe(print)` reads as plain description, not ceremony. The `>>` operator transforms, `|` combines, `&` filters—each produces new observables ready for further composition. Complex reactive systems emerge from simple, reusable pieces.
+The interface reflects this. Observables feel like ordinary values—read them, write them, pass them around. Reactivity works behind the scenes, tracking dependencies through categorical structure without requiring explicit wiring. Method chaining flows naturally: `observable(42).subscribe(print)` reads as plain description, not ceremony. The `>>` operator transforms, `+` combines, `&` filters—each produces new observables ready for further composition. Complex reactive systems emerge from simple, reusable pieces.
 
 FynX offers multiple APIs because different contexts call for different styles. Use decorators when conciseness matters, direct calls when you need explicit control, context managers when reactions should be scoped. The library adapts to your preferred way of working.
 

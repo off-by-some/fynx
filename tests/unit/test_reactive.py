@@ -335,7 +335,7 @@ def test_reactive_decorator_handles_none_merged_values():
     assert execution_log[0] == (5, 10)
 
     # Simulate merged value being None (edge case)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
     merged._value = None
 
     # Should handle None merged values gracefully

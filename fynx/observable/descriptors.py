@@ -93,7 +93,7 @@ message = f"User: {store.name}, Age: {store.age}"
 **Reactive Operators**:
 ```python
 # All operators work transparently
-full_name = store.first_name | store.last_name >> (lambda f, l: f"{f} {l}")
+full_name = store.first_name + store.last_name >> (lambda f, l: f"{f} {l}")
 is_adult = store.age >> (lambda a: a >= 18)
 valid_user = store.name & is_adult
 ```
@@ -177,7 +177,7 @@ class ObservableValue(Generic[T], ValueMixin):
     - **Transparent Value Access**: Behaves like the underlying value for most operations
     - **Observable Methods**: Provides subscription and reactive operator access
     - **Automatic Synchronization**: Keeps the displayed value in sync with the observable
-    - **Operator Support**: Enables `|`, `>>`, and other reactive operators
+    - **Operator Support**: Enables `+`, `>>`, and other reactive operators
     - **Type Safety**: Generic type parameter ensures type-safe operations
 
     Example:

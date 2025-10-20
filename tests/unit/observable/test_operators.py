@@ -9,12 +9,12 @@ from fynx.observable.operators import and_operator
 @pytest.mark.observable
 @pytest.mark.operators
 def test_or_operator_merges_observables_into_tuple():
-    """Merging with | produces a tuple of current values."""
+    """Merging with + produces a tuple of current values."""
     # Arrange
     a = Observable("a", 2)
     b = Observable("b", 3)
     # Act
-    merged = a | b
+    merged = a + b
     # Assert
     assert merged.value == (2, 3)
 
@@ -27,7 +27,7 @@ def test_rshift_operator_applies_function_to_merged_arguments():
     # Arrange
     a = Observable("a", 2)
     b = Observable("b", 3)
-    merged = a | b
+    merged = a + b
     # Act
     prod = merged >> (lambda x, y: x * y)
     # Assert
@@ -145,7 +145,7 @@ def test_merged_observable_getitem_raises_error_when_no_value():
 
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Set value to None to trigger the error path
     merged._value = None
@@ -162,7 +162,7 @@ def test_merged_observable_setitem_raises_error_for_out_of_range_index():
 
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Try to set index that's out of range
     with pytest.raises(IndexError, match="Index out of range"):
@@ -347,7 +347,7 @@ def test_merged_observable_unsubscribe_cleanup_empty_mapping():
 
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     def test_func():
         pass

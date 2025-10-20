@@ -12,14 +12,14 @@ Merged observables are useful for:
 - **Tuple Operations**: When you need to pass multiple reactive values as a unit
 - **State Composition**: Building complex state from simpler reactive components
 
-The merge operation is created using the `|` operator between observables:
+The merge operation is created using the `+` operator between observables:
 
 ```python
 from fynx import observable
 
 width = observable(10)
 height = observable(20)
-dimensions = width | height  # Creates MergedObservable
+dimensions = width + height  # Creates MergedObservable
 print(dimensions.value)  # (10, 20)
 
 width.set(15)
@@ -62,7 +62,7 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
         y = observable(20)
 
         # Merge them into a single reactive unit
-        point = x | y
+        point = x + y
         print(point.value)  # (10, 20)
 
         # Computed values can work with the tuple
@@ -133,7 +133,7 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
             ```python
             x = Observable("x", 10)
             y = Observable("y", 20)
-            merged = x | y
+            merged = x + y
 
             print(merged.value)  # (10, 20)
             x.set(15)
@@ -229,12 +229,12 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
         """
         pass
 
-    def __or__(self, other: "Observable") -> "MergedObservable":
+    def __add__(self, other: "Observable") -> "MergedObservable":
         """
-        Chain merging with another observable using the | operator.
+        Chain merging with another observable using the + operator.
 
         Enables fluent syntax for building up merged observables incrementally.
-        Each | operation creates a new MergedObservable containing all previous
+        Each + operation creates a new MergedObservable containing all previous
         observables plus the new one.
 
         Args:
@@ -265,7 +265,7 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
             ```python
             x = Observable("x", 1)
             y = Observable("y", 2)
-            coords = x | y
+            coords = x + y
 
             def on_coords_change(x_val, y_val):
                 print(f"Coordinates: ({x_val}, {y_val})")
@@ -329,7 +329,7 @@ class MergedObservable(Observable[T], Mergeable[T], OperatorMixin, TupleMixin):
             def handler(x, y):
                 print(f"Changed: {x}, {y}")
 
-            coords = x | y
+            coords = x + y
             coords.subscribe(handler)
 
             # Later, unsubscribe

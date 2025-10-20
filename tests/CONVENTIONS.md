@@ -49,7 +49,7 @@ Here's something that changed how I think about testing reactive code: you're no
 Consider this simple FynX expression:
 
 ```python
-total = (price | quantity) >> (lambda p, q: p * q)
+total = (price + quantity) >> (lambda p, q: p * q)
 ```
 
 Of course you'll check that `total.value` has the right output—that's still important. But what distinguishes testing reactive systems is that you're verifying something deeper: the relationship "total equals price times quantity" remains true as values change, as subscriptions fire, as the dependency graph updates.
@@ -195,7 +195,7 @@ def create_diamond_dependency():
     source = observable(10)
     path_a = source >> (lambda x: x + 5)
     path_b = source >> (lambda x: x * 2)
-    combined = (path_a | path_b) >> (lambda a, b: a + b)
+    combined = (path_a + path_b) >> (lambda a, b: a + b)
 
     return source, path_a, path_b, combined
 ```
@@ -383,7 +383,7 @@ Descriptive IDs make test output readable:
 ```python
 @pytest.mark.parametrize("operator,values,expected", [
     (">>", (5, lambda x: x * 2), 10),
-    ("|", (observable(5), observable(3)), (5, 3)),
+    ("+", (observable(5), observable(3)), (5, 3)),
     ("&", (observable(5), lambda x: x > 0), 5),
 ], ids=["transform", "combine", "filter"])
 def test_operator_behavior(operator, values, expected):
@@ -601,7 +601,7 @@ def test_diamond_dependency_resolves_correctly():
 
     path_a = source >> (lambda x: x + 5)
     path_b = source >> (lambda x: x * 2)
-    combined = (path_a | path_b) >> (lambda a, b: a + b)
+    combined = (path_a + path_b) >> (lambda a, b: a + b)
 
     assert combined.value == 35  # (10 + 5) + (10 * 2)
 
@@ -724,7 +724,7 @@ def test_reactive_chain_cleanup_breaks_cycles():
     # Build a reactive chain
     derived1 = source >> (lambda x: x * 2)
     derived2 = derived1 >> (lambda x: x + 5)
-    final = (derived1 | derived2) >> (lambda a, b: a + b)
+    final = (derived1 + derived2) >> (lambda a, b: a + b)
 
     # Keep weak references to all chain elements
     chain_refs = [

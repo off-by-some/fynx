@@ -186,7 +186,7 @@ base_price = observable(100)
 quantity = observable(2)
 
 # This creates a computed observable (we'll explore these deeply in the next section)
-total = (base_price | quantity) >> (lambda price, qty: price * qty)
+total = (base_price + quantity) >> (lambda price, qty: price * qty)
 
 total.subscribe(lambda t: print(f"Total: ${t}"))
 
@@ -214,7 +214,7 @@ Observables add overhead compared to plain variables. For simple scripts or one-
 Observables are more than containers—they're nodes in a reactive graph. But standalone observables are just the beginning. The real power emerges when you learn to:
 
 * **Transform observables** using the `>>` operator to create derived values that update automatically
-* **Combine observables** using the `|` operator to work with multiple sources of data
+* **Combine observables** using the `+` operator to work with multiple sources of data
 * **Filter observables** using the `&` operator to apply conditional logic and control when data flows
 * **Organize observables** into Stores for cleaner application architecture
 * **Automate reactions** with decorators that eliminate subscription boilerplate

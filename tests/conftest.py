@@ -123,12 +123,12 @@ def complex_computation_store():
         total = items.then(lambda items: sum(items))
 
         # Computed: average of items
-        average = (total | items.then(lambda items: len(items))).then(
-            lambda total, count: total / count if count > 0 else 0
+        average = items.then(
+            lambda items: sum(items) / len(items) if len(items) > 0 else 0
         )
 
         # Computed: scaled total
-        scaled_total = (total | multiplier).then(
+        scaled_total = (total + multiplier).then(
             lambda total, multiplier: total * multiplier
         )
 

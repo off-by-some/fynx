@@ -134,7 +134,7 @@ class ReactiveWrapper:
             # Multiple observables - merge them
             merged = self._targets[0]
             for obs in self._targets[1:]:
-                merged = merged | obs
+                merged = merged + obs
 
             def merged_handler(*values):
                 self._invoke_reactive(*values)

@@ -82,7 +82,7 @@ class UserStore(Store):
     age = observable(30)
 
     # Computed properties using the >> operator
-    full_name = (first_name | last_name) >> (
+    full_name = (first_name + last_name) >> (
         lambda fname, lname: f"{fname} {lname}"
     )
 

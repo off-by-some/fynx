@@ -84,7 +84,7 @@ is_loading = observable(True)
 should_sync = observable(False)
 
 # React only when logged in AND has data AND NOT loading OR should sync
-@reactive(is_logged_in & has_data & ~is_loading | should_sync)
+@reactive(is_logged_in & has_data & ~is_loading + should_sync)
 def sync_to_server(should_run):
     if should_run:
         perform_sync()
@@ -93,7 +93,7 @@ def sync_to_server(should_run):
 The operators work as you'd expect:
 
 * `&` is logical AND
-* `|` is logical OR
+* `+` is logical OR
 * `~` is logical NOT (negation)
 
 These create composite observables that emit values based on boolean logic applied to their constituent observables. The critical insight: the reaction still follows the change-only semantics. Even if your condition is `True` at the moment you attach the reactive function, it won't fire until something changes *and* the condition is met.
@@ -133,7 +133,7 @@ name = observable("Alice")
 age = observable(30)
 
 # Derive a combined observable first
-full_name = (name | age) >> (lambda n, a: f"{n} ({a} years old)")
+full_name = (name + age) >> (lambda n, a: f"{n} ({a} years old)")
 
 # Then react to changes in the derivation
 @reactive(full_name)
@@ -144,13 +144,13 @@ name.set("Bob")  # Triggers with "Bob (30 years old)"
 age.set(31)      # Triggers with "Bob (31 years old)"
 ```
 
-Notice the pattern: derive first, react second. The `|` operator here isn't doing boolean OR—it's combining observables into a tuple-like stream. The `>>` operator then transforms that stream. Only after you've created a derived observable do you attach the reaction.
+Notice the pattern: derive first, react second. The `+` operator here isn't doing boolean OR—it's combining observables into a tuple-like stream. The `>>` operator then transforms that stream. Only after you've created a derived observable do you attach the reaction.
 
 ## The Core Insight: Where @reactive Belongs
 
 Here's the fundamental principle that makes reactive systems maintainable: **`@reactive` is for side effects, not for deriving state.**
 
-When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>` or `|` operators. If you're communicating with the outside world, you want `@reactive`.
+When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>` or `+` operators. If you're communicating with the outside world, you want `@reactive`.
 
 This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. Your shell is reactions—the unavoidable side effects that make your application actually do something.
 
@@ -174,7 +174,7 @@ class OrderCore(Store):
     can_checkout = (has_items & has_address & has_payment & ~is_processing) >> (lambda x: x)
 
     tax = subtotal >> (lambda s: s * 0.08)
-    total = (subtotal | tax) >> (lambda s, t: s + t)
+    total = (subtotal + tax) >> (lambda s, t: s + t)
 
 # ===== REACTIVE SHELL (Impure) =====
 @reactive(OrderCore.can_checkout)
@@ -274,7 +274,7 @@ class UserStore(Store):
     age = observable(30)
     is_active = observable(True)
 
-    user_summary = (name | age) >> (lambda n, a: f"{n}, {a}")
+    user_summary = (name + age) >> (lambda n, a: f"{n}, {a}")
     should_display = is_active & (age >> (lambda a: a >= 18))
 
 @reactive(UserStore.user_summary)
@@ -294,6 +294,6 @@ The store becomes your functional core. The reactions watching it become your sh
 
 ***
 
-**The Big Picture:** Use `@reactive` sparingly. Most of your code should be pure derivations using `>>`, `|`, `&`, and `~`. Reactions appear only at the edges, where your application must interact with something external. The conditional operators let you express exactly when these interactions should happen without mixing conditions into your business logic. When you find yourself reaching for `@reactive`, pause and ask: "Is this really a side effect, or am I just deriving new state?" That question alone will guide you toward cleaner, more maintainable reactive systems.
+**The Big Picture:** Use `@reactive` sparingly. Most of your code should be pure derivations using `>>`, `+`, `&`, and `~`. Reactions appear only at the edges, where your application must interact with something external. The conditional operators let you express exactly when these interactions should happen without mixing conditions into your business logic. When you find yourself reaching for `@reactive`, pause and ask: "Is this really a side effect, or am I just deriving new state?" That question alone will guide you toward cleaner, more maintainable reactive systems.
 
 ::: fynx.reactive

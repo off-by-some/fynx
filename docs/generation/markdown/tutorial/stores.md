@@ -34,7 +34,7 @@ CounterStore.count.subscribe(lambda c: print(f"Count: {c}"))
 CounterStore.count = 10  # Prints: "Count: 10"
 ```
 
-Notice the asymmetry: you read with direct access (`CounterStore.count`), but the value is still an observable. You can still subscribe to it, transform it with `>>`, merge it with `|`. The Store class uses Python descriptors to give you clean syntax while preserving all of observable's power.
+Notice the asymmetry: you read with direct access (`CounterStore.count`), but the value is still an observable. You can still subscribe to it, transform it with `>>`, merge it with `+`. The Store class uses Python descriptors to give you clean syntax while preserving all of observable's power.
 
 ## Why Stores Matter
 
@@ -160,7 +160,7 @@ Computed values memoize their results. After the first access, they return the c
 
 ## Combining Multiple Observables
 
-Most computed values depend on more than one observable. Use the `|` operator to merge observables:
+Most computed values depend on more than one observable. Use the `+` operator to merge observables:
 
 ```python
 class CartStore(Store):
@@ -172,17 +172,17 @@ class CartStore(Store):
     )
 
     # Merge subtotal and tax_rate
-    tax_amount = (subtotal | tax_rate) >> (
+    tax_amount = (subtotal + tax_rate) >> (
         lambda sub, rate: sub * rate
     )
 
     # Merge subtotal and tax_amount
-    total = (subtotal | tax_amount) >> (
+    total = (subtotal + tax_amount) >> (
         lambda sub, tax: sub + tax
     )
 ```
 
-The `|` operator creates a merged observable that emits a tuple. When you transform it with `>>`, the function receives one argument per observable:
+The `+` operator creates a merged observable that emits a tuple. When you transform it with `>>`, the function receives one argument per observable:
 
 ```python
 CartStore.items = [{'name': 'Widget', 'price': 20, 'quantity': 1}]
@@ -196,7 +196,7 @@ print(CartStore.tax_amount)   # 2.0 (recalculated)
 print(CartStore.total)        # 22.0 (recalculated)
 ```
 
-Any change to a merged observable triggers recomputation. This makes `|` perfect for values that need to coordinate multiple pieces of state.
+Any change to a merged observable triggers recomputation. This makes `+` perfect for values that need to coordinate multiple pieces of state.
 
 ## Methods: Encapsulating State Changes
 
@@ -296,12 +296,12 @@ class AnalyticsStore(Store):
     total = values >> (lambda v: sum(v))
 
     # Level 2: Depends on count and total
-    mean = (total | count) >> (
+    mean = (total + count) >> (
         lambda t, c: t / c if c > 0 else 0
     )
 
     # Level 3: Depends on values and mean
-    variance = (values | mean | count) >> (
+    variance = (values + mean + count) >> (
         lambda vals, avg, n: (
             sum((x - avg) ** 2 for x in vals) / (n - 1) if n > 1 else 0
         )
@@ -340,7 +340,7 @@ class UserProfileStore(Store):
     is_premium = observable(False)
 
     # Computed: full name
-    full_name = (first_name | last_name) >> (
+    full_name = (first_name + last_name) >> (
         lambda first, last: f"{first} {last}".strip()
     )
 
@@ -358,13 +358,13 @@ class UserProfileStore(Store):
     is_adult = age >> (lambda a: a >= 18)
 
     # Computed: profile completeness
-    is_complete = (first_name | last_name | email | is_email_valid) >> (
+    is_complete = (first_name + last_name + email + is_email_valid) >> (
         lambda first, last, email_addr, email_valid:
             bool(first and last and email_addr and email_valid)
     )
 
     # Computed: user tier
-    user_tier = (is_premium | is_complete) >> (
+    user_tier = (is_premium + is_complete) >> (
         lambda premium, complete: (
             "Premium" if premium else
             "Complete" if complete else
@@ -455,7 +455,7 @@ class UIStore(Store):
     )
 
     # Depends on multiple observables from ThemeStore
-    css_vars = (ThemeStore.mode | ThemeStore.font_size) >> (
+    css_vars = (ThemeStore.mode + ThemeStore.font_size) >> (
         lambda mode, size: {
             '--bg': "#ffffff" if mode == "light" else "#1a1a1a",
             '--text': "#000000" if mode == "light" else "#ffffff",
@@ -501,7 +501,7 @@ class FormStore(Store):
 
     email_valid = email >> (lambda e: '@' in e)
     password_valid = password >> (lambda p: len(p) >= 8)
-    form_valid = (email_valid | password_valid) >> (lambda e, p: e and p)
+    form_valid = (email_valid + password_valid) >> (lambda e, p: e and p)
 ```
 
 **State that needs encapsulated modification:**
@@ -661,7 +661,7 @@ Core concepts:
 * **Stores group related observables** — Keep state that belongs together in the same Store
 * **Observable descriptors enable clean syntax** — Read and write Store attributes naturally
 * **The `>>` operator creates computed values** — Derived state updates automatically
-* **The `|` operator merges observables** — Combine multiple sources for multi-input computations
+* **The `+` operator merges observables** — Combine multiple sources for multi-input computations
 * **Always create new values** — Never mutate observable contents in place
 * **Methods encapsulate state changes** — Define clear APIs for modifying state
 * **Stores can depend on other Stores** — Build modular applications with cross-Store relationships

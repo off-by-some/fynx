@@ -37,11 +37,11 @@ def test_observable_updates_value_when_set_is_called():
 @pytest.mark.observable
 @pytest.mark.operators
 def test_pipe_operator_combines_observables_into_tuple():
-    """Pipe operator (|) combines multiple observables into a tuple of current values"""
+    """Pipe operator (+) combines multiple observables into a tuple of current values"""
     obs1 = Observable("first", "hello")
     obs2 = Observable("second", "world")
 
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     assert merged.value == ("hello", "world")
     assert len(merged) == 2
@@ -54,7 +54,7 @@ def test_merged_observable_context_manager_enables_unpacking():
     """Merged observable context manager enables tuple unpacking of values"""
     obs1 = Observable("first", "hello")
     obs2 = Observable("second", "world")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     with merged:
         val1, val2 = merged.value
@@ -69,7 +69,7 @@ def test_merged_observable_updates_when_any_source_changes():
     """Merged observable updates its tuple value when any source observable changes"""
     obs1 = Observable("first", "hello")
     obs2 = Observable("second", "world")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     obs1.set("hi")
     assert merged.value == ("hi", "world")
@@ -87,7 +87,7 @@ def test_pipe_operator_chains_for_multiple_observables():
     obs2 = Observable("second", "world")
     obs3 = Observable("third", "!")
 
-    chained = obs1 | obs2 | obs3
+    chained = obs1 + obs2 + obs3
 
     assert chained.value == ("hello", "world", "!")
     assert len(chained) == 3
@@ -101,7 +101,7 @@ def test_chained_merged_observable_updates_when_any_source_changes():
     obs1 = Observable("first", "hello")
     obs2 = Observable("second", "world")
     obs3 = Observable("third", "!")
-    chained = obs1 | obs2 | obs3
+    chained = obs1 + obs2 + obs3
 
     obs1.set("hi")
     assert chained.value == ("hi", "world", "!")
@@ -120,8 +120,8 @@ def test_merged_observable_can_be_extended_with_additional_observables():
     obs3 = Observable("third", "!")
     obs4 = Observable("fourth", "extra")
 
-    chained = obs1 | obs2 | obs3
-    chained2 = chained | obs4
+    chained = obs1 + obs2 + obs3
+    chained2 = chained + obs4
 
     assert chained2.value == ("hello", "world", "!", "extra")
     assert len(chained2) == 4
@@ -137,8 +137,8 @@ def test_extending_merged_observable_preserves_original():
     obs3 = Observable("third", "!")
     obs4 = Observable("fourth", "extra")
 
-    chained = obs1 | obs2 | obs3
-    chained2 = chained | obs4
+    chained = obs1 + obs2 + obs3
+    chained2 = chained + obs4
 
     # Verify the original chained is unaffected
     assert chained.value == ("hello", "world", "!")
@@ -187,7 +187,7 @@ def test_store_observables_can_be_merged_with_pipe_operator():
     TestStore.count = 5
     TestStore.name = "updated"
 
-    merged = TestStore.count | TestStore.name
+    merged = TestStore.count + TestStore.name
     assert merged.value == (5, "updated")
 
 
@@ -256,7 +256,7 @@ def test_merged_observable_subscription_notifies_on_any_source_change():
     def on_combined_change(name, age):
         callback_calls.append(f"Name: {name}, Age: {age}")
 
-    current_name_and_age = current_name | current_age
+    current_name_and_age = current_name + current_age
     current_name_and_age.subscribe(on_combined_change)
 
     current_name.set("Charlie")
@@ -279,7 +279,7 @@ def test_merged_observable_unsubscription_stops_notifications():
     def on_combined_change(name, age):
         callback_calls.append(f"Name: {name}, Age: {age}")
 
-    current_name_and_age = current_name | current_age
+    current_name_and_age = current_name + current_age
     current_name_and_age.subscribe(on_combined_change)
     current_name.set("Charlie")
     current_age.set(31)
@@ -506,7 +506,7 @@ def test_merged_observable_context_manager_executes_callback_immediately():
     def on_context_change(name, age):
         callback_calls.append(f"Context: name={name}, age={age}")
 
-    with TestStore.name | TestStore.age as react:
+    with TestStore.name + TestStore.age as react:
         react(on_context_change)
         assert callback_calls == ["Context: name=Alice, age=30"]
 
@@ -526,7 +526,7 @@ def test_merged_observable_context_manager_tracks_changes_during_execution():
     def on_context_change(name, age):
         callback_calls.append(f"Context: name={name}, age={age}")
 
-    with TestStore.name | TestStore.age as react:
+    with TestStore.name + TestStore.age as react:
         react(on_context_change)
         TestStore.name = "Bob"
         TestStore.age = 31
@@ -589,7 +589,7 @@ def test_then_operator_creates_computed_observable_from_merged_sources():
     """Then operator creates computed observable that transforms merged observable sources"""
     num1 = observable(3)
     num2 = observable(4)
-    combined = num1 | num2
+    combined = num1 + num2
     summed = combined.then(lambda a, b: a + b)
 
     assert summed.value == 7  # 3 + 4
@@ -608,7 +608,7 @@ def test_computed_observables_can_be_chained():
     """Computed observables can be chained to create transformation pipelines"""
     num1 = observable(3)
     num2 = observable(4)
-    combined = num1 | num2
+    combined = num1 + num2
     summed = combined.then(lambda a, b: a + b)
     final = summed.then(lambda s: s * 2)
 
@@ -642,7 +642,7 @@ def test_rshift_operator_chains_transformations_on_merged_observables():
     """Right shift operator (>>) chains transformations on merged observables"""
     num1 = observable(3)
     num2 = observable(4)
-    combined = num1 | num2
+    combined = num1 + num2
     summed = combined >> (lambda a, b: a + b)
     formatted = summed >> (lambda s: f"Sum: {s}")
 

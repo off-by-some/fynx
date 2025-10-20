@@ -101,10 +101,10 @@ You want to combine two separate time-varying values into a single time-varying 
 first_name: Observable[str] = observable("Jane")
 last_name: Observable[str] = observable("Doe")
 
-full_name_data: Observable[tuple[str, str]] = first_name | last_name
+full_name_data: Observable[tuple[str, str]] = first_name + last_name
 ```
 
-The `|` operator creates this combination. But what exactly has happened here? Category theory gives us a precise answer: we've constructed a product.
+The `+` operator creates this combination. But what exactly has happened here? Category theory gives us a precise answer: we've constructed a product.
 
 The product satisfies an elegant isomorphism:
 
@@ -121,22 +121,22 @@ Formally, if you have any way of using two observables together, that usage fact
 In practice, this manifests in a useful way. Consider:
 
 ```python
-product = first_name | last_name
+product = first_name + last_name
 
 full_name = product >> (lambda t: f"{t[0]} {t[1]}")
 initials = product >> (lambda t: f"{t[0][0]}.{t[1][0]}.")
 display = product >> (lambda t: f"{t[1]}, {t[0]}")
 ```
 
-All three computations need both names. The universal property proves they're all talking about the *same* product. FynX computes `first_name | last_name` once, not three times. The optimizer can safely share this computation because the mathematics guarantees all three uses refer to the same mathematical object.
+All three computations need both names. The universal property proves they're all talking about the *same* product. FynX computes `first_name + last_name` once, not three times. The optimizer can safely share this computation because the mathematics guarantees all three uses refer to the same mathematical object.
 
 ### Symmetry and Associativity
 
 Products have nice algebraic properties. They're symmetric—order doesn't affect the structure:
 
 ```python
-ab = first_name | last_name    # Observable[tuple[str, str]]
-ba = last_name | first_name    # Observable[tuple[str, str]]
+ab = first_name + last_name    # Observable[tuple[str, str]]
+ba = last_name + first_name    # Observable[tuple[str, str]]
 ```
 
 These are isomorphic. Same information, different tuple order. The structure is preserved.
@@ -146,8 +146,8 @@ They're also associative—grouping doesn't matter:
 ```python
 city = observable("New York")
 
-left = (first_name | last_name) | city
-right = first_name | (last_name | city)
+left = (first_name + last_name) + city
+right = first_name + (last_name + city)
 ```
 
 The nesting differs, but structurally, all three observables are combined correctly. Changes to any propagate through as expected.
@@ -300,8 +300,8 @@ The pullback is a new object (often written $X \times_Z Y$) along with projectio
 
 ```
     X ×_Z Y ----→ Y
-       |          |
-       |          | g
+       +          +
+       +          + g
        ↓          ↓
        X ---f--→  Z
 ```
@@ -318,8 +318,8 @@ We're interested in values where all conditions map to `True`. Visually, for a s
 
 ```
     ConditionalObservable ----→ {True}
-            |                      |
-            | π                    |
+            +                      +
+            + π                    +
             ↓                      ↓
     Source Observable ---c--→ Observable[Bool]
 ```
@@ -394,7 +394,7 @@ is_valid_email = email >> (lambda e: "@" in e and "." in e)
 is_strong_password = password >> (lambda p: len(p) >= 8)
 
 # Product: combine related fields
-passwords_match = (password | confirmation) >> (lambda pc: pc[0] == pc[1])
+passwords_match = (password + confirmation) >> (lambda pc: pc[0] == pc[1])
 
 # Pullback: form is valid only when all conditions hold
 form_valid = email & is_valid_email & is_strong_password & passwords_match & terms_accepted
@@ -442,12 +442,12 @@ The universal property of products proves that multiple computations needing the
 
 ```python
 # User writes:
-result1 = (a | b) >> f
-result2 = (a | b) >> g
-result3 = (a | b) >> h
+result1 = (a + b) >> f
+result2 = (a + b) >> g
+result3 = (a + b) >> h
 
 # Optimizer produces:
-product = a | b
+product = a + b
 result1 = product >> f
 result2 = product >> g
 result3 = product >> h
@@ -467,7 +467,7 @@ Multiple conditional checks become one. The algebraic structure proves this fusi
 
 The optimizer decides whether to cache or recompute each node using a cost model:
 
-$$C(\sigma) = \alpha \cdot |\text{Dep}(\sigma)| + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)$$
+$$C(\sigma) = \alpha \cdot +\text{Dep}(\sigma)+ + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)$$
 
 This cost functional has important mathematical structure. It's a monoidal functor from the reactive category to the ordered monoid $(\mathbb{R}^+, +, 0)$. This means:
 
@@ -593,6 +593,6 @@ We've explored how category theory provides foundations for reactive programming
 
 The mathematical foundations serve three purposes: they prove compositions work correctly, they show where optimizations preserve semantics, and they enable natural composition of observables.
 
-Understanding these foundations isn't required to use FynX effectively. The `>>`, `|`, and `&` operators work intuitively without knowing category theory. But the mathematics explains why the library behaves as it does, why certain design decisions were made, and why optimizations are valid.
+Understanding these foundations isn't required to use FynX effectively. The `>>`, `+`, and `&` operators work intuitively without knowing category theory. But the mathematics explains why the library behaves as it does, why certain design decisions were made, and why optimizations are valid.
 
 Category theory transforms reactive programming from a collection of patterns into a structured system with provable properties. The elegance is that complexity becomes composability. Theory becomes tool. And mathematics guides engineering toward correctness.

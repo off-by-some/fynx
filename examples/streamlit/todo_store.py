@@ -124,7 +124,7 @@ class TodoStore(StreamlitStore):
     completed_count = completed_todos >> (lambda completed_list: len(completed_list))
 
     # Dynamic filtering based on current filter mode
-    filtered_todos = (todos | filter_mode) >> (
+    filtered_todos = (todos + filter_mode) >> (
         lambda todos_list, current_filter: {
             FILTER_MODE_ACTIVE: [todo for todo in todos_list if not todo.completed],
             FILTER_MODE_COMPLETED: [todo for todo in todos_list if todo.completed],

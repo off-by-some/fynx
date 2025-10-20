@@ -134,7 +134,7 @@ def form_submission_flow_example():
     password_valid = FormStore.password >> (lambda p: len(p) >= 8)
 
     # Combine all validations
-    all_valid = (email_valid | password_valid | FormStore.terms_accepted) >> (
+    all_valid = (email_valid + password_valid + FormStore.terms_accepted) >> (
         lambda e, p, t: e and p and t
     )
 
@@ -277,7 +277,7 @@ def computed_observables_combination_example():
     has_payment = ShoppingCartStore.payment_method >> (lambda pm: pm is not None)
 
     # Combine all conditions into a single computed observable
-    can_checkout = (has_items | has_shipping | has_payment) >> (
+    can_checkout = (has_items + has_shipping + has_payment) >> (
         lambda items, shipping, payment: items and shipping and payment
     )
 
@@ -357,8 +357,8 @@ def user_engagement_system_example():
     # Computed engagement score: min(100, (views * 5) + (actions * 10) + (time / 6))
     engagement_score = (
         UserActivityStore.page_views
-        | UserActivityStore.actions_taken
-        | UserActivityStore.time_on_site
+        + UserActivityStore.actions_taken
+        + UserActivityStore.time_on_site
     ) >> (
         lambda views, actions, time: min(100, (views * 5) + (actions * 10) + (time / 6))
     )

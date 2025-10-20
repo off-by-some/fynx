@@ -26,7 +26,7 @@ def test_circular_dependency_with_conditional_chains():
     is_valid_age = age_obs >> (lambda age: 0 <= age <= 150)
 
     # Create combined boolean observable for profile validity
-    profile_is_valid = (is_valid_email | is_valid_age) >> (
+    profile_is_valid = (is_valid_email + is_valid_age) >> (
         lambda email_valid, age_valid: email_valid and age_valid
     )
 
@@ -64,7 +64,7 @@ def test_circular_dependency_with_complex_chains():
     is_valid_age = TestStore.age >> (lambda age: 0 <= age <= 150)
 
     # Conditional chain
-    profile_is_valid = (is_valid_email | is_valid_age) >> (
+    profile_is_valid = (is_valid_email + is_valid_age) >> (
         lambda email_valid, age_valid: email_valid and age_valid
     )
 
@@ -127,17 +127,17 @@ def test_complex_computed_web():
     c = observable(3)
 
     # Create computed observables that depend on each other
-    sum_ab = (a | b) >> (lambda x, y: x + y)
-    sum_bc = (b | c) >> (lambda x, y: x + y)
-    sum_ac = (a | c) >> (lambda x, y: x + y)
+    sum_ab = (a + b) >> (lambda x, y: x + y)
+    sum_bc = (b + c) >> (lambda x, y: x + y)
+    sum_ac = (a + c) >> (lambda x, y: x + y)
 
     # Create higher-level computed that depend on the sums
-    total1 = (sum_ab | sum_bc) >> (lambda x, y: x + y)
-    total2 = (sum_bc | sum_ac) >> (lambda x, y: x + y)
-    total3 = (sum_ac | sum_ab) >> (lambda x, y: x + y)
+    total1 = (sum_ab + sum_bc) >> (lambda x, y: x + y)
+    total2 = (sum_bc + sum_ac) >> (lambda x, y: x + y)
+    total3 = (sum_ac + sum_ab) >> (lambda x, y: x + y)
 
     # Create final aggregator
-    grand_total = (total1 | total2 | total3) >> (lambda x, y, z: x + y + z)
+    grand_total = (total1 + total2 + total3) >> (lambda x, y, z: x + y + z)
 
     # Change one base observable and verify everything updates
     a.set(10)

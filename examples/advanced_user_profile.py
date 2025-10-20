@@ -90,7 +90,7 @@ UserProfile.phone = ""  # This should decrease completeness
 print("\nCreating computed properties...")
 
 # Build complex computed properties from simpler transformations
-full_name = (UserProfile.first_name | UserProfile.last_name).then(
+full_name = (UserProfile.first_name + UserProfile.last_name).then(
     lambda f, l: f"{f} {l}".strip()
 )
 
@@ -105,7 +105,7 @@ age_category = UserProfile.age.then(
 
 # Account status combining multiple factors
 account_status = (
-    UserProfile.is_active | UserProfile.is_verified | UserProfile.subscription_tier
+    UserProfile.is_active + UserProfile.is_verified + UserProfile.subscription_tier
 ).then(
     lambda active, verified, tier: (
         "premium_active"
@@ -117,13 +117,13 @@ account_status = (
 # Profile completeness score (0-100)
 profile_completeness = (
     UserProfile.first_name
-    | UserProfile.last_name
-    | UserProfile.email
-    | UserProfile.phone
+    + UserProfile.last_name
+    + UserProfile.email
+    + UserProfile.phone
 ).then(lambda fn, ln, em, ph: sum([bool(fn), bool(ln), bool(em), bool(ph)]) / 4 * 100)
 
 # Display name with fallback logic
-display_name = (full_name | UserProfile.email).then(
+display_name = (full_name + UserProfile.email).then(
     lambda name, email: (
         name if name.strip() else email.split("@")[0] if email else "Anonymous"
     )
@@ -221,7 +221,7 @@ def on_name_change(first, last):
     print(f"🏷️  Name updated: {first} {last}")
 
 
-name_observables = UserProfile.first_name | UserProfile.last_name
+name_observables = UserProfile.first_name + UserProfile.last_name
 name_observables.subscribe(on_name_change)
 
 
@@ -360,9 +360,9 @@ print()
 # User engagement score based on multiple factors
 engagement_factors = (
     profile_completeness
-    | UserProfile.login_count
-    | UserProfile.is_verified
-    | age_category
+    + UserProfile.login_count
+    + UserProfile.is_verified
+    + age_category
 ).then(
     lambda completeness, logins, verified, age_cat: (
         (completeness / 100 * 0.4)  # 40% weight on profile completeness
@@ -374,7 +374,7 @@ engagement_factors = (
 
 # Auto-upgrade eligibility (complex business logic)
 can_auto_upgrade = (
-    engagement_factors | UserProfile.subscription_tier | UserProfile.is_active
+    engagement_factors + UserProfile.subscription_tier + UserProfile.is_active
 ).then(lambda engagement, tier, active: active and tier == "free" and engagement > 0.7)
 
 
@@ -387,7 +387,7 @@ def check_auto_upgrade(eligible):
 
 # Dynamic feature access based on multiple conditions
 age_eligible = UserProfile.age.then(lambda age: age >= 13)
-advanced_features_access = (can_access_premium | profile_is_valid | age_eligible).then(
+advanced_features_access = (can_access_premium + profile_is_valid + age_eligible).then(
     lambda premium, valid, age_ok: premium and valid and age_ok
 )
 

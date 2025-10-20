@@ -74,7 +74,7 @@ def calculate_total(subtotal, tax, shipping):
 subtotal = cart_items.then(calculate_subtotal)
 tax = subtotal.then(calculate_tax)
 shipping = subtotal.then(calculate_shipping)
-total = (subtotal | tax | shipping).then(calculate_total)
+total = (subtotal + tax + shipping).then(calculate_total)
 
 # Subscribe to see results
 def print_subtotal(s):
@@ -172,15 +172,15 @@ def create_greeting(n):
 greeting_method = name.then(create_greeting)
 greeting_operator = name >> create_greeting
 
-# Multiple observables (using | first)
+# Multiple observables (using + first)
 first = observable("John")
 last = observable("Doe")
 
 def combine_names(first_name, last_name):
     return f"{first_name} {last_name}"
 
-full_name_method = (first | last).then(combine_names)
-full_name_operator = (first | last) >> combine_names
+full_name_method = (first + last).then(combine_names)
+full_name_operator = (first + last) >> combine_names
 ```
 
 ### Return Values
@@ -270,16 +270,16 @@ def format_expensive_message(total_and_is_expensive):
     total, is_exp = total_and_is_expensive
     return f"High-value order: ${total:.2f}"
 
-# Use | to combine, then transform
-discounted_total_method = (prices | discount_rate).then(calculate_discounted_total)
-discounted_total_operator = (prices | discount_rate) >> calculate_discounted_total
+# Use + to combine, then transform
+discounted_total_method = (prices + discount_rate).then(calculate_discounted_total)
+discounted_total_operator = (prices + discount_rate) >> calculate_discounted_total
 
 # Use & for conditions, then format
 is_expensive_method = discounted_total_method.then(is_expensive)
 is_expensive_operator = discounted_total_method >> is_expensive
 
-expensive_message_method = (discounted_total_method | is_expensive_method).then(format_expensive_message)
-expensive_message_operator = (discounted_total_method | is_expensive_operator) >> format_expensive_message
+expensive_message_method = (discounted_total_method + is_expensive_method).then(format_expensive_message)
+expensive_message_operator = (discounted_total_method + is_expensive_operator) >> format_expensive_message
 ```
 
 ## Performance Characteristics
@@ -369,11 +369,11 @@ def double_count(c):
 
 derived_method = count.then(double_count)  # Pass count, not count.value
 derived_operator = count >> double_count   # Pass count, not count.value
-merged = first_name | last_name            # Pass observables, not .value
+merged = first_name + last_name            # Pass observables, not .value
 filtered = items & is_valid                # Pass observables, not .value
 ```
 
-The operators (`.then()`, `>>`, `|`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
+The operators (`.then()`, `>>`, `+`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
 
 **Inside subscribers and reactive functions, `.value` is fine:**
 
@@ -659,6 +659,6 @@ This declarative approach eliminates entire categories of bugs:
 * **No forgotten updates**: The reactive graph handles all propagation
 * **No manual synchronization**: Relationships are maintained automatically
 
-Combined with conditionals (`&`) and merging (`|`), derived observables give you a complete toolkit for building reactive data pipelines. You describe what your data should look like, and FynX ensures it stays that way.
+Combined with conditionals (`&`) and merging (`+`), derived observables give you a complete toolkit for building reactive data pipelines. You describe what your data should look like, and FynX ensures it stays that way.
 
 The next step is organizing these reactive pieces into reusable units called **Stores**—the architectural pattern that brings everything together.

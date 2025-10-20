@@ -193,7 +193,7 @@ def test_merged_observable_provides_tuple_like_access():
     # Arrange
     obs1 = Observable("key1", "a")
     obs2 = Observable("key2", "b")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act & Assert
     assert merged.value == ("a", "b")
@@ -207,7 +207,7 @@ def test_merged_observable_supports_iteration():
     # Arrange
     obs1 = Observable("key1", 1)
     obs2 = Observable("key2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act
     values = list(merged)
@@ -224,7 +224,7 @@ def test_merged_observable_provides_index_access():
     # Arrange
     obs1 = Observable("key1", "first")
     obs2 = Observable("key2", "second")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act & Assert
     assert merged[0] == "first"
@@ -239,7 +239,7 @@ def test_merged_observable_index_assignment_updates_source():
     # Arrange
     obs1 = Observable("key1", "first")
     obs2 = Observable("key2", "second")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act
     merged[0] = "updated_first"
@@ -260,7 +260,7 @@ def test_pipe_operator_chains_multiple_merges():
     obs3 = Observable("key3", 3)
 
     # Act
-    merged = obs1 | obs2 | obs3
+    merged = obs1 + obs2 + obs3
 
     # Assert
     assert len(merged) == 3
@@ -278,7 +278,7 @@ def test_merged_observable_maintains_length_invariant():
     obs3 = Observable("c", 3)
 
     # Act - Create merge chain
-    merged = obs1 | obs2 | obs3
+    merged = obs1 + obs2 + obs3
 
     # Assert - Length invariant holds
     assert len(merged) == 3
@@ -302,7 +302,7 @@ def test_context_manager_preserves_merged_state_during_execution():
     # Arrange
     obs1 = Observable("x", 5)
     obs2 = Observable("y", 10)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     execution_log = []
 
@@ -328,7 +328,7 @@ def test_context_manager_provides_unpacking_access():
     # Arrange
     obs1 = Observable("key1", "hello")
     obs2 = Observable("key2", "world")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act & Assert
     with merged as context:
@@ -349,7 +349,7 @@ def test_context_manager_enables_reactive_callbacks():
     # Arrange
     obs1 = Observable("key1", 10)
     obs2 = Observable("key2", 20)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
     execution_count = 0
 
     def reactive_callback(a, b):
@@ -384,7 +384,7 @@ def test_context_manager_allows_value_access_without_reactivity():
     # Arrange
     obs1 = Observable("key1", "test")
     obs2 = Observable("key2", "value")
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Act & Assert
     with merged as context:
@@ -569,7 +569,7 @@ def test_merged_observable_value_derives_from_source_observables():
     """MergedObservable value derives from source observables, not direct set operations"""
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     # Initial value should be tuple of source values
     assert merged.value == (1, 2)
@@ -593,7 +593,7 @@ def test_merged_observable_cleanup_removes_empty_function_mappings():
 
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)
-    merged = obs1 | obs2
+    merged = obs1 + obs2
 
     def test_func():
         pass

@@ -22,7 +22,7 @@ count.subscribe(save_to_database)
 count.subscribe(notify_analytics)
 name.subscribe(update_greeting)
 email.subscribe(validate_email)
-(first_name | last_name).subscribe(update_display_name)
+(first_name + last_name).subscribe(update_display_name)
 
 # Later... did you remember to unsubscribe?
 count.unsubscribe(update_ui)
@@ -152,7 +152,7 @@ is_loading = observable(True)
 should_sync = observable(False)
 
 # React only when logged in AND has data AND NOT loading OR should sync
-@reactive(is_logged_in & has_data & ~is_loading | should_sync)
+@reactive(is_logged_in & has_data & ~is_loading + should_sync)
 def sync_to_server(should_run):
     if should_run:
         perform_sync()
@@ -161,7 +161,7 @@ def sync_to_server(should_run):
 The operators work exactly as you'd expect:
 
 * `&` is logical AND
-* `|` is logical OR (when used with observables on both sides)
+* `+` is logical OR (when used with observables on both sides)
 * `~` is logical NOT (negation)
 
 These create composite observables that emit values based on boolean logic. The critical insight: the reaction still follows the change-only semantics. Even if your condition is `True` when you attach the reactive function, it won't fire until something changes *and* the condition evaluates.
@@ -212,14 +212,14 @@ The second version is clearer about *when* the sync happens—the condition is p
 
 ## Reacting to Multiple Observables
 
-Most real-world reactions depend on multiple pieces of state. When you need values from several observables without boolean logic, use the `|` operator differently—for combining observables into value tuples:
+Most real-world reactions depend on multiple pieces of state. When you need values from several observables without boolean logic, use the `+` operator differently—for combining observables into value tuples:
 
 ```python
 first_name = observable("Alice")
 last_name = observable("Smith")
 
 # Derive a combined observable first
-full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
+full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 
 # Then react to changes in the derivation
 @reactive(full_name)
@@ -232,7 +232,7 @@ first_name.set("Bob")  # Triggers with "Bob Smith"
 last_name.set("Jones")  # Triggers with "Bob Jones"
 ```
 
-Notice the pattern: derive first, react second. The `|` operator combines observables into a stream of value pairs. The `>>` operator transforms that stream. Only after you've created a derived observable do you attach the reaction.
+Notice the pattern: derive first, react second. The `+` operator combines observables into a stream of value pairs. The `>>` operator transforms that stream. Only after you've created a derived observable do you attach the reaction.
 
 This is a fundamental principle: most of the time, you don't react directly to raw observables. You react to *derived* observables—computed values that represent the meaningful state for your side effect.
 
@@ -242,7 +242,7 @@ class CartStore(Store):
     tax_rate = observable(0.08)
 
 # Derive the meaningful state
-total = (CartStore.items | CartStore.tax_rate) >> (
+total = (CartStore.items + CartStore.tax_rate) >> (
     lambda items, rate: sum(item['price'] * item['qty'] for item in items) * (1 + rate)
 )
 
@@ -398,7 +398,7 @@ password_valid = FormStore.password >> (
     lambda p: len(p) >= 8
 )
 
-passwords_match = (FormStore.password | FormStore.confirm_password) >> (
+passwords_match = (FormStore.password + FormStore.confirm_password) >> (
     lambda pwd, confirm: pwd == confirm and pwd != ""
 )
 
@@ -447,7 +447,7 @@ Notice how we use the `&` operator to create `form_valid`—it only becomes true
 
 Here's the fundamental principle that makes reactive systems maintainable: **`@reactive` is for side effects, not for deriving state.**
 
-When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>`, `|`, `&`, or `~` operators. If you're communicating with the outside world, you want `@reactive`.
+When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>`, `+`, `&`, or `~` operators. If you're communicating with the outside world, you want `@reactive`.
 
 This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. Your shell is reactions—the unavoidable side effects that make your application actually do something.
 
@@ -469,7 +469,7 @@ class OrderCore(Store):
     can_checkout = (has_items & has_address & has_payment & ~is_processing) >> (lambda x: x)
 
     tax = subtotal >> (lambda s: s * 0.08)
-    total = (subtotal | tax) >> (lambda s, t: s + t)
+    total = (subtotal + tax) >> (lambda s, t: s + t)
 
 # ===== REACTIVE SHELL (Impure) =====
 @reactive(OrderCore.can_checkout)
@@ -541,7 +541,7 @@ def update_editor_theme(is_dark):
 
 **❌ AVOID @reactive for:**
 
-**Deriving State** (use `>>`, `|`, `&`, `~` instead)
+**Deriving State** (use `>>`, `+`, `&`, `~` instead)
 
 ```python
 # BAD: Using @reactive for transformation
@@ -562,7 +562,7 @@ def update_full_name(first, last):
     full_name.set(f"{first} {last}")
 
 # GOOD: Express as derived state
-full_name = (first_name | last_name) >> (lambda f, l: f"{f} {l}")
+full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 ```
 
 **Business Logic** (keep logic in pure transformations)
@@ -812,7 +812,7 @@ The `@reactive` decorator transforms functions into automatic reactions that run
 * **Declarative subscriptions** — No manual `.subscribe()` calls to manage
 * **Runs on changes only** — No initial execution; waits for first change (pullback semantics)
 * **Works with any observable** — Standalone, Store attributes, computed values, merged observables
-* **Boolean operators for conditions** — Use `&`, `|`, `~` to create conditional reactions (like MobX's `when`)
+* **Boolean operators for conditions** — Use `&`, `+`, `~` to create conditional reactions (like MobX's `when`)
 * **Multiple observable support** — Derive combined observables first, then react
 * **Store-level reactions** — React to any change in an entire Store
 * **Lifecycle management** — Use `.unsubscribe()` to stop reactive behavior and restore normal function calls
@@ -821,4 +821,4 @@ The `@reactive` decorator transforms functions into automatic reactions that run
 
 With `@reactive`, you declare *what should happen* when state changes. FynX ensures it happens automatically, in the right order, every time. This eliminates a whole category of synchronization bugs and makes your reactive systems self-maintaining.
 
-The rule of thumb here is that most of your code should be pure derivations using `>>`, `|`, `&`, and `~`. Reactions with `@reactive` appear only at the edges, where your application must interact with something external. This separation—the functional core, reactive shell pattern—is what makes reactive systems both powerful and maintainable.
+The rule of thumb here is that most of your code should be pure derivations using `>>`, `+`, `&`, and `~`. Reactions with `@reactive` appear only at the edges, where your application must interact with something external. This separation—the functional core, reactive shell pattern—is what makes reactive systems both powerful and maintainable.

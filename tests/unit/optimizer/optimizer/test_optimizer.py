@@ -39,7 +39,7 @@ def test_build_from_observables_handles_merged_sources():
     # Arrange
     a = observable(1)
     b = observable(2)
-    merged = a | b
+    merged = a + b
     s = merged >> (lambda x, y: x + y)
     # Act
     graph = ReactiveGraph()
@@ -372,11 +372,10 @@ def test_morphism_str_handles_unknown_type():
 
 @pytest.mark.unit
 def test_morphism_parser_handles_empty_signature():
-    """MorphismParser.parse() handles empty signature by returning single morphism with empty name."""
-    # Empty signature should return single morphism with empty name
+    """MorphismParser.parse() handles empty signature by returning identity morphism."""
+    # Empty signature should return identity morphism
     result = MorphismParser.parse("")
-    assert result._type == "single"
-    assert result._name == ""
+    assert result._type == "identity"
 
 
 @pytest.mark.unit
@@ -425,7 +424,7 @@ def test_verify_universal_properties_returns_counts():
     a = observable(1)
     b = a >> (lambda x: x + 1)
     c = a >> (lambda x: x * 2)
-    merged = (b | c) >> (lambda u, v: u + v)
+    merged = (b + c) >> (lambda u, v: u + v)
     graph = ReactiveGraph()
     graph.build_from_observables([merged])
     # Act

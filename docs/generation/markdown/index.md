@@ -57,7 +57,7 @@ FynX has no required dependencies and works with Python 3.9 and above.
 
 **Composable Architecture**: Observables, computed values, and reactions compose naturally. You can nest stores, chain computed values, and combine reactions to build complex reactive systems from simple, reusable pieces.
 
-**Expressive Operators**: FynX provides intuitive operators (`|`, `>>`, `&`, `~`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
+**Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
 
 
 ## Understanding Reactive Programming
@@ -84,7 +84,7 @@ class UserStore(Store):
     is_online = observable(False)
 
     # Computed property that automatically updates when dependencies change
-    greeting = (name | age) >> (
+    greeting = (name + age) >> (
         lambda n, a: f"Hello, {n}! You are {a} years old."
     )
 
@@ -146,7 +146,7 @@ As you work with FynX, you'll find these patterns emerge naturally:
 
 **Conditional Logic**: Use watch decorators to implement state machines, validation rules, or event filtering. This keeps conditional logic declarative and colocated with the relevant state.
 
-**Data Flow Composition**: Use FynX's operators (`|` for piping values, `>>` for chaining, `&` for combining) to build clear, expressive data transformation pipelines.
+**Data Flow Composition**: Use FynX's operators (`+` for piping values, `>>` for chaining, `&` for combining) to build clear, expressive data transformation pipelines.
 
 ## Documentation
 

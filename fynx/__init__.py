@@ -44,7 +44,7 @@ class UserStore(Store):
     age = observable(30)
 
     # Computed property using the >> operator
-    greeting = (name | age) >> (lambda n, a: f"Hello, {n}! You are {a} years old.")
+    greeting = (name + age) >> (lambda n, a: f"Hello, {n}! You are {a} years old.")
 
 # React to changes
 @reactive(UserStore.name, UserStore.age)

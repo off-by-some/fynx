@@ -142,7 +142,7 @@ class MorphismParser:
                 break
 
         # Handle identity
-        if signature == "id":
+        if signature == "id" or signature == "":
             return Morphism.identity()
 
         # Handle single morphisms (no composition)

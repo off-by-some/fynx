@@ -12,7 +12,7 @@ def update_ui(total: float):
 
 
 # Link item_count and price_per_item to auto-calculate total_price
-combined_observables = CartStore.item_count | CartStore.price_per_item
+combined_observables = CartStore.item_count + CartStore.price_per_item
 
 # The >> operator takes any observable and passes the value(s) to the right.
 total_price = combined_observables >> (lambda count, price: count * price)

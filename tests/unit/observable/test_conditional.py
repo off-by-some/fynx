@@ -300,7 +300,7 @@ def test_conditional_observable_with_callable_condition_filters_tuple_values():
     """ConditionalObservable with callable condition filters tuple values correctly."""
     source1 = Observable("s1", 1)
     source2 = Observable("s2", 2)
-    merged = source1 | source2
+    merged = source1 + source2
 
     def check_sum(a, b):
         return a + b > 2
@@ -444,7 +444,7 @@ def test_conditional_observable_debug_info_handles_callable_with_tuple():
     """get_debug_info handles callable conditions with tuple source values."""
     source1 = Observable("s1", 1)
     source2 = Observable("s2", 2)
-    merged = source1 | source2
+    merged = source1 + source2
 
     def check_values(a, b):
         return a + b > 2
@@ -531,7 +531,7 @@ def test_conditional_observable_debug_info_handles_callable_with_tuple_source():
     """Test get_debug_info() with callable condition and tuple source (line 698)"""
     source1 = Observable("s1", 1)
     source2 = Observable("s2", 2)
-    merged = source1 | source2
+    merged = source1 + source2
 
     def check_tuple(a, b):
         return a + b > 2

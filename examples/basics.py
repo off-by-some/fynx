@@ -37,8 +37,8 @@ def log_name_and_age_change(name, age):
     print(f"Name: {name}, Age: {age}")
 
 
-# Define a merged observable with the | operator.
-current_name_and_age = current_name | current_age
+# Define a merged observable with the + operator.
+current_name_and_age = current_name + current_age
 
 # Subscribe to the merged observable.
 current_name_and_age.subscribe(log_name_and_age_change)
@@ -139,7 +139,7 @@ ExampleStore.name = "Barbara"
 
 print()
 print("=" * 100)
-print("Using with (ExampleStore.name | ExampleStore.age) as react")
+print("Using with (ExampleStore.name + ExampleStore.age) as react")
 print("-" * 100)
 print()
 
@@ -149,7 +149,7 @@ def on_name_age_change(name, age):
 
 
 # Subscribe to multiple observables at once
-with ExampleStore.name | ExampleStore.age as react:
+with ExampleStore.name + ExampleStore.age as react:
     react(on_name_age_change)
 
 ExampleStore.name = "Bob"
@@ -205,7 +205,7 @@ weight = observable(70.0)  # Weight in kilograms
 
 # Step 2: Combine related values into a single reactive unit
 # This creates a reactive pair: (height, weight)
-bmi_data = height | weight
+bmi_data = height + weight
 
 
 # Step 3: Transform the combined data using the >> operator

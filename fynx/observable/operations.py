@@ -8,7 +8,7 @@ serving as the core implementation layer that operators.py delegates to.
 The operations provide a fluent, readable API for reactive programming:
 
 - `then(func)` - Transform values (equivalent to `>>` operator)
-- `alongside(other)` - Merge observables (equivalent to `|` operator)
+- `alongside(other)` - Merge observables (equivalent to `+` operator)
 - `also(condition)` - Compose boolean conditions with AND (equivalent to `&` operator)
 - `negate()` - Boolean negation (equivalent to `~` operator)
 - `either(other)` - OR logic for boolean conditions

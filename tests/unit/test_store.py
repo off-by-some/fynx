@@ -487,7 +487,7 @@ def test_store_supports_mixed_observable_and_computed_attributes():
         multiplier = observable(2)
 
         # Computed observable
-        computed_product = (base_value | multiplier).then(lambda b, m: b * m)
+        computed_product = (base_value + multiplier).then(lambda b, m: b * m)
 
     # Arrange
     store = MixedStore()
@@ -748,8 +748,8 @@ def test_store_rshift_with_merged_observables():
     class TestStore(Store):
         width = observable(10)
         height = observable(20)
-        area = (width | height) >> (lambda w, h: w * h)
-        perimeter = (width | height) >> (lambda w, h: 2 * (w + h))
+        area = (width + height) >> (lambda w, h: w * h)
+        perimeter = (width + height) >> (lambda w, h: 2 * (w + h))
 
     store = TestStore()
 
@@ -811,12 +811,12 @@ def test_store_with_merged_observables():
         y = observable(10)
 
         # Computed values that use merged observables inline (like the working examples)
-        sum_coords = (x | y) >> (lambda a, b: a + b)
-        product_coords = (x | y) >> (lambda a, b: a * b)
+        sum_coords = (x + y) >> (lambda a, b: a + b)
+        product_coords = (x + y) >> (lambda a, b: a * b)
 
         # Also test with three observables
         z = observable(2)
-        total = (x | y | z) >> (lambda a, b, c: a + b + c)
+        total = (x + y + z) >> (lambda a, b, c: a + b + c)
 
     store = TestStore()
 

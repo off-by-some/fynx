@@ -33,22 +33,22 @@ Creating Computed Observables
 -----------------------------
 
 While you can create ComputedObservable instances directly, it's more common to use
-the `computed()` function which handles the reactive setup automatically:
+the `>>` operator or `.then()` method which handles the reactive setup automatically:
 
 ```python
-from fynx import observable, computed
+from fynx import observable
 
 # Base observables
 price = observable(10.0)
 quantity = observable(5)
 
-# Computed observable using the computed() function
-total = computed(lambda p, q: p * q, price | quantity)
+# Computed observable using the >> operator (modern approach)
+total = (price + quantity) >> (lambda p, q: p * q)
 print(total.value)  # 50.0
 
-# Direct creation (less common)
-from fynx.observable.computed import ComputedObservable
-manual = ComputedObservable("manual", 42)
+# Alternative using .then() method
+total_alt = (price + quantity).then(lambda p, q: p * q)
+print(total_alt.value)  # 50.0
 ```
 
 Read-Only Protection
@@ -57,7 +57,7 @@ Read-Only Protection
 Computed observables prevent accidental direct modification:
 
 ```python
-total = computed(lambda p, q: p * q, price | quantity)
+total = (price + quantity) >> (lambda p, q: p * q)
 
 # This works - updates automatically
 price.set(15)
@@ -73,7 +73,7 @@ Internal Updates
 The framework can update computed values through the internal `_set_computed_value()` method:
 
 ```python
-# This is used internally by the computed() function
+# This is used internally by the >> operator and .then() method
 computed_obs._set_computed_value(new_value)  # Allowed
 computed_obs.set(new_value)                  # Not allowed
 ```
@@ -93,33 +93,27 @@ Common Patterns
 ```python
 width = observable(10)
 height = observable(20)
-area = computed(lambda w, h: w * h, width | height)
-perimeter = computed(lambda w, h: 2 * (w + h), width | height)
+area = (width + height) >> (lambda w, h: w * h)
+perimeter = (width + height) >> (lambda w, h: 2 * (w + h))
 ```
 
 **String Formatting**:
 ```python
 first_name = observable("John")
 last_name = observable("Doe")
-full_name = computed(
-    lambda f, l: f"{f} {l}",
-    first_name | last_name
-)
+full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 ```
 
 **Validation States**:
 ```python
 email = observable("")
-is_valid_email = computed(
-    lambda e: "@" in e and len(e) > 5,
-    email
-)
+is_valid_email = email >> (lambda e: "@" in e and len(e) > 5)
 ```
 
 **Conditional Computations**:
 ```python
 count = observable(0)
-is_even = computed(lambda c: c % 2 == 0, count)
+is_even = count >> (lambda c: c % 2 == 0)
 ```
 
 Limitations
@@ -141,7 +135,7 @@ Computed observables handle errors gracefully:
 See Also
 --------
 
-- `fynx.computed`: The computed() function for creating computed observables
+- `fynx.observable`: The >> operator and .then() method for creating computed observables
 - `fynx.observable`: Core observable classes
 - `fynx.store`: For organizing observables in reactive containers
 """
@@ -194,7 +188,7 @@ class ComputedObservable(Observable[T]):
         """
         Internal method for updating computed observable values.
 
-        This method is called internally by the computed() function when dependencies
+        This method is called internally by the >> operator and .then() method when dependencies
         change. It bypasses the read-only protection enforced by the public set() method
         to allow legitimate framework-driven updates of computed values.
 
@@ -217,14 +211,14 @@ class ComputedObservable(Observable[T]):
         directly would break the reactive relationship and defeat the purpose
         of computed values.
 
-        To create a computed observable, use the `computed()` function instead:
+        To create a computed observable, use the >> operator or .then() method instead:
 
         ```python
-        from fynx import observable, computed
+        from fynx import observable
 
         base = observable(5)
         # Correct: Create computed value
-        doubled = computed(lambda x: x * 2, base)
+        doubled = base >> (lambda x: x * 2)
 
         # Incorrect: Try to set computed value directly
         doubled.set(10)  # Raises ValueError
@@ -236,10 +230,10 @@ class ComputedObservable(Observable[T]):
 
         Raises:
             ValueError: Always raised to prevent direct modification of computed values.
-                       Use the `computed()` function to create derived observables instead.
+                       Use the >> operator or .then() method to create derived observables instead.
 
         See Also:
-            computed: Function for creating computed observables
+            >> operator: Modern syntax for creating computed observables
             _set_computed_value: Internal method used by the framework
         """
         raise ValueError(

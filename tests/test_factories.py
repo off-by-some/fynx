@@ -18,7 +18,7 @@ def create_diamond_dependency():
     source = observable(10)
     path_a = source >> (lambda x: x + 5)
     path_b = source >> (lambda x: x * 2)
-    combined = (path_a | path_b) >> (lambda a, b: a + b)
+    combined = (path_a + path_b) >> (lambda a, b: a + b)
 
     return source, path_a, path_b, combined
 
@@ -64,7 +64,7 @@ def create_user_profile_store():
     class UserProfile(Store):
         first_name = observable("")
         last_name = observable("")
-        full_name = (first_name | last_name).then(lambda f, l: f"{f} {l}".strip())
+        full_name = (first_name + last_name).then(lambda f, l: f"{f} {l}".strip())
 
     return UserProfile
 
@@ -79,7 +79,7 @@ def create_counter_with_limits():
     min_val = observable(0)
     max_val = observable(100)
 
-    is_valid = (counter | min_val | max_val).then(
+    is_valid = (counter + min_val + max_val).then(
         lambda c, min_v, max_v: min_v <= c <= max_v
     )
 
@@ -97,10 +97,10 @@ def create_reactive_filter_chain():
     multiplier = observable(2)
 
     # Create filtered observable that only passes values matching predicate
-    filtered = (source | predicate).then(lambda val, pred: val if pred(val) else None)
+    filtered = (source + predicate).then(lambda val, pred: val if pred(val) else None)
 
     # Transform non-None values
-    result = (filtered | multiplier).then(
+    result = (filtered + multiplier).then(
         lambda filtered_val, mult: (
             filtered_val * mult if filtered_val is not None else 0
         )

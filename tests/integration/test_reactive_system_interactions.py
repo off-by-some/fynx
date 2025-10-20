@@ -118,6 +118,9 @@ def test_counter_with_bounds_checking_handles_dynamic_bounds_changes(
     # Arrange - counter_with_limits fixture provides (counter, min_val, max_val, is_valid)
     counter, min_val, max_val, is_valid = counter_with_limits
 
+    # Act - Set counter to 25 first
+    counter.set(25)
+
     # Act - Change bounds dynamically
     min_val.set(10)
 
@@ -195,7 +198,7 @@ def test_store_subscription_notifies_on_any_observable_change():
         total_price = observable(0.0)
         discount_percent = observable(0.0)
 
-        final_price = (total_price | discount_percent).then(
+        final_price = (total_price + discount_percent).then(
             lambda price, discount: price * (1 - discount / 100)
         )
 
@@ -242,7 +245,7 @@ def test_complex_reactive_workflow_with_multiple_stores():
         widgets = observable(100)
         gadgets = observable(50)
 
-        total_items = (widgets | gadgets).then(lambda w, g: w + g)
+        total_items = (widgets + gadgets).then(lambda w, g: w + g)
 
     class PricingStore(Store):
         base_price_per_item = observable(10.0)
@@ -258,8 +261,8 @@ def test_complex_reactive_workflow_with_multiple_stores():
             self.inventory_total = inventory_store.total_items
             self.effective_price = (
                 self.base_price_per_item
-                | self.inventory_total
-                | self.bulk_discount_threshold
+                + self.inventory_total
+                + self.bulk_discount_threshold
             ).then(
                 lambda base, total, threshold: (
                     base * 0.9 if total >= threshold else base
