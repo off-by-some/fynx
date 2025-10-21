@@ -66,7 +66,6 @@ fi
 
 # Step 3: Deploy to GitHub Pages
 print_status "Step 3: Deploying to GitHub Pages..."
-cd docs/generation
 if poetry run mkdocs gh-deploy --force; then
     print_success "Documentation deployed to GitHub Pages successfully!"
     echo ""
@@ -81,7 +80,7 @@ else
     print_error "Failed to deploy to GitHub Pages"
     echo ""
     print_warning "You can still deploy manually with:"
-    echo "  cd docs/generation && poetry run mkdocs gh-deploy"
+    echo "  poetry run mkdocs gh-deploy"
     exit 1
 fi
 

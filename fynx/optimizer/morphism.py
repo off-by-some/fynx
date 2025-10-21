@@ -48,53 +48,51 @@ class Morphism:
         Identity laws: f ∘ id = f, id ∘ f = f
         Associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)
         """
-        match self._type:
-            case "identity":
-                return self
-            case "single":
-                return self
-            case "compose":
-                # Recursively normalize components
-                assert self._left is not None and self._right is not None
-                left_norm = self._left.normalize()
-                right_norm = self._right.normalize()
+        if self._type == "identity":
+            return self
+        elif self._type == "single":
+            return self
+        elif self._type == "compose":
+            # Recursively normalize components
+            assert self._left is not None and self._right is not None
+            left_norm = self._left.normalize()
+            right_norm = self._right.normalize()
 
-                # Apply identity laws
-                if left_norm._type == "identity":
-                    return right_norm
-                if right_norm._type == "identity":
-                    return left_norm
+            # Apply identity laws
+            if left_norm._type == "identity":
+                return right_norm
+            if right_norm._type == "identity":
+                return left_norm
 
-                # Associativity: flatten nested compositions
-                if left_norm._type == "compose":
-                    assert left_norm._left is not None and left_norm._right is not None
-                    return Morphism.compose(
-                        left_norm._left, Morphism.compose(left_norm._right, right_norm)
-                    ).normalize()
+            # Associativity: flatten nested compositions
+            if left_norm._type == "compose":
+                assert left_norm._left is not None and left_norm._right is not None
+                return Morphism.compose(
+                    left_norm._left, Morphism.compose(left_norm._right, right_norm)
+                ).normalize()
 
-                return Morphism.compose(left_norm, right_norm)
-            case _:
-                # This should never happen with valid morphism types
-                return self
+            return Morphism.compose(left_norm, right_norm)
+        else:
+            # This should never happen with valid morphism types
+            return self
 
     def canonical_form(self) -> Tuple[str, ...]:
         """
         Get a canonical tuple representation for equality comparison.
         """
         normalized = self.normalize()
-        match normalized._type:
-            case "identity":
-                return ("identity",)
-            case "single":
-                return ("single", normalized._name or "")
-            case "compose":
-                assert normalized._left is not None and normalized._right is not None
-                left_form = normalized._left.canonical_form()
-                right_form = normalized._right.canonical_form()
-                return ("compose",) + left_form + right_form
-            case _:
-                # This should never happen with valid morphism types
-                return ("unknown",)
+        if normalized._type == "identity":
+            return ("identity",)
+        elif normalized._type == "single":
+            return ("single", normalized._name or "")
+        elif normalized._type == "compose":
+            assert normalized._left is not None and normalized._right is not None
+            left_form = normalized._left.canonical_form()
+            right_form = normalized._right.canonical_form()
+            return ("compose",) + left_form + right_form
+        else:
+            # This should never happen with valid morphism types
+            return ("unknown",)
 
     def __eq__(self, other: object) -> bool:
         """Check structural equality after normalization."""
@@ -108,16 +106,15 @@ class Morphism:
 
     def __str__(self) -> str:
         """Convert back to string representation."""
-        match self._type:
-            case "identity":
-                return "id"
-            case "single":
-                return self._name or "unknown"
-            case "compose":
-                assert self._left is not None and self._right is not None
-                return f"({self._left}) ∘ ({self._right})"
-            case _:
-                return f"unknown({self._type})"
+        if self._type == "identity":
+            return "id"
+        elif self._type == "single":
+            return self._name or "unknown"
+        elif self._type == "compose":
+            assert self._left is not None and self._right is not None
+            return f"({self._left}) ∘ ({self._right})"
+        else:
+            return f"unknown({self._type})"
 
     def __repr__(self) -> str:
         return f"Morphism({self})"
