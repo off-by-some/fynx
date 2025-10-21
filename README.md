@@ -127,6 +127,7 @@ FynX satisfies specific universal properties from category theory, guaranteeing 
 
 
 The functoriality property guarantees that lifted functions preserve composition:
+
 $$
 \mathcal{O}(\mathrm{id}) = \mathrm{id} \quad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f
 $$
