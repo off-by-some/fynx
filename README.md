@@ -137,7 +137,7 @@ In practice, this means complex reactive systems composed from simple parts beha
 
 These same categorical structures enable FynX's automatic optimizer. Composition laws prove `obs >> f >> g >> h` can safely fuse into a single operation. Product properties allow sharing common computations. Pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness—it shows exactly which optimizations are safe.
 
-Think of it like an impossibly thorough test suite: one covering not just the cases you wrote, but every case that could theoretically exist. (We also ship with [conventional tests](./tests/test_readme.py), naturally.)
+Think of it like an impossibly thorough test suite: one covering not just the cases you wrote, but every case that could theoretically exist. (We also ship with [conventional tests](./tests/), naturally.)
 
 ## Performance
 
