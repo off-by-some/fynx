@@ -129,16 +129,15 @@ FynX satisfies specific universal properties from category theory, guaranteeing 
 
 
 The functoriality property guarantees that lifted functions preserve composition:
-
 $$
 \mathcal{O}(\mathrm{id}) = \mathrm{id} \quad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f
 $$
 
-The mathematics works beneath the surface, ensuring that complex reactive systems composed from simple parts behave predictably under all transformations. Write declarative code describing relationships, and the universal properties guarantee those relationships hold.
+In practice, this means complex reactive systems composed from simple parts behave predictably under all transformations. You describe what relationships should exist; FynX guarantees they hold.
 
-These same categorical structures also enable FynX's automatic optimizer—composition laws prove that `obs >> f >> g >> h` can safely fuse into a single operation, product properties allow sharing common computations, and pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness; it shows exactly which performance optimizations preserve your program's semantics.
+These same categorical structures enable FynX's automatic optimizer. Composition laws prove `obs >> f >> g >> h` can safely fuse into a single operation. Product properties allow sharing common computations. Pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness—it shows exactly which optimizations are safe.
 
-Think of it as a particularly thorough test suite—one that covers not just the cases you thought to write, but every possible case that could theoretically exist (but yes, we've got the ["real deal" tests](./tests/test_readme.py) if you want to live dangerously).
+Think of it like an impossibly thorough test suite: one covering not just the cases you wrote, but every case that could theoretically exist. (We also ship with [conventional tests](./tests/test_readme.py), naturally.)
 
 ## Performance
 
