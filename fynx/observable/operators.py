@@ -238,7 +238,7 @@ class OperatorMixin(OperationsMixin):
         Returns:
             A ConditionalObservable that filters values based on the condition
         """
-        return self.also(condition)  # type: ignore
+        return self.requiring(condition)  # type: ignore
 
     def __invert__(self) -> "Observable[bool]":
         """

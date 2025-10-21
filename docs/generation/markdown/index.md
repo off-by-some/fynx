@@ -57,7 +57,7 @@ FynX has no required dependencies and works with Python 3.9 and above.
 
 **Composable Architecture**: Observables, computed values, and reactions compose naturally. You can nest stores, chain computed values, and combine reactions to build complex reactive systems from simple, reusable pieces.
 
-**Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
+**Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`, `|`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
 
 
 ## Understanding Reactive Programming

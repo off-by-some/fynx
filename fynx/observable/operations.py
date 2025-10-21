@@ -9,7 +9,7 @@ The operations provide a fluent, readable API for reactive programming:
 
 - `then(func)` - Transform values (equivalent to `>>` operator)
 - `alongside(other)` - Merge observables (equivalent to `+` operator)
-- `also(condition)` - Compose boolean conditions with AND (equivalent to `&` operator)
+- `requiring(condition)` - Compose boolean conditions with AND (equivalent to `&` operator)
 - `negate()` - Boolean negation (equivalent to `~` operator)
 - `either(other)` - OR logic for boolean conditions
 """
@@ -163,7 +163,7 @@ class OperationsMixin:
             # Standard case: combine two observables
             return MergedObservable(self, other)  # type: ignore
 
-    def also(self, *conditions) -> "Observable":
+    def requiring(self, *conditions) -> "Observable":
         """
         Compose this observable with conditions using AND logic.
 
@@ -179,7 +179,7 @@ class OperationsMixin:
         Example:
             ```python
             # Compose multiple conditions
-            result = data.also(lambda x: x > 0, is_ready, other_condition)
+            result = data.requiring(lambda x: x > 0, is_ready, other_condition)
             ```
         """
         from .conditional import ConditionalObservable

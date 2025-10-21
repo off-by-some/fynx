@@ -70,6 +70,7 @@ def calculate_total(count, price):
 
 # Reactive computation using .then()
 total_price = (CartStore.item_count + CartStore.price_per_item).then(calculate_total)
+# total_price = (CartStore.item_count + CartStore.price_per_item) >> calculate_total # Equivalent!
 
 def print_total(total):
     print(f"Cart Total: ${total:.2f}")
@@ -100,15 +101,32 @@ The common thread: data flows through transformations, and multiple parts of you
 
 This breadth isn't accidental. The universal properties underlying FynX apply to any scenario involving time-varying values and compositional transformations—which describes a surprisingly large fraction of software.
 
+
+## The Five Reactive Operators
+
+FynX provides five composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `+`, `&`, `|`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.requiring()`, `.either()`, `.negate()`):
+
+| Operator | Method | Operation | Purpose | Example |
+|----------|--------|-----------|---------|---------|
+| `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
+| `+` | `.alongside()` | Combine | Merge observables into read-only tuples | `(first + last) >> join` |
+| `&` | `.requiring()` | Filter | Gate reactivity based on conditions | `file & valid & ~processing` |
+| `\|` | `.either()` | Logical OR | Combine boolean conditions | `is_error \| is_warning` |
+| `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
+
+Each operation creates a new observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that guarantee correct behavior under composition.
+
 ## The Mathematical Guarantee
 
 You don't need to understand category theory at all to use FynX, though it is what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct. FynX is built on solid mathematical foundations from category theory. These aren't abstractions for their own sake—they're implementation principles that guarantee correctness and enable powerful optimizations.
 
-FynX satisfies specific universal properties from category theory (covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)) These aren't abstractions for their own sake; they're implementation principles that guarantee correctness:
+You don't need to understand category theory to use FynX, but it's what makes FynX reliable: the reactive behavior isn't just validated by examples—it's guaranteed by mathematical necessity. Every reactive program you construct will work correctly because FynX is built on universal properties from category theory (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that ensure correctness and enable powerful optimizations.
 
-* **Functoriality**: Any function you lift with `>>` preserves composition exactly. Chain transformations freely—the order of operations is guaranteed.
-* **Products**: Combining observables with `+` creates proper categorical products. No matter how you nest combinations, the structure remains coherent.
-* **Pullbacks**: Filtering with `&` constructs mathematical pullbacks. Stack conditions in any order—the semantics stay consistent.
+FynX satisfies specific universal properties from category theory, guaranteeing correctness:
+* **Functoriality**: Transformations with `>>` preserve composition. Your chains work exactly as expected, regardless of how you compose them.
+* **Products**: Combining observables with `+` creates proper categorical products. No matter how complex your combinations, the structure stays coherent.
+* **Pullbacks**: Filtering with `&` constructs mathematical pullbacks. Stack conditions freely—the meaning never changes.
+
 
 The functoriality property guarantees that lifted functions preserve composition:
 
@@ -196,19 +214,6 @@ AppState.username = "off-by-some"  # Normal assignment, reactive behavior
 
 Stores provide structure for related state and enable features like store-level reactions and serialization. With observables established, you compose them using FynX's five fundamental operators.
 
-## The Five Reactive Operators
-
-FynX provides five composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `+`, `&`, `|`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.either()`, `.negate()`):
-
-| Operator | Method | Operation | Purpose | Example |
-|----------|--------|-----------|---------|---------|
-| `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
-| `+` | `.alongside()` | Combine | Merge observables into read-only tuples | `(first + last) >> join` |
-| `&` | `.also()` | Filter | Gate based on conditions | `file & valid & ~processing` |
-| `\|` | `.either()` | Logical OR | Combine boolean conditions | `is_error \| is_warning` |
-| `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
-
-Each operation creates a new observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that guarantee correct behavior under composition.
 
 ## Transforming Data with `>>` or `.then()`
 
@@ -267,9 +272,9 @@ merged = User.first_name + User.last_name
 
 When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.
 
-## Filtering with `&`, `.also()`, `~`, `.negate()`, `|`, and `.either()`
+## Filtering with `&`, `.requiring()`, `~`, `.negate()`, `|`, and `.either()`
 
-The `&` operator (or `.also()`) filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` (or `.negate()`) to invert, and `|` (or `.either()`) for logical OR conditions:
+The `&` operator (or `.requiring()`) filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` (or `.negate()`) to invert, and `|` (or `.either()`) for logical OR conditions:
 
 ```python
 uploaded_file = observable(None)
@@ -285,8 +290,8 @@ def is_valid_file(f):
 is_valid_method = uploaded_file.then(is_valid_file)
 is_valid_operator = uploaded_file >> is_valid_file
 
-# Filter using & operator (or .also() method)
-preview_ready_method = uploaded_file.also(is_valid_method).also(is_processing.negate())
+# Filter using & operator (or .requiring() method)
+preview_ready_method = uploaded_file.requiring(is_valid_method).requiring(is_processing.negate())
 preview_ready_operator = uploaded_file & is_valid_operator & (~is_processing)
 
 # Logical OR using | operator (or .either() method)

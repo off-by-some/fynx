@@ -39,7 +39,7 @@ Observables are containers for values that change over time. Unlike regular vari
 
 **[Observable Descriptors](observable-descriptors.md)** — The mechanism behind Store class attributes. When you write `name = observable("Alice")` in a Store class, you're creating a descriptor that provides clean property access without `.value` or `.set()`.
 
-**[Observable Operators](observable-operators.md)** — The operators (`+`, `>>`, `&`, `~`) and methods (`.then()`, `.also()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
+**[Observable Operators](observable-operators.md)** — The operators (`+`, `>>`, `&`, `~`) and methods (`.then()`, `.requiring()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
 
 ### Stores: Organizing State
 
