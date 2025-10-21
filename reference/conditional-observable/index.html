@@ -10,22 +10,28 @@
       
       
       
+        <link rel="canonical" href="https://off-by-some.github.io/fynx/reference/conditional-observable/">
       
       
+        <link rel="prev" href="../merged-observable/">
       
-      <link rel="icon" href="/fynx/assets/images/icon_350x350.png">
+      
+        <link rel="next" href="../observable-descriptors/">
+      
+      
+      <link rel="icon" href="../../assets/images/icon_350x350.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
       
-        <title>FynX</title>
+        <title>ConditionalObservable - FynX</title>
       
     
     
-      <link rel="stylesheet" href="/fynx/assets/stylesheets/main.84d31ad4.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
       
         
-        <link rel="stylesheet" href="/fynx/assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -44,11 +50,11 @@
       
     
     
-      <link rel="stylesheet" href="/fynx/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-      <link rel="stylesheet" href="/fynx/assets/stylesheets/extra.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
     
-    <script>__md_scope=new URL("/fynx/",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -73,6 +79,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#conditionalobservable" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -89,9 +100,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/fynx/." title="FynX" class="md-header__button md-logo" aria-label="FynX" data-md-component="logo">
+    <a href="../.." title="FynX" class="md-header__button md-logo" aria-label="FynX" data-md-component="logo">
       
-  <img src="/fynx/assets/images/icon_350x350.png" alt="logo">
+  <img src="../../assets/images/icon_350x350.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -108,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              ConditionalObservable
             
           </span>
         </div>
@@ -219,9 +230,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/fynx/." title="FynX" class="md-nav__button md-logo" aria-label="FynX" data-md-component="logo">
+    <a href="../.." title="FynX" class="md-nav__button md-logo" aria-label="FynX" data-md-component="logo">
       
-  <img src="/fynx/assets/images/icon_350x350.png" alt="logo">
+  <img src="../../assets/images/icon_350x350.png" alt="logo">
 
     </a>
     FynX
@@ -274,7 +285,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -342,7 +353,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/tutorial/observables/" class="md-nav__link">
+      <a href="../../tutorial/observables/" class="md-nav__link">
         
   
   
@@ -365,7 +376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/tutorial/derived-observables/" class="md-nav__link">
+      <a href="../../tutorial/derived-observables/" class="md-nav__link">
         
   
   
@@ -388,7 +399,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/tutorial/conditionals/" class="md-nav__link">
+      <a href="../../tutorial/conditionals/" class="md-nav__link">
         
   
   
@@ -411,7 +422,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/tutorial/stores/" class="md-nav__link">
+      <a href="../../tutorial/stores/" class="md-nav__link">
         
   
   
@@ -434,7 +445,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/tutorial/using-reactive/" class="md-nav__link">
+      <a href="../../tutorial/using-reactive/" class="md-nav__link">
         
   
   
@@ -461,18 +472,20 @@
       
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
@@ -488,7 +501,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             API Reference
@@ -502,7 +515,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/api/" class="md-nav__link">
+      <a href="../api/" class="md-nav__link">
         
   
   
@@ -522,18 +535,20 @@
                 
   
   
+    
   
   
+  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
         
           
           <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
@@ -549,7 +564,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_2">
             <span class="md-nav__icon md-icon"></span>
             Observable Types
@@ -563,7 +578,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/observable/" class="md-nav__link">
+      <a href="../observable/" class="md-nav__link">
         
   
   
@@ -586,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/observable-operators/" class="md-nav__link">
+      <a href="../observable-operators/" class="md-nav__link">
         
   
   
@@ -609,7 +624,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/computed-observable/" class="md-nav__link">
+      <a href="../computed-observable/" class="md-nav__link">
         
   
   
@@ -632,7 +647,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/merged-observable/" class="md-nav__link">
+      <a href="../merged-observable/" class="md-nav__link">
         
   
   
@@ -652,10 +667,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/fynx/reference/conditional-observable/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    ConditionalObservable
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -666,6 +703,62 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creating-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Conditional Observables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple Conditions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-named-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Named Functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Properties
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -678,7 +771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/observable-descriptors/" class="md-nav__link">
+      <a href="../observable-descriptors/" class="md-nav__link">
         
   
   
@@ -709,7 +802,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/store/" class="md-nav__link">
+      <a href="../store/" class="md-nav__link">
         
   
   
@@ -770,7 +863,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/reference/reactive-decorator/" class="md-nav__link">
+      <a href="../reactive-decorator/" class="md-nav__link">
         
   
   
@@ -846,7 +939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/mathematical/mathematical-foundations/" class="md-nav__link">
+      <a href="../../mathematical/mathematical-foundations/" class="md-nav__link">
         
   
   
@@ -914,7 +1007,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/fynx/../specs/v1.0-roadmap.md" class="md-nav__link">
+      <a href="../../../specs/v1.0-roadmap.md" class="md-nav__link">
         
   
   
@@ -954,6 +1047,52 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#creating-conditional-observables" class="md-nav__link">
+    <span class="md-ellipsis">
+      Creating Conditional Observables
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#multiple-conditions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multiple Conditions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#using-named-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      Using Named Functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-properties" class="md-nav__link">
+    <span class="md-ellipsis">
+      Key Properties
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -965,8 +1104,76 @@
             <div class="md-content" data-md-component="content">
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+
+<h1 id="conditionalobservable">ConditionalObservable<a class="headerlink" href="#conditionalobservable" title="Permanent link">&para;</a></h1>
+<p>Observables that only emit values when specific conditions are met.</p>
+<h2 id="creating-conditional-observables">Creating Conditional Observables<a class="headerlink" href="#creating-conditional-observables" title="Permanent link">&para;</a></h2>
+<p>Use the <code>&amp;</code> operator to create conditional observables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Source observable</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">count</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Conditional observable - only emits when count &gt; 5</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&amp;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">filtered</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Filtered: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>  <span class="c1"># No output</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>  <span class="c1"># Prints: Filtered: 7</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># No output</span>
+</code></pre></div>
+<h2 id="multiple-conditions">Multiple Conditions<a class="headerlink" href="#multiple-conditions" title="Permanent link">&para;</a></h2>
+<p>Chain multiple conditions using the <code>&amp;</code> operator:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Only emit when count is between 5 and 10</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">range_filtered</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&amp;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">range_filtered</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;In range: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># No output</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>   <span class="c1"># Prints: In range: 7</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>  <span class="c1"># No output</span>
+</code></pre></div>
+<h2 id="using-named-functions">Using Named Functions<a class="headerlink" href="#using-named-functions" title="Permanent link">&para;</a></h2>
+<p>For better readability, use named functions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_positive</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="k">return</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_even</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="k">return</span> <span class="n">x</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Only emit positive even numbers</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">positive_even</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&amp;</span> <span class="n">is_positive</span> <span class="o">&amp;</span> <span class="n">is_even</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">positive_even</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Positive even: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># No output</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># No output</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>   <span class="c1"># Prints: Positive even: 4</span>
+</code></pre></div>
+<h2 id="key-properties">Key Properties<a class="headerlink" href="#key-properties" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Filtering</strong>: Only emit values that satisfy all conditions</li>
+<li><strong>Reactive</strong>: Automatically re-evaluate conditions when source changes</li>
+<li><strong>Composable</strong>: Can be combined with other observables using <code>&amp;</code>, <code>+</code>, and <code>&gt;&gt;</code></li>
+<li><strong>Efficient</strong>: Conditions are only evaluated when source values change</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -1034,12 +1241,12 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "/fynx/", "features": ["content.code.copy", "content.code.select", "navigation.tracking", "search.highlight", "search.share", "search.suggest"], "search": "/fynx/assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../..", "features": ["content.code.copy", "content.code.select", "navigation.tracking", "search.highlight", "search.share", "search.suggest"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="/fynx/assets/javascripts/bundle.f55a23d4.min.js"></script>
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
       
-        <script src="/fynx/assets/javascripts/mathjax.js"></script>
+        <script src="../../assets/javascripts/mathjax.js"></script>
       
         <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       

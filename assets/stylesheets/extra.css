@@ -1,0 +1,755 @@
+/* ============================================
+   OPTIMIZED MKDOCS THEME - Maximum Content Utilization
+   ============================================ */
+
+/* Core Color System - Refined for maximum readability */
+:root {
+  /* Primary palette */
+  --md-primary-fg-color: #0f172a;
+  --md-primary-fg-color--light: #1e293b;
+  --md-primary-fg-color--dark: #020617;
+
+  /* Accent colors - vibrant yet professional */
+  --md-accent-fg-color: #3b82f6;
+  --md-accent-fg-color--hover: #2563eb;
+  --md-accent-fg-color--light: rgba(59, 130, 246, 0.08);
+
+  /* Neutral colors for text hierarchy */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  /* Surface colors */
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-hover: #f1f5f9;
+
+  /* Shadows for depth */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-accent: 0 4px 20px rgba(59, 130, 246, 0.25);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   LAYOUT OPTIMIZATION - Maximum Content Area
+   ============================================ */
+
+/* Optimize the main grid to use available space */
+.md-grid {
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+/* Make sidebars narrower and more compact */
+.md-sidebar--primary {
+  width: 14rem !important;
+  left: 0;
+}
+
+.md-sidebar--secondary {
+  width: 14rem !important;
+  right: 0;
+}
+
+/* Optimize sidebar scrollwrap */
+.md-sidebar__scrollwrap {
+  margin: 0 !important;
+}
+
+.md-sidebar__inner {
+  padding: 0.6rem 0.8rem !important;
+}
+
+/* Expand content area significantly */
+.md-content {
+  max-width: none !important;
+  padding: 0 2.5rem !important;
+  width: auto !important;
+  flex-grow: 1 !important;
+}
+
+.md-content__inner {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 1.5rem 0 6rem 0 !important;
+  margin: 0 auto !important;
+}
+
+/* Override the inline styles on the article/typeset container */
+.md-typeset {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+.md-content__inner.md-typeset {
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Use full width on larger screens */
+@media screen and (min-width: 76.25em) {
+  .md-content {
+    width: auto !important;
+  }
+
+  .md-sidebar--primary {
+    width: 14rem !important;
+  }
+
+  .md-sidebar--secondary {
+    width: 14rem !important;
+  }
+
+  .md-content__inner {
+    width: 100% !important;
+  }
+}
+
+/* Medium screens - balance sidebars and content */
+@media screen and (min-width: 60em) and (max-width: 76.24em) {
+  .md-sidebar--primary {
+    width: 12rem !important;
+  }
+
+  .md-sidebar--secondary {
+    width: 12rem !important;
+  }
+
+  .md-content {
+    width: auto !important;
+  }
+
+  .md-content__inner {
+    width: 100% !important;
+  }
+}
+
+/* Responsive collapse for smaller screens */
+@media screen and (max-width: 76.1875em) {
+  .md-sidebar--primary {
+    transform: translateX(-14.5rem) !important;
+  }
+
+  [data-md-toggle="drawer"]:checked ~ .md-container .md-sidebar--primary {
+    transform: translateX(0) !important;
+  }
+
+  .md-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .md-content__inner {
+    width: 100% !important;
+  }
+}
+
+/* ============================================
+   HEADER - Clean and Elegant
+   ============================================ */
+.md-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  transition: box-shadow var(--transition-base);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.md-header--shadow {
+  box-shadow: var(--shadow-md);
+}
+
+.md-header__inner {
+  padding: 0.4rem 1.5rem;
+  max-width: none;
+  margin: 0 auto;
+}
+
+.md-header__button.md-icon {
+  color: #f8fafc;
+  opacity: 0.9;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.md-header__button.md-icon:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+/* Header title */
+.md-header__title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  flex-grow: 0;
+}
+
+/* ============================================
+   NAVIGATION - Compact and Accessible
+   ============================================ */
+
+/* Primary navigation */
+.md-nav--primary .md-nav__link {
+  color: #e2e8f0;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.md-nav--primary .md-nav__link:hover,
+.md-nav--primary .md-nav__link:focus {
+  color: #3b82f6;
+}
+
+/* Top-level nav items only - make them bold */
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+  font-weight: 700;
+}
+
+/* Nested navigation - keep normal weight */
+.md-nav__item--nested > .md-nav__link {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+/* Child items should NOT be bold */
+.md-nav__item--nested .md-nav .md-nav__link {
+  font-weight: 450 !important;
+}
+
+/* Sidebar navigation - more compact */
+.md-sidebar {
+  background-color: transparent;
+}
+
+.md-nav {
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.md-nav__title {
+  font-weight: 700;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 0.5rem 0.6rem 0.3rem;
+  margin-top: 1rem;
+}
+
+.md-nav__title:first-child {
+  margin-top: 0;
+}
+
+.md-nav__item {
+  padding: 0.05rem 0;
+}
+
+.md-nav__link {
+  color: var(--text-secondary) !important;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.375rem;
+  font-weight: 450;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+  font-size: 0.8rem;
+}
+
+.md-nav__link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--md-accent-fg-color);
+  transform: scaleY(0);
+  transition: transform var(--transition-base);
+  border-radius: 0 2px 2px 0;
+}
+
+.md-nav__link:hover,
+.md-nav__link:focus {
+  background-color: var(--surface-hover) !important;
+  color: var(--md-accent-fg-color) !important;
+}
+
+.md-nav__link--active {
+  color: var(--md-accent-fg-color) !important;
+  background-color: var(--md-accent-fg-color--light) !important;
+  font-weight: 600;
+}
+
+.md-nav__link--active::before {
+  transform: scaleY(1);
+}
+
+/* Nested navigation */
+.md-nav__item--nested > .md-nav__link {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+}
+
+/* Secondary navigation (TOC) */
+.md-nav--secondary .md-nav__link {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+}
+
+/* ============================================
+   CONTENT AREA - Optimal Readability with More Space
+   ============================================ */
+
+/* Typography hierarchy - optimized for wider layout */
+.md-content h1 {
+  font-weight: 800;
+  font-size: 2.75rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+  margin-top: 0;
+}
+
+.md-content h2 {
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.md-content h3 {
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.md-content h4 {
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.md-content p {
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: none;
+}
+
+/* Lists with better spacing */
+.md-content ul,
+.md-content ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.md-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* Links - Subtle but noticeable */
+.md-content a {
+  color: var(--md-accent-fg-color);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.md-content a:hover,
+.md-content a:focus {
+  color: var(--md-accent-fg-color--hover);
+  border-bottom-color: var(--md-accent-fg-color--hover);
+}
+
+/* ============================================
+   BUTTONS - Modern and Engaging
+   ============================================ */
+.md-button,
+.md-button--primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+  padding: 0.625rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.md-button:hover,
+.md-button:focus,
+.md-button--primary:hover,
+.md-button--primary:focus {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: var(--shadow-accent);
+  transform: translateY(-2px);
+}
+
+.md-button:active,
+.md-button--primary:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   SEARCH - Clean and Functional
+   ============================================ */
+.md-search__form {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  transition: all var(--transition-base);
+}
+
+.md-search__form:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.md-search__input {
+  background-color: transparent;
+  color: #f8fafc;
+  border: none;
+  padding: 0.5rem 1rem;
+}
+
+.md-search__input::placeholder {
+  color: #cbd5e1;
+  opacity: 0.7;
+}
+
+.md-search__input:focus {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+/* Search results */
+.md-search-result {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.md-search-result__item {
+  border-bottom: 1px solid var(--surface-hover);
+  transition: background-color var(--transition-fast);
+}
+
+.md-search-result__item:hover {
+  background-color: var(--surface-hover);
+}
+
+/* ============================================
+   CODE BLOCKS - Developer-Friendly with Better Width
+   ============================================ */
+.md-content code {
+  background-color: var(--surface-secondary);
+  color: #e11d48;
+  padding: 0.15em 0.35em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  border: 1px solid #e2e8f0;
+}
+
+.md-content pre {
+  background-color: var(--surface-secondary);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  box-shadow: var(--shadow-sm);
+  margin: 1.5rem 0;
+}
+
+.md-content pre code {
+  background-color: transparent;
+  color: inherit;
+  padding: 0;
+  border: none;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Code block copy button */
+.md-clipboard {
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+}
+
+.md-clipboard:hover {
+  opacity: 1;
+}
+
+/* ============================================
+   TABLES - Organized and Full-Width
+   ============================================ */
+.md-content table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin: 1.5rem 0;
+}
+
+.md-content th {
+  background-color: var(--surface-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid #e2e8f0;
+  font-size: 0.875rem;
+}
+
+.md-content td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.md-content tr:last-child td {
+  border-bottom: none;
+}
+
+.md-content tr:hover {
+  background-color: var(--surface-hover);
+}
+
+/* ============================================
+   ADMONITIONS - Visual Hierarchy
+   ============================================ */
+.md-content .admonition {
+  border-left: 4px solid var(--md-accent-fg-color);
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  background-color: var(--surface-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.md-content .admonition-title {
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+/* ============================================
+   FOOTER - Full Width (Fixed for all themes)
+   ============================================ */
+.md-footer {
+  margin-left: 0;
+  margin-right: 0;
+  background-color: #1e293b !important;
+}
+
+.md-footer-meta {
+  background-color: #0f172a !important;
+}
+
+.md-footer-meta__inner {
+  color: #cbd5e1 !important;
+}
+
+.md-footer__link,
+.md-footer__title,
+.md-copyright {
+  color: #cbd5e1 !important;
+}
+
+.md-footer__link:hover {
+  color: #f8fafc !important;
+}
+
+.md-social__link {
+  color: #cbd5e1 !important;
+}
+
+.md-social__link:hover {
+  color: #f8fafc !important;
+}
+
+/* ============================================
+   DARK MODE - Elegant Night Theme
+   ============================================ */
+[data-md-color-scheme="slate"] {
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #64748b;
+  --surface-primary: #0f172a;
+  --surface-secondary: #1e293b;
+  --surface-hover: #334155;
+  --md-accent-fg-color: #60a5fa;
+  --md-accent-fg-color--hover: #3b82f6;
+  --md-accent-fg-color--light: rgba(96, 165, 250, 0.1);
+}
+
+[data-md-color-scheme="slate"] .md-header {
+  background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link {
+  color: var(--text-secondary);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link:hover,
+[data-md-color-scheme="slate"] .md-nav__link:focus {
+  background-color: var(--surface-hover);
+  color: var(--md-accent-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link--active {
+  color: var(--md-accent-fg-color);
+  background-color: var(--md-accent-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .md-content code {
+  background-color: var(--surface-secondary);
+  color: #fda4af;
+  border-color: #334155;
+}
+
+[data-md-color-scheme="slate"] .md-content pre {
+  background-color: var(--surface-secondary);
+  border-color: #334155;
+}
+
+[data-md-color-scheme="slate"] .md-content table {
+  border-color: #334155;
+}
+
+[data-md-color-scheme="slate"] .md-content th {
+  background-color: var(--surface-secondary);
+  border-bottom-color: #334155;
+}
+
+[data-md-color-scheme="slate"] .md-content td {
+  border-bottom-color: #1e293b;
+}
+
+[data-md-color-scheme="slate"] .md-search__form {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-md-color-scheme="slate"] .md-search__form:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   SCROLLBAR - Minimal and Polished
+   ============================================ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-tertiary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* ============================================
+   RESPONSIVE REFINEMENTS
+   ============================================ */
+@media screen and (max-width: 76.1875em) {
+  .md-nav__title {
+    background-color: var(--surface-secondary);
+  }
+
+  .md-content {
+    padding: 0 1.5rem !important;
+  }
+}
+
+@media screen and (max-width: 60em) {
+  .md-content {
+    padding: 0 1rem !important;
+  }
+
+  .md-content h1 {
+    font-size: 2rem;
+  }
+
+  .md-content h2 {
+    font-size: 1.5rem;
+  }
+}
+
+/* ============================================
+   MICRO-INTERACTIONS - Delightful Details
+   ============================================ */
+.md-content a,
+.md-nav__link,
+.md-button {
+  will-change: transform;
+}
+
+.md-tabs__link {
+  opacity: 0.85;
+  transition: opacity var(--transition-fast);
+}
+
+.md-tabs__link:hover {
+  opacity: 1;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* ============================================
+   PRINT STYLES - Optimized for Documentation
+   ============================================ */
+@media print {
+  .md-sidebar,
+  .md-header,
+  .md-footer {
+    display: none;
+  }
+
+  .md-content {
+    margin: 0 !important;
+    max-width: none !important;
+  }
+}
+
+/* ============================================
+   MATHJAX - Responsive Font Scaling
+   ============================================ */
+.MathJax {
+  font-size: calc(125% + (150% - 125%) * (100vw - 320px) / (1920px - 320px)) !important;
+}
