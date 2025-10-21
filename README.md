@@ -118,8 +118,6 @@ Each operation creates a new observable. Chain them to build sophisticated react
 
 ## The Mathematical Guarantee
 
-You don't need to understand category theory at all to use FynX, though it is what makes FynX different: the reactive behavior doesn't just work for the examples you see—it works by mathematical necessity for any reactive program you could construct. FynX is built on solid mathematical foundations from category theory. These aren't abstractions for their own sake—they're implementation principles that guarantee correctness and enable powerful optimizations.
-
 You don't need to understand category theory to use FynX, but it's what makes FynX reliable: the reactive behavior isn't just validated by examples—it's guaranteed by mathematical necessity. Every reactive program you construct will work correctly because FynX is built on universal properties from category theory (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that ensure correctness and enable powerful optimizations.
 
 FynX satisfies specific universal properties from category theory, guaranteeing correctness:
