@@ -43,7 +43,7 @@
   </a>
 </p>
 
-<p align="center" style=""><i>FynX ("Finks") = Functional Yielding Observable Networks</i></p>
+<p align="center" style=""><i>FynX ( /fɪŋks/ ) = Functional Yielding Observable Networks</i></p>
 
 **FynX** makes state management in Python feel inevitable rather than effortful. Inspired by [MobX](https://github.com/mobxjs/mobx) and functional reactive programming, the library turns your data reactive with minimal ceremony—declare relationships once, and updates cascade automatically through your entire application.
 
