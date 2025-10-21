@@ -10,7 +10,7 @@ and state persistence.
 from datetime import datetime
 from typing import Optional
 
-from fynx import Store, observable, reactive, watch
+from fynx import Store, observable, reactive
 from fynx.observable.computed import ComputedObservable
 
 
@@ -232,7 +232,7 @@ is_premium = UserProfile.subscription_tier >> (lambda tier: tier == "premium")
 
 
 @reactive(is_adult & is_premium)
-def on_eligible_user():
+def on_eligible_user(condition_value):
     print("🎯 User is now eligible for premium features!")
 
 
@@ -244,7 +244,7 @@ notifications_disabled = UserProfile.notifications_enabled >> (
 
 
 @reactive(many_logins & notifications_disabled)
-def on_suspicious_activity():
+def on_suspicious_activity(condition_value):
     print("🚨 Suspicious activity detected - many logins with notifications disabled")
 
 
@@ -288,7 +288,7 @@ first_login = UserProfile.login_count >> (lambda count: count == 1)
 
 
 @reactive(first_login)
-def welcome_new_user():
+def welcome_new_user(condition_value):
     print("🎊 Welcome! This is your first login!")
 
 
@@ -297,7 +297,7 @@ tenth_login = UserProfile.login_count >> (lambda count: count == 10)
 
 
 @reactive(tenth_login)
-def reward_milestone():
+def reward_milestone(condition_value):
     print("🏆 Milestone reached: 10 logins! Here's a virtual badge!")
 
 

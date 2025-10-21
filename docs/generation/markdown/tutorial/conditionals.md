@@ -143,6 +143,63 @@ is_online.set(False)  # is_offline becomes True, prints: "User went offline"
 is_online.set(True)   # is_offline becomes False, no output
 ```
 
+## The | Operator: Logical OR
+
+The `|` operator creates logical OR conditions between boolean observables. It emits when ANY of the conditions is truthy:
+
+```python
+is_error = observable(False)
+is_warning = observable(True)
+is_critical = observable(False)
+
+# Logical OR using | operator
+needs_attention = is_error | is_warning | is_critical
+
+# Alternative using .either() method
+needs_attention_alt = is_error.either(is_warning).either(is_critical)
+
+needs_attention.subscribe(lambda needs_attention: {
+    if needs_attention:
+        print("⚠️ System needs attention!")
+})
+
+# Updates automatically when any condition changes
+is_error.set(True)    # Prints: "⚠️ System needs attention!"
+is_warning.set(False) # Still prints (is_error is True)
+is_error.set(False)   # Still prints (is_critical is False, but was True initially)
+```
+
+The `|` operator creates conditional observables that only emit when the OR result is truthy. If the initial OR result is falsy, it raises `ConditionalNeverMet`.
+
+### Combining OR with Other Operators
+
+You can combine `|` with `&` and `~` for complex logical expressions:
+
+```python
+user_input = observable("")
+is_admin = observable(False)
+is_moderator = observable(True)
+
+# Create boolean conditions
+has_input = user_input >> (lambda u: len(u) > 0)
+has_permission = is_admin | is_moderator  # OR condition
+is_not_empty = has_input & (lambda h: h == True)  # AND condition
+
+# Complex condition: user has input AND (is admin OR moderator)
+can_submit = user_input & has_input & has_permission
+
+can_submit.subscribe(lambda can_submit: {
+    if can_submit is not None:
+        print("✅ User can submit")
+    else:
+        print("❌ User cannot submit")
+})
+
+user_input.set("Hello")  # Prints: "✅ User can submit"
+is_moderator.set(False)  # Prints: "❌ User cannot submit" (no permission)
+is_admin.set(True)       # Prints: "✅ User can submit" (admin permission)
+```
+
 ### Combining Negation with Filtering
 
 Create "everything except" patterns:
@@ -403,6 +460,7 @@ form_valid = (email_ok & (lambda _: True)) & (password_ok & (lambda _: True))
 Conditionals transform your reactive system from "process everything" to "process only what matters":
 
 * **`&` operator**: Filter data streams based on predicates
+* **`|` operator**: Create logical OR conditions between boolean observables
 * **`~` operator**: Invert boolean conditions
 * **Performance**: Skip unnecessary computations
 * **Clarity**: Separate filtering logic from reaction logic

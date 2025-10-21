@@ -1,6 +1,7 @@
 import pytest
 
 from fynx.observable.base import Observable
+from fynx.observable.conditional import ConditionalNeverMet
 from fynx.observable.descriptors import ObservableValue
 from fynx.observable.operators import and_operator
 
@@ -8,15 +9,90 @@ from fynx.observable.operators import and_operator
 @pytest.mark.unit
 @pytest.mark.observable
 @pytest.mark.operators
-def test_or_operator_merges_observables_into_tuple():
-    """Merging with + produces a tuple of current values."""
+def test_or_operator_creates_logical_or_condition():
+    """The | operator creates a logical OR condition between observables."""
     # Arrange
-    a = Observable("a", 2)
-    b = Observable("b", 3)
+    is_error = Observable("error", True)
+    is_warning = Observable("warning", False)
+
     # Act
-    merged = a + b
+    needs_attention = is_error | is_warning
+
     # Assert
-    assert merged.value == (2, 3)
+    assert needs_attention.value is True  # True OR False = True
+
+    # Test updates - keep at least one True to maintain the condition
+    is_warning.set(True)
+    assert needs_attention.value is True  # True OR True = True
+
+    # Test with both True
+    is_error.set(True)
+    assert needs_attention.value is True  # True OR True = True
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_or_operator_with_falsy_initial_values():
+    """The | operator raises ConditionalNeverMet when both initial values are falsy."""
+    # Arrange
+    is_error = Observable("error", False)
+    is_warning = Observable("warning", False)
+
+    # Act & Assert
+    with pytest.raises(ConditionalNeverMet):
+        needs_attention = is_error | is_warning
+        _ = needs_attention.value
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_or_operator_chaining():
+    """The | operator can be chained for multiple OR conditions."""
+    # Arrange
+    is_error = Observable("error", True)
+    is_warning = Observable("warning", False)
+    is_critical = Observable("critical", False)
+
+    # Act
+    needs_attention = is_error | is_warning | is_critical
+
+    # Assert
+    assert needs_attention.value is True  # True OR False OR False = True
+
+    # Test updates - keep at least one True to maintain the condition
+    is_warning.set(True)
+    assert needs_attention.value is True  # True OR True OR False = True
+
+    # Test with all True
+    is_critical.set(True)
+    assert needs_attention.value is True  # True OR True OR True = True
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_or_operator_equivalent_to_either():
+    """The | operator is equivalent to calling .either() method."""
+    # Arrange
+    is_error = Observable("error", True)
+    is_warning = Observable("warning", False)
+
+    # Act
+    needs_attention_or = is_error | is_warning
+    needs_attention_either = is_error.either(is_warning)
+
+    # Assert
+    assert needs_attention_or.value == needs_attention_either.value
+
+    # Test updates - keep at least one True to maintain the condition
+    is_warning.set(True)
+    assert needs_attention_or.value == needs_attention_either.value
+
+    # Test with both True
+    is_error.set(True)
+    assert needs_attention_or.value == needs_attention_either.value
 
 
 @pytest.mark.unit

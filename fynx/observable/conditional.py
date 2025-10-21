@@ -339,12 +339,17 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
             # Check if condition is a valid type
             is_observable = isinstance(condition, Observable)
+            is_observable_value = hasattr(condition, "observable") and hasattr(
+                condition, "value"
+            )
             is_callable = callable(condition)
             is_conditional = isinstance(condition, Conditional)
 
-            if not (is_observable or is_callable or is_conditional):
+            if not (
+                is_observable or is_observable_value or is_callable or is_conditional
+            ):
                 raise TypeError(
-                    f"Condition {i} must be an Observable, callable, or ConditionalObservable, "
+                    f"Condition {i} must be an Observable, ObservableValue, callable, or ConditionalObservable, "
                     f"got {type(condition).__name__}"
                 )
 
@@ -357,11 +362,17 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         For callable conditions, we keep them as-is since they will be
         evaluated dynamically against the source value. This avoids
         creating unnecessary computed observables.
+
+        For ObservableValue conditions, we unwrap them to get the underlying observable.
         """
         processed = []
         for condition in conditions:
-            # Keep conditions as provided; evaluation is handled dynamically
-            processed.append(condition)
+            if hasattr(condition, "observable") and hasattr(condition, "value"):
+                # Unwrap ObservableValue-like objects to get the underlying observable
+                processed.append(condition.observable)
+            else:
+                # Keep conditions as provided; evaluation is handled dynamically
+                processed.append(condition)
         return processed
 
     def _check_if_conditions_are_satisfied(self) -> bool:

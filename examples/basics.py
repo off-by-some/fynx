@@ -173,7 +173,7 @@ has_messages = message_count >> (lambda c: c is not None and c > 0)
 
 
 @reactive(is_online & has_messages)
-def notify_user():
+def notify_user(condition_value):
     print(f"📬 Notifying user: {message_count.value} new messages while online!")
 
 

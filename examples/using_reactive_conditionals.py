@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Examples demonstrating the @watch decorator for conditional reactive programming.
+Examples demonstrating the @reactive decorator for conditional reactive programming.
 
-This script showcases various patterns for using @watch to create event-driven
+This script showcases various patterns for using @reactive to create event-driven
 reactive functions that trigger when specific conditions become true.
 
-Run this script to see @watch in action:
+Run this script to see @reactive in action:
 
-    python examples/using_watch.py
+    python examples/using_reactive_conditionals.py
 
 Each example demonstrates a different aspect of conditional reactive programming.
 """
@@ -18,20 +18,24 @@ from fynx import Store, observable, reactive
 
 
 def basic_watch_example():
-    """Demonstrate basic @watch functionality with an age threshold.
+    """Demonstrate basic @reactive functionality with an age threshold.
 
-    This example shows how @watch triggers only when a condition transitions
-    from false to true, not on every change.
+    This example shows how @reactive triggers only when a condition transitions
+    from False to True, not on every change.
     """
-    print("=== Basic @watch Example ===")
+    print("=== Basic @reactive Example ===")
     print("Watching for when a user becomes an adult (age >= 18)")
     print()
 
     age = observable(16)
 
-    @watch(lambda: age.value >= 18)
-    def on_becomes_adult():
-        print(f"User became an adult at age {age.value}")
+    # Create a conditional observable for the age threshold
+    is_adult = age >> (lambda a: a >= 18)
+
+    @reactive(is_adult)
+    def on_becomes_adult_basic(is_adult_value):
+        if is_adult_value:
+            print(f"User became an adult at age {age.value}")
 
     # Demonstrate the transition behavior
     print(f"Initial age: {age.value}")
@@ -43,13 +47,14 @@ def basic_watch_example():
 
     age.set(19)
     print(f"Age set to: {age.value} (condition stays true, no additional trigger)")
+
     print()
 
 
 def multiple_conditions_and_example():
     """Demonstrate multiple conditions with AND logic.
 
-    When multiple condition functions are passed to @watch, all must be true
+    When multiple condition functions are passed to @reactive, all must be true
     for the decorated function to trigger. This implements logical AND behavior.
     """
     print("=== Multiple Conditions AND Logic ===")
@@ -59,9 +64,13 @@ def multiple_conditions_and_example():
     has_items = observable(False)
     is_logged_in = observable(False)
 
-    @watch(lambda: has_items.value, lambda: is_logged_in.value)
-    def on_ready_to_checkout():
-        print("Ready to checkout - all conditions met!")
+    # Create conditional observables for AND logic
+    ready_to_checkout = (has_items + is_logged_in) >> (lambda h, l: h and l)
+
+    @reactive(ready_to_checkout)
+    def on_ready_to_checkout_and(ready_value):
+        if ready_value:
+            print("Ready to checkout - all conditions met!")
 
     # Demonstrate AND logic
     print("Initial state: has_items=False, is_logged_in=False")
@@ -72,6 +81,48 @@ def multiple_conditions_and_example():
     is_logged_in.set(True)
     print("Set is_logged_in=True (both conditions now true, triggers!)")
 
+    # Clean up
+    on_ready_to_checkout_and.unsubscribe()
+    print()
+
+
+def conditional_observable_or_example():
+    """Demonstrate ConditionalObservable with the | operator.
+
+    The | operator creates ConditionalObservable objects that combine multiple
+    boolean observables with OR logic, emitting when ANY condition is true.
+    """
+    print("=== ConditionalObservable with | Operator ===")
+    print("Using | operator for OR conditions: is_error | is_warning | is_critical")
+    print()
+
+    is_error = observable(False)
+    is_warning = observable(True)  # Start with True to avoid ConditionalNeverMet
+    is_critical = observable(False)
+
+    # Create OR condition using | operator
+    needs_attention = is_error | is_warning | is_critical
+
+    @reactive(needs_attention)
+    def on_attention_needed_or(needs_attention_state):
+        if needs_attention_state:
+            print("⚠️ System needs attention! (OR condition met)")
+
+    # Demonstrate the | operator behavior
+    print("Initial state: is_warning=True, others False")
+    print("OR condition: False | True | False = True")
+
+    is_error.set(True)
+    print("Set is_error=True (2/3 conditions met, still triggers)")
+
+    is_warning.set(False)
+    print("Set is_warning=False (1/3 conditions met, still triggers)")
+
+    is_error.set(False)
+    print("Set is_error=False (0/3 conditions met, no longer triggers)")
+
+    # Clean up
+    on_attention_needed_or.unsubscribe()
     print()
 
 
@@ -92,8 +143,8 @@ def conditional_observable_and_example():
     is_logged_in = observable(False)
     payment_valid = observable(False)
 
-    @watch(has_items & is_logged_in & payment_valid)
-    def on_ready_to_checkout():
+    @reactive(has_items & is_logged_in & payment_valid)
+    def on_ready_to_checkout_and_op(condition_value):
         print("Ready to checkout - all conditions met using & operator!")
 
     # Demonstrate the & operator behavior
@@ -108,13 +159,15 @@ def conditional_observable_and_example():
     payment_valid.set(True)
     print("Set payment_valid=True (3/3 conditions met, triggers!)")
 
+    # Clean up
+    on_ready_to_checkout_and_op.unsubscribe()
     print()
 
 
 def form_submission_flow_example():
     """Demonstrate a multi-step form submission workflow.
 
-    This example shows how @watch can be used to manage complex state transitions
+    This example shows how @reactive can be used to manage complex state transitions
     in a form submission process, from validation to completion.
     """
     print("=== Form Submission Flow ===")
@@ -138,17 +191,20 @@ def form_submission_flow_example():
         lambda e, p, t: e and p and t
     )
 
-    @watch(lambda: all_valid.value)
-    def on_form_valid():
-        print("Form validation passed - submit button enabled")
+    @reactive(all_valid)
+    def on_form_valid_submit(is_valid):
+        if is_valid:
+            print("Form validation passed - submit button enabled")
 
-    @watch(lambda: FormStore.is_submitting.value)
-    def on_submit_start():
-        print("Form submission started")
+    @reactive(FormStore.is_submitting)
+    def on_submit_start_submit(is_submitting):
+        if is_submitting:
+            print("Form submission started")
 
-    @watch(lambda: FormStore.submission_complete.value)
-    def on_submit_complete():
-        print("Form submission completed successfully")
+    @reactive(FormStore.submission_complete)
+    def on_submit_complete_submit(is_complete):
+        if is_complete:
+            print("Form submission completed successfully")
 
     # Simulate user filling out the form
     print("User fills out form:")
@@ -171,13 +227,17 @@ def form_submission_flow_example():
     FormStore.submission_complete = True
     print("Submission completed")
 
+    # Clean up
+    on_form_valid_submit.unsubscribe()
+    on_submit_start_submit.unsubscribe()
+    on_submit_complete_submit.unsubscribe()
     print()
 
 
 def complex_conditions_example():
     """Demonstrate complex boolean conditions with logical operators.
 
-    This example shows how @watch can handle complex conditions involving
+    This example shows how @reactive can handle complex conditions involving
     AND, OR, and other logical operators within lambda functions.
     """
     print("=== Complex Boolean Conditions ===")
@@ -187,11 +247,15 @@ def complex_conditions_example():
     temperature = observable(20)
     humidity = observable(50)
 
-    @watch(lambda: (temperature.value > 25 and humidity.value < 60))
-    def on_comfortable():
-        print(
-            f"Climate became comfortable (temp: {temperature.value}, humidity: {humidity.value})"
-        )
+    # Create conditional observable for complex conditions
+    is_comfortable = (temperature + humidity) >> (lambda t, h: t > 25 and h < 60)
+
+    @reactive(is_comfortable)
+    def on_comfortable_complex(comfortable_value):
+        if comfortable_value:
+            print(
+                f"Climate became comfortable (temp: {temperature.value}, humidity: {humidity.value})"
+            )
 
     # Demonstrate the complex condition logic
     print("Initial state: temperature=20, humidity=50")
@@ -215,13 +279,15 @@ def complex_conditions_example():
     print("Set temperature=30")
     print("Condition: 30 > 25 AND 50 < 60 = True AND True = True (triggers again)")
 
+    # Clean up
+    on_comfortable_complex.unsubscribe()
     print()
 
 
 def one_time_vs_repeating_events_example():
     """Demonstrate one-time events versus repeating milestone events.
 
-    This example shows how @watch can handle both events that occur only once
+    This example shows how @reactive can handle both events that occur only once
     and events that repeat at regular intervals.
     """
     print("=== One-time vs Repeating Events ===")
@@ -232,17 +298,24 @@ def one_time_vs_repeating_events_example():
 
     login_count = observable(0)
 
-    @watch(lambda: login_count.value == 1)
-    def on_first_login():
-        print(f"First login milestone reached at login #{login_count.value}")
+    # Create conditional observables for milestone tracking
+    is_first_login = login_count >> (lambda count: count == 1)
 
-    last_milestone = 0
+    @reactive(is_first_login)
+    def on_first_login_milestone(is_first_value):
+        if is_first_value:
+            print(f"First login milestone reached at login #{login_count.value}")
 
-    @watch(lambda: login_count.value >= last_milestone + 10)
-    def on_login_milestone():
-        nonlocal last_milestone
-        last_milestone = login_count.value
-        print(f"Login milestone reached: {login_count.value} total logins")
+    last_milestone = observable(0)
+    is_milestone_login = (login_count + last_milestone) >> (
+        lambda count, last: count >= last + 10
+    )
+
+    @reactive(is_milestone_login)
+    def on_login_milestone_repeat(is_milestone_value):
+        if is_milestone_value:
+            last_milestone.set(login_count.value)
+            print(f"Login milestone reached: {login_count.value} total logins")
 
     # Simulate user logins
     print("Simulating user logins:")
@@ -253,11 +326,14 @@ def one_time_vs_repeating_events_example():
                 f"  Login #{i}: {'(first login triggered)' if i == 1 else '(milestone triggered)' if i in [10, 20] else ''}"
             )
 
+    # Clean up
+    on_first_login_milestone.unsubscribe()
+    on_login_milestone_repeat.unsubscribe()
     print()
 
 
 def computed_observables_combination_example():
-    """Demonstrate combining @watch with computed observables.
+    """Demonstrate combining @reactive with computed observables.
 
     This example shows how to use computed observables to derive complex state
     from simple observables, then watch for transitions on the computed values.
@@ -281,9 +357,10 @@ def computed_observables_combination_example():
         lambda items, shipping, payment: items and shipping and payment
     )
 
-    @watch(lambda: can_checkout.value)
-    def on_checkout_ready():
-        print("Checkout became available - all requirements met")
+    @reactive(can_checkout)
+    def on_checkout_ready_computed(can_checkout_value):
+        if can_checkout_value:
+            print("Checkout became available - all requirements met")
 
     # Demonstrate the checkout flow
     print("Building checkout state:")
@@ -296,6 +373,8 @@ def computed_observables_combination_example():
     ShoppingCartStore.payment_method = "credit_card"
     print("Added payment method (all conditions now met, triggers checkout ready)")
 
+    # Clean up
+    on_checkout_ready_computed.unsubscribe()
     print()
 
 
@@ -316,8 +395,8 @@ def conditional_observable_with_computed_example():
     # Computed observable: cart meets minimum total
     has_minimum_total = cart_total >> (lambda total: total >= 50)
 
-    @watch(user_logged_in & data_loaded & has_minimum_total)
-    def on_ready_with_minimum():
+    @reactive(user_logged_in & data_loaded & has_minimum_total)
+    def on_ready_with_minimum_computed(condition_value):
         print(f"Ready for premium checkout (total: ${cart_total.value})")
 
     # Demonstrate the combined logic
@@ -334,13 +413,15 @@ def conditional_observable_with_computed_example():
     cart_total.set(60)
     print("Cart total set to $60 (meets minimum, all conditions now true, triggers)")
 
+    # Clean up
+    on_ready_with_minimum_computed.unsubscribe()
     print()
 
 
 def user_engagement_system_example():
     """Demonstrate a comprehensive user engagement tracking system.
 
-    This example shows how @watch can be used to create sophisticated engagement
+    This example shows how @reactive can be used to create sophisticated engagement
     tracking with multiple threshold levels and different types of events.
     """
     print("=== User Engagement System ===")
@@ -363,21 +444,30 @@ def user_engagement_system_example():
         lambda views, actions, time: min(100, (views * 5) + (actions * 10) + (time / 6))
     )
 
-    @watch(lambda: engagement_score.value >= 25)
-    def on_low_engagement():
-        print(f"Low engagement reached (score: {engagement_score.value:.1f})")
+    # Create conditional observables for engagement levels
+    low_engagement = engagement_score >> (lambda score: score >= 25)
+    medium_engagement = engagement_score >> (lambda score: score >= 50)
+    high_engagement = engagement_score >> (lambda score: score >= 75)
 
-    @watch(lambda: engagement_score.value >= 50)
-    def on_medium_engagement():
-        print(f"Medium engagement reached (score: {engagement_score.value:.1f})")
+    @reactive(low_engagement)
+    def on_low_engagement_user(has_low):
+        if has_low:
+            print(f"Low engagement reached (score: {engagement_score.value:.1f})")
 
-    @watch(lambda: engagement_score.value >= 75)
-    def on_high_engagement():
-        print(f"High engagement reached (score: {engagement_score.value:.1f})")
+    @reactive(medium_engagement)
+    def on_medium_engagement_user(has_medium):
+        if has_medium:
+            print(f"Medium engagement reached (score: {engagement_score.value:.1f})")
 
-    @watch(lambda: UserActivityStore.has_account.value)
-    def on_account_created():
-        print("Account created - user registration completed")
+    @reactive(high_engagement)
+    def on_high_engagement_user(has_high):
+        if has_high:
+            print(f"High engagement reached (score: {engagement_score.value:.1f})")
+
+    @reactive(UserActivityStore.has_account)
+    def on_account_created_user(has_account):
+        if has_account:
+            print("Account created - user registration completed")
 
     # Simulate user engagement progression
     print("User engagement progression:")
@@ -407,17 +497,22 @@ def user_engagement_system_example():
     UserActivityStore.time_on_site = 180
     print("User spends even more time (score: 80, triggers high engagement)")
 
+    # Clean up
+    on_low_engagement_user.unsubscribe()
+    on_medium_engagement_user.unsubscribe()
+    on_high_engagement_user.unsubscribe()
+    on_account_created_user.unsubscribe()
     print()
 
 
 def order_processing_pipeline_example():
-    """Demonstrate an order processing pipeline using @watch.
+    """Demonstrate an order processing pipeline using @reactive.
 
-    This example shows how @watch can orchestrate complex multi-step workflows
+    This example shows how @reactive can orchestrate complex multi-step workflows
     where each stage depends on the completion of previous stages.
     """
     print("=== Order Processing Pipeline ===")
-    print("Multi-step workflow orchestration with @watch")
+    print("Multi-step workflow orchestration with @reactive")
     print()
 
     class OrderStore(Store):
@@ -428,37 +523,46 @@ def order_processing_pipeline_example():
         shipped = observable(False)
         delivered = observable(False)
 
-    # Pipeline stages - each @watch represents a transition to the next stage
-    @watch(lambda: len(OrderStore.items.value) > 0)
-    def on_order_created():
-        print("Order created - items added to cart")
+    # Pipeline stages - each @reactive represents a transition to the next stage
+    has_items = OrderStore.items >> (lambda items: len(items) > 0)
 
-    @watch(
-        lambda: OrderStore.payment_verified.value,
-        lambda: len(OrderStore.items.value) > 0,
+    @reactive(has_items)
+    def on_order_created_pipeline(has_items_value):
+        if has_items_value:
+            print("Order created - items added to cart")
+
+    payment_and_items = (OrderStore.payment_verified + OrderStore.items) >> (
+        lambda payment, items: payment and len(items) > 0
     )
-    def on_payment_verified():
-        print("Payment verified - proceeding to inventory check")
-        # Simulate automatic inventory reservation
-        OrderStore.inventory_reserved = True
 
-    @watch(lambda: OrderStore.inventory_reserved.value)
-    def on_inventory_reserved():
-        print("Inventory reserved - generating shipping label")
-        # Simulate automatic label creation
-        OrderStore.shipping_label_created = True
+    @reactive(payment_and_items)
+    def on_payment_verified_pipeline(payment_and_items_value):
+        if payment_and_items_value:
+            print("Payment verified - proceeding to inventory check")
+            # Simulate automatic inventory reservation
+            OrderStore.inventory_reserved = True
 
-    @watch(lambda: OrderStore.shipping_label_created.value)
-    def on_label_created():
-        print("Shipping label created - order ready for shipment")
+    @reactive(OrderStore.inventory_reserved)
+    def on_inventory_reserved_pipeline(inventory_reserved):
+        if inventory_reserved:
+            print("Inventory reserved - generating shipping label")
+            # Simulate automatic label creation
+            OrderStore.shipping_label_created = True
 
-    @watch(lambda: OrderStore.shipped.value)
-    def on_shipped():
-        print("Order shipped - tracking number generated")
+    @reactive(OrderStore.shipping_label_created)
+    def on_label_created_pipeline(shipping_label_created):
+        if shipping_label_created:
+            print("Shipping label created - order ready for shipment")
 
-    @watch(lambda: OrderStore.delivered.value)
-    def on_delivered():
-        print("Order delivered - customer notified")
+    @reactive(OrderStore.shipped)
+    def on_shipped_pipeline(shipped):
+        if shipped:
+            print("Order shipped - tracking number generated")
+
+    @reactive(OrderStore.delivered)
+    def on_delivered_pipeline(delivered):
+        if delivered:
+            print("Order delivered - customer notified")
 
     # Execute the order processing pipeline
     print("Processing customer order:")
@@ -474,7 +578,7 @@ def order_processing_pipeline_example():
     OrderStore.payment_verified = True
     print("Payment processed")
 
-    # Subsequent stages are triggered automatically by the @watch decorators
+    # Subsequent stages are triggered automatically by the @reactive decorators
     # Each stage advances the order through the pipeline
 
     # Stage 5: Warehouse ships the order
@@ -485,17 +589,27 @@ def order_processing_pipeline_example():
     OrderStore.delivered = True
     print("Order delivered to customer")
 
+    # Clean up
+    on_order_created_pipeline.unsubscribe()
+    on_payment_verified_pipeline.unsubscribe()
+    on_inventory_reserved_pipeline.unsubscribe()
+    on_label_created_pipeline.unsubscribe()
+    on_shipped_pipeline.unsubscribe()
+    on_delivered_pipeline.unsubscribe()
     print()
 
 
 def main():
-    """Run all examples demonstrating @watch functionality."""
-    print("Running @watch examples demonstrating conditional reactive programming...")
+    """Run all examples demonstrating @reactive functionality."""
+    print(
+        "Running @reactive examples demonstrating conditional reactive programming..."
+    )
     print("=" * 70)
     print()
 
     basic_watch_example()
     multiple_conditions_and_example()
+    conditional_observable_or_example()
     conditional_observable_and_example()
     form_submission_flow_example()
     complex_conditions_example()
@@ -508,7 +622,7 @@ def main():
     print("=" * 70)
     print("All examples completed successfully.")
     print(
-        "These examples demonstrate the various ways to use @watch for conditional reactive programming."
+        "These examples demonstrate the various ways to use @reactive for conditional reactive programming."
     )
     return 0
 

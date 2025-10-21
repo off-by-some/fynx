@@ -244,6 +244,16 @@ class ObservableValue(Generic[T], ValueMixin):
     def __getattr__(self, name: str):
         return getattr(self._observable, name)
 
+    def __hash__(self) -> int:
+        """Make ObservableValue hashable by delegating to the underlying observable."""
+        return hash(self._observable)
+
+    def __eq__(self, other) -> bool:
+        """Equality comparison delegates to the underlying observable."""
+        if isinstance(other, ObservableValue):
+            return self._observable == other._observable
+        return self._observable == other
+
 
 class SubscriptableDescriptor(Generic[T]):
     """

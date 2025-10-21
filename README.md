@@ -194,19 +194,19 @@ class AppState(Store):
 AppState.username = "off-by-some"  # Normal assignment, reactive behavior
 ```
 
-Stores provide structure for related state and enable features like store-level reactions and serialization. With observables established, you compose them using FynX's four fundamental operators.
+Stores provide structure for related state and enable features like store-level reactions and serialization. With observables established, you compose them using FynX's five fundamental operators.
 
-## The Four Reactive Operators
+## The Five Reactive Operators
 
-FynX provides four composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `+`, `&`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.negate()`):
+FynX provides five composable operators that form a complete algebra for reactive programming. You can use either the symbolic operators (`>>`, `+`, `&`, `|`, `~`) or their natural language method equivalents (`.then()`, `.alongside()`, `.also()`, `.either()`, `.negate()`):
 
 | Operator | Method | Operation | Purpose | Example |
 |----------|--------|-----------|---------|---------|
 | `>>` | `.then()` | Transform | Apply functions to values | `price >> (lambda p: f"${p:.2f}")` |
 | `+` | `.alongside()` | Combine | Merge observables into read-only tuples | `(first + last) >> join` |
 | `&` | `.also()` | Filter | Gate based on conditions | `file & valid & ~processing` |
+| `\|` | `.either()` | Logical OR | Combine boolean conditions | `is_error \| is_warning` |
 | `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
-| | `.either()` | Logical OR | Combine boolean conditions | *(coming soon)* |
 
 Each operation creates a new observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that guarantee correct behavior under composition.
 
@@ -267,13 +267,15 @@ merged = User.first_name + User.last_name
 
 When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.
 
-## Filtering with `&`, `.also()`, `~`, and `.negate()`
+## Filtering with `&`, `.also()`, `~`, `.negate()`, `|`, and `.either()`
 
-The `&` operator (or `.also()`) filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` (or `.negate()`) to invert:
+The `&` operator (or `.also()`) filters observables to emit only when [conditions](https://off-by-some.github.io/fynx/generation/markdown/conditionals/) are met. Use `~` (or `.negate()`) to invert, and `|` (or `.either()`) for logical OR conditions:
 
 ```python
 uploaded_file = observable(None)
 is_processing = observable(False)
+is_error = observable(False)
+is_warning = observable(True)
 
 # Define validation function
 def is_valid_file(f):
@@ -286,9 +288,13 @@ is_valid_operator = uploaded_file >> is_valid_file
 # Filter using & operator (or .also() method)
 preview_ready_method = uploaded_file.also(is_valid_method).also(is_processing.negate())
 preview_ready_operator = uploaded_file & is_valid_operator & (~is_processing)
+
+# Logical OR using | operator (or .either() method)
+needs_attention = is_error | is_warning
+# Alternative: needs_attention = is_error.either(is_warning)
 ```
 
-The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
+The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. The `needs_attention` observable emits when any error or warning condition is true. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
 
 ## Reacting to Changes
 
@@ -355,7 +361,7 @@ def process_data(data):
 process_data.unsubscribe()  # Stops reacting to changes
 ```
 
-**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `+`, `&`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
+**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `+`, `&`, `|`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
 
 ## Additional Examples
 
@@ -376,7 +382,7 @@ These examples demonstrate how FynX's composable primitives scale from simple to
 
 Deep mathematics should enable simpler code, not complicate it. FynX grounds itself in category theory precisely because those abstractions—functors, products, pullbacks—capture the essence of composition without the accidents of implementation. Users benefit from mathematical rigor whether they recognize the theory or not.
 
-The interface reflects this. Observables feel like ordinary values—read them, write them, pass them around. Reactivity works behind the scenes, tracking dependencies through categorical structure without requiring explicit wiring. Method chaining flows naturally: `observable(42).subscribe(print)` reads as plain description, not ceremony. The `>>` operator transforms, `+` combines, `&` filters—each produces new observables ready for further composition. Complex reactive systems emerge from simple, reusable pieces.
+The interface reflects this. Observables feel like ordinary values—read them, write them, pass them around. Reactivity works behind the scenes, tracking dependencies through categorical structure without requiring explicit wiring. Method chaining flows naturally: `observable(42).subscribe(print)` reads as plain description, not ceremony. The `>>` operator transforms, `+` combines, `&` filters, `|` creates OR conditions, `~` negates—each produces new observables ready for further composition. Complex reactive systems emerge from simple, reusable pieces.
 
 FynX offers multiple APIs because different contexts call for different styles. Use decorators when conciseness matters, direct calls when you need explicit control, context managers when reactions should be scoped. The library adapts to your preferred way of working.
 

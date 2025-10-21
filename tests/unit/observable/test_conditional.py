@@ -257,7 +257,7 @@ def test_conditional_observable_raises_error_for_invalid_condition_type():
 
     with pytest.raises(
         TypeError,
-        match="Condition 0 must be an Observable, callable, or ConditionalObservable",
+        match="Condition 0 must be an Observable, ObservableValue, callable, or ConditionalObservable",
     ):
         ConditionalObservable(source, 42)
 
@@ -364,7 +364,7 @@ def test_conditional_observable_rejects_invalid_condition_types():
     # Should raise TypeError when trying to create conditional with invalid condition type
     with pytest.raises(
         TypeError,
-        match="Condition 0 must be an Observable, callable, or ConditionalObservable",
+        match="Condition 0 must be an Observable, ObservableValue, callable, or ConditionalObservable",
     ):
         ConditionalObservable(source, unknown_cond)
 
@@ -569,3 +569,55 @@ def test_conditional_observable_debug_info_handles_callable_with_single_source()
     ]
     assert len(callable_conditions) == 1
     assert callable_conditions[0]["result"] is True  # 5 > 3
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.store
+def test_conditional_observable_works_with_observable_value_from_stores():
+    """Conditional observables work with ObservableValue objects from store computed observables."""
+    from fynx import Store, observable
+
+    class TestStore(Store):
+        value = observable(10)
+        is_positive = value >> (lambda x: x > 0)
+        is_even = value >> (lambda x: x % 2 == 0)
+
+    # Create conditional observable using computed observables from store
+    # These are ObservableValue objects, not raw observables
+    filtered = TestStore.value & TestStore.is_positive & TestStore.is_even
+
+    # Should work correctly
+    assert isinstance(filtered, ConditionalObservable)
+    assert filtered.is_active is True  # 10 is positive and even
+    assert filtered.value == 10
+
+    # Test updates
+    TestStore.value = 7  # Positive but odd
+    assert filtered.is_active is False  # Conditions not met
+
+    TestStore.value = 8  # Positive and even
+    assert filtered.is_active is True
+    assert filtered.value == 8
+
+    TestStore.value = -4  # Negative but even
+    assert filtered.is_active is False  # Conditions not met
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.store
+def test_conditional_observable_validation_accepts_observable_value():
+    """Conditional observable validation accepts ObservableValue objects."""
+    from fynx import Store, observable
+
+    class TestStore(Store):
+        value = observable(5)
+        condition = value >> (lambda x: x > 3)
+
+    # This should not raise a TypeError
+    conditional = TestStore.value & TestStore.condition
+
+    assert isinstance(conditional, ConditionalObservable)
+    assert conditional.is_active is True
+    assert conditional.value == 5

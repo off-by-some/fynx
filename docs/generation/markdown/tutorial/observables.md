@@ -216,6 +216,7 @@ Observables are more than containers—they're nodes in a reactive graph. But st
 * **Transform observables** using the `>>` operator to create derived values that update automatically
 * **Combine observables** using the `+` operator to work with multiple sources of data
 * **Filter observables** using the `&` operator to apply conditional logic and control when data flows
+* **Create logical OR conditions** using the `|` operator to combine boolean observables
 * **Organize observables** into Stores for cleaner application architecture
 * **Automate reactions** with decorators that eliminate subscription boilerplate
 

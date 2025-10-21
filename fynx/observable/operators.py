@@ -252,6 +252,24 @@ class OperatorMixin(OperationsMixin):
         """
         return self.negate()  # type: ignore
 
+    def __or__(self, other) -> "Observable":
+        """
+        Create a logical OR condition using the | operator.
+
+        This creates a conditional observable that only emits when the OR result
+        is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.
+
+        Args:
+            other: Another boolean observable to OR with
+
+        Returns:
+            A conditional observable that only emits when OR is truthy
+
+        Raises:
+            ConditionalNeverMet: If initial OR result is falsy
+        """
+        return self.either(other)  # type: ignore
+
 
 class TupleMixin:
     """
