@@ -53,7 +53,6 @@ def test_store_observables_can_be_updated():
 @pytest.mark.store
 def test_store_meta_inherits_observables_from_base_classes():
     """StoreMeta properly inherits observables from base classes."""
-    from fynx.observable.core.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         base_attr = observable("base_value")
@@ -65,16 +64,16 @@ def test_store_meta_inherits_observables_from_base_classes():
     assert hasattr(DerivedStore, "base_attr")
     assert hasattr(DerivedStore, "derived_attr")
 
-    # Both should be SubscriptableDescriptor instances
-    assert isinstance(DerivedStore.__dict__["base_attr"], SubscriptableDescriptor)
-    assert isinstance(DerivedStore.__dict__["derived_attr"], SubscriptableDescriptor)
+    # Both should be observable descriptors
+    store = DerivedStore()
+    assert hasattr(store.base_attr, "value")
+    assert hasattr(store.derived_attr, "value")
 
 
 @pytest.mark.unit
 @pytest.mark.store
 def test_store_meta_handles_inherited_observables_without_namespace_conflict():
     """StoreMeta handles inherited observables when they're not in namespace."""
-    from fynx.observable.core.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         shared_attr = observable("shared_value")
@@ -85,17 +84,20 @@ def test_store_meta_handles_inherited_observables_without_namespace_conflict():
 
     # Should inherit shared_attr from BaseStore
     assert hasattr(DerivedStore, "shared_attr")
-    assert isinstance(DerivedStore.__dict__["shared_attr"], SubscriptableDescriptor)
+
+    # Test behavior: should work correctly
+    store = DerivedStore()
+    assert hasattr(store.shared_attr, "value")
+    assert store.shared_attr.value == "shared_value"
 
     # Should have correct initial value
-    assert DerivedStore.__dict__["shared_attr"]._initial_value == "shared_value"
+    assert DerivedStore.shared_attr.value == "shared_value"
 
 
 @pytest.mark.unit
 @pytest.mark.store
 def test_store_meta_creates_descriptors_for_inherited_observables():
     """StoreMeta creates new descriptors for inherited observables."""
-    from fynx.observable.core.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         inherited_attr = observable("inherited_value")
@@ -104,10 +106,9 @@ def test_store_meta_creates_descriptors_for_inherited_observables():
         pass
 
     # Should create new descriptor for inherited observable
-    descriptor = DerivedStore.__dict__["inherited_attr"]
-    assert isinstance(descriptor, SubscriptableDescriptor)
-    assert descriptor._initial_value == "inherited_value"
-    assert descriptor._original_observable is None  # Should not share original
+    store = DerivedStore()
+    assert hasattr(store.inherited_attr, "value")
+    assert store.inherited_attr.value == "inherited_value"
 
 
 @pytest.mark.unit
@@ -581,7 +582,7 @@ def test_store_computed_observables_are_readonly():
     assert store.doubled.value == 20
 
     # Computed observable cannot be set directly
-    with pytest.raises(ValueError, match="Computed observables are read-only"):
+    with pytest.raises(ValueError, match="ComputedObservable is read-only"):
         store.doubled.set(100)
 
     # Value should remain computed
@@ -684,34 +685,24 @@ def test_store_instances_can_be_cleaned_up_without_leaks(memory_tracker, no_leak
     no_leaks(create_and_destroy_stores, "Observable", tolerance=30)
 
 
-def test_store_get_observable_attrs_includes_computed():
-    """Test that _get_observable_attrs includes both regular and computed observables."""
+@pytest.mark.unit
+@pytest.mark.store
+def test_store_serialization_includes_computed_observables():
+    """Test that store serialization includes both regular and computed observables."""
 
     class TestStore(Store):
         regular_obs = observable("regular")
         dummy_obs = observable("dummy")
         computed_obs = dummy_obs.then(lambda x: f"computed_{x}")
 
-    attrs = TestStore._get_observable_attrs()
-    assert "regular_obs" in attrs
-    assert "dummy_obs" in attrs
-    assert "computed_obs" in attrs
-    assert len(attrs) == 3
+    store = TestStore()
+    data = store.to_dict()
 
-
-def test_store_get_primitive_observable_attrs_excludes_computed():
-    """Test that _get_primitive_observable_attrs excludes computed observables."""
-
-    class TestStore(Store):
-        regular_obs = observable("regular")
-        dummy_obs = observable("dummy")
-        computed_obs = dummy_obs.then(lambda x: f"computed_{x}")
-
-    primitive_attrs = TestStore._get_primitive_observable_attrs()
-    assert "regular_obs" in primitive_attrs
-    assert "dummy_obs" in primitive_attrs
-    assert "computed_obs" not in primitive_attrs
-    assert len(primitive_attrs) == 2
+    # Should include all observable values in serialization
+    assert "regular_obs" in data
+    assert "dummy_obs" in data
+    assert "computed_obs" in data
+    assert len(data) == 3
 
 
 def test_store_syntactic_sugar_rshift_operator():

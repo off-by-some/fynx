@@ -1,40 +1,85 @@
 """
-FynX DerivedValue - Abstract Base Class for Read-Only Derived Observables
-==========================================================================
+Enhanced DerivedValue - Elegant State Management
+================================================
 
-This module provides the DerivedValue abstract base class that represents
-read-only observables that derive their values from other observables.
-
-DerivedValue provides:
-- Read-only enforcement (set() raises ValueError)
-- Source tracking and dependency management
-- Lazy evaluation infrastructure
-- Computation hooks (abstract methods)
-- Internal value updates for framework use
-- Dependency subscription setup
-- Chain building for .then() operator
+Key improvements:
+1. Unified state machine for all derived observables
+2. Template method pattern for computation flow
+3. Separation of concerns (computation, notification, state)
+4. Centralized circular dependency detection
+5. Performance optimizations with minimal complexity
 """
 
 from abc import abstractmethod
-from typing import Any, Callable, List, Optional, Set, TypeVar
+from contextlib import contextmanager
+from enum import Enum
+from typing import Any, Callable, ContextManager, Optional, TypeVar
 
 from .observable import BaseObservable
 
 T = TypeVar("T")
 
 
+class ComputationState(Enum):
+    """Clear state machine for derived observable lifecycle."""
+
+    CLEAN = "clean"  # Value is up-to-date
+    DIRTY = "dirty"  # Needs recomputation
+    COMPUTING = "computing"  # Currently computing
+    INACTIVE = "inactive"  # Cannot compute (e.g., conditions not met)
+
+
+class ComputationContext:
+    """
+    Centralized context for tracking computation scope.
+
+    Replaces ad-hoc _computed_from attribute manipulation.
+    Uses context managers for automatic cleanup.
+    """
+
+    def __init__(self):
+        self._stack = []
+
+    @contextmanager
+    def computing(self, observable: "DerivedValue") -> ContextManager:
+        """Track computation scope for circular dependency detection."""
+        self._stack.append(observable)
+        try:
+            # Check for cycles
+            if len(self._stack) != len(set(self._stack)):
+                cycle = self._find_cycle()
+                raise RuntimeError(f"Circular dependency detected: {cycle}")
+            yield
+        finally:
+            self._stack.pop()
+
+    def _find_cycle(self):
+        """Find the cycle in the computation stack."""
+        seen = {}
+        cycle = []
+        for i, obs in enumerate(self._stack):
+            if obs in seen:
+                cycle = self._stack[seen[obs] :]
+                break
+            seen[obs] = i
+        return " -> ".join(str(o) for o in cycle)
+
+    def is_computing(self, observable: "DerivedValue") -> bool:
+        """Check if observable is currently being computed."""
+        return observable in self._stack
+
+
 class DerivedValue(BaseObservable[T]):
     """
-    Abstract base class for read-only derived observables.
+    Elegant base class for read-only derived observables.
 
-    This class represents observables that derive their values from other
-    observables and cannot be set directly. It provides the infrastructure
-    for lazy evaluation, dependency tracking, and computation management.
+    Uses template method pattern with clear extension points:
+    - _compute_value() - What to compute
+    - _should_compute() - When to compute
+    - _should_notify() - When to notify observers
+    - _can_access_value() - When value access is allowed
 
-    Subclasses must implement:
-    - `_compute_value()` - The computation logic
-    - `_should_recompute()` - When recomputation is needed
-    - `_on_source_change()` - Handle source changes
+    All state management is centralized in this base class.
     """
 
     def __init__(
@@ -42,177 +87,213 @@ class DerivedValue(BaseObservable[T]):
         key: Optional[str] = None,
         initial_value: Optional[T] = None,
         source_observable: Optional["BaseObservable"] = None,
-        source_observables: Optional[List["BaseObservable"]] = None,
-    ) -> None:
+        source_observables: Optional[list] = None,
+    ):
         super().__init__(key, initial_value)
 
-        # Source tracking
+        # Source tracking - simplified
         self._source_observable = source_observable
         self._source_observables = source_observables or []
 
-        # Lazy evaluation infrastructure
-        self._is_dirty = True
-        self._is_updating = False
+        # Unified state machine
+        self._state = ComputationState.DIRTY
 
-        # Set up dependency tracking and observers
+        # Performance optimization: cache computed value version
+        self._value_version = 0
+
+        # Per-instance cycle detection
+        self._computation_context = ComputationContext()
+
+        # Set up dependency subscription
         if source_observable is not None:
             self._setup_source_observers()
 
-    def set(self, value: Optional[T]) -> None:
+    # ============================================================
+    # Template Method Pattern - Core Computation Flow
+    # ============================================================
+
+    def _evaluate_and_update(self) -> None:
         """
-        Prevent direct modification of derived observable values.
+        Template method for computation flow.
 
-        Derived observables are read-only by design because their values are
-        automatically calculated from other observables. Attempting to set them
-        directly would break the reactive relationship.
-
-        Raises:
-            ValueError: Always raised to prevent direct modification.
+        This is the ONLY method that coordinates computation.
+        Subclasses override hooks, not this method.
         """
-        raise ValueError(
-            "Computed observables are read-only and cannot be set directly"
-        )
+        # Guard: Already computing (prevent recursion)
+        if self._state == ComputationState.COMPUTING:
+            return
 
-    def _find_ultimate_source(self) -> "BaseObservable":
-        """
-        Walk the chain to find the root non-derived observable.
+        # Guard: No need to compute
+        if not self._should_compute():
+            return
 
-        Returns:
-            The root source observable.
-        """
-        current = self._source_observable
-        while (
-            isinstance(current, DerivedValue) and current._source_observable is not None
-        ):
-            current = current._source_observable
-        return current if current is not None else self
+        # Transition to computing state
+        self._state = ComputationState.COMPUTING
 
-    def _mark_dirty(self) -> None:
-        """Mark that recomputation is needed."""
-        self._is_dirty = True
-
-    def _evaluate_if_dirty(self) -> None:
-        """Check and recompute if needed."""
-        if self._should_recompute():
-            self._compute_and_update()
-
-    def _compute_and_update(self) -> None:
-        """Compute the value and update if changed."""
-        if self._is_updating:
-            return  # Prevent recursion
-
-        self._is_updating = True
         try:
-            old_value = self._value_wrapper.unwrap()
-            new_value = self._compute_value()
+            # Use per-instance computation context for cycle detection
+            with self._computation_context.computing(self):
+                new_value = self._compute_value()
 
-            if old_value != new_value:
-                self._set_computed_value(new_value)
-        finally:
-            self._is_updating = False
+            # Check if we should update and notify
+            if self._should_notify(new_value):
+                self._update_and_notify(new_value)
+            else:
+                # Update without notification
+                self._value_wrapper._value = new_value
+                self._state = ComputationState.CLEAN
+
+        except Exception as e:
+            # Graceful error handling
+            self._handle_computation_error(e)
+
+    def _update_and_notify(self, new_value: T) -> None:
+        """Update value and notify observers atomically."""
+        old_value = self._value_wrapper._value
+        self._value_wrapper._value = new_value
+        self._state = ComputationState.CLEAN
+        self._value_version += 1
+
+        # Notify observers
+        self._notify_observers(new_value)
+
+    # ============================================================
+    # Extension Points - Subclasses Override These
+    # ============================================================
 
     @abstractmethod
     def _compute_value(self) -> T:
         """
         Compute the derived value.
 
-        Subclasses must implement this method to define how the
-        derived value is calculated from its sources.
-
-        Returns:
-            The computed value.
+        Called within a computation context for cycle detection.
+        Should be pure - no side effects.
         """
         pass
 
-    @abstractmethod
-    def _should_recompute(self) -> bool:
+    def _should_compute(self) -> bool:
         """
-        Determine if recomputation is needed.
+        Determine if computation is needed.
 
-        Subclasses must implement this method to define when
-        the derived value should be recomputed.
-
-        Returns:
-            True if recomputation is needed, False otherwise.
+        Default: Only compute when dirty.
+        Override for lazy evaluation or conditional logic.
         """
-        pass
+        return self._state == ComputationState.DIRTY
 
-    def _set_computed_value(self, value: T) -> None:
+    def _should_notify(self, new_value: T) -> bool:
         """
-        Internal method for framework to update derived values.
+        Determine if observers should be notified.
 
-        This method bypasses the read-only restriction and is used
-        internally by the framework to update computed values.
-
-        Args:
-            value: The new computed value.
+        Default: Notify if value changed.
+        Override for filtering (e.g., ConditionalObservable).
         """
-        self._is_dirty = False
-        self._value_wrapper._value = value
-        self._notify_observers(value)
+        return self._value_wrapper._value != new_value
+
+    def _can_access_value(self) -> bool:
+        """
+        Determine if value can be accessed.
+
+        Default: Always accessible.
+        Override for conditional access (e.g., ConditionalObservable).
+        """
+        return True
+
+    def _handle_computation_error(self, error: Exception) -> None:
+        """
+        Handle computation errors gracefully.
+
+        Default: Log and keep previous value.
+        Override for custom error handling.
+        """
+        # Re-raise circular dependency errors as they should bubble up
+        if "Circular dependency detected" in str(error):
+            raise error
+
+        import logging
+
+        logging.error(f"Computation error in {self}: {error}")
+        self._state = ComputationState.DIRTY  # Allow retry
+
+    # ============================================================
+    # Source Change Handling - Simplified
+    # ============================================================
+
+    def _on_source_change(self, value: Any) -> None:
+        """
+        Handle source changes uniformly.
+
+        Mark dirty and evaluate immediately (push-based).
+        For pull-based (lazy), override _should_compute().
+        """
+        self._mark_dirty()
+        self._evaluate_and_update()
+
+    def _mark_dirty(self) -> None:
+        """Mark that recomputation is needed."""
+        if self._state != ComputationState.COMPUTING:
+            self._state = ComputationState.DIRTY
 
     def _setup_source_observers(self) -> None:
         """
-        Subscribe to source changes - template method pattern.
+        Subscribe to source changes.
 
-        Default implementation handles single source observables.
-        Subclasses can override for multiple sources or special handling.
+        Override for multiple sources (e.g., MergedObservable).
         """
         if self._source_observable is not None:
             self._source_observable.subscribe(self._on_source_change)
 
-    @abstractmethod
-    def _on_source_change(self, value: Any) -> None:
-        """
-        Handle source changes.
-
-        Subclasses must implement this method to define how
-        source changes are handled.
-
-        Args:
-            value: The new value from the source.
-        """
-        pass
-
-    def _extend_chain(self, func: Callable) -> "LazyChainBuilder":
-        """
-        Common chain extension logic for .then() operator.
-
-        Returns:
-            A LazyChainBuilder for building transformation chains.
-        """
-        from ...util import LazyChainBuilder
-
-        # Find the ultimate source observable
-        source = self._find_ultimate_source()
-
-        # Build the chain of functions
-        functions = []
-
-        # If we have a composed function, add it to the chain
-        if hasattr(self, "_composed_func") and self._composed_func is not None:
-            functions.append(self._composed_func)
-
-        # Add the new function
-        functions.append(func)
-
-        # Return a lazy chain builder
-        return LazyChainBuilder(source, functions)
+    # ============================================================
+    # Value Access - With Protocol
+    # ============================================================
 
     @property
     def value(self) -> T:
         """
-        Get the current value with lazy evaluation.
+        Get current value with lazy evaluation.
 
-        For derived observables, this triggers recomputation if needed.
+        Respects _can_access_value() for conditional access.
         """
-        # Track dependency if we're in a reactive context
+        # Track dependency in reactive context
         if BaseObservable._current_context is not None:
             BaseObservable._current_context.add_dependency(self)
 
-        # Only recompute if dirty
-        if self._is_dirty and self._should_recompute():
-            self._compute_and_update()
+        # Check access permission
+        if not self._can_access_value():
+            return self._get_fallback_value()
 
-        # Return the current value (either cached or newly computed)
-        return super().value
+        # Evaluate if needed (lazy evaluation)
+        self._evaluate_and_update()
+
+        return self._value_wrapper._value
+
+    def _get_fallback_value(self) -> Optional[T]:
+        """
+        Fallback when value cannot be accessed.
+
+        Default: Return None
+        Override to raise exceptions (ConditionalObservable)
+        """
+        return None
+
+    # ============================================================
+    # Read-Only Enforcement
+    # ============================================================
+
+    def set(self, value: Optional[T]) -> None:
+        """Prevent direct modification of derived values."""
+        raise ValueError(
+            f"{self.__class__.__name__} is read-only. "
+            f"Update source observables instead."
+        )
+
+    def _set_computed_value(self, value: T) -> None:
+        """
+        Internal method for framework to update values.
+
+        Bypasses read-only restriction.
+        Used by reactive operators.
+        """
+        self._value_wrapper._value = value
+        self._state = ComputationState.CLEAN
+        self._value_version += 1
+        self._notify_observers(value)

@@ -547,9 +547,7 @@ def test_observable_notifications_processed_in_topological_order():
     assert filtered.is_active == False
 
     # Accessing value when conditions are unmet should raise ConditionalNotMet
-    with pytest.raises(
-        ConditionalNotMet, match="Conditions are not currently satisfied"
-    ):
+    with pytest.raises(ConditionalNotMet, match="Conditions not satisfied"):
         _ = filtered.value
 
 
@@ -583,9 +581,7 @@ def test_conditional_observable_throws_error_when_conditions_unmet():
     assert filtered.is_active == False  # Conditions not fully met
 
     # Accessing value when conditions are unmet should raise ConditionalNotMet
-    with pytest.raises(
-        ConditionalNotMet, match="Conditions are not currently satisfied"
-    ):
+    with pytest.raises(ConditionalNotMet, match="Conditions not satisfied"):
         _ = filtered.value
 
     # Change back to 6: positive and even - conditions become met again

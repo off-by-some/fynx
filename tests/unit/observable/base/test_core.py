@@ -581,7 +581,7 @@ def test_merged_observable_value_derives_from_source_observables():
 
     # Merged observables are read-only computed observables
     # Attempting to set them directly should raise ValueError
-    with pytest.raises(ValueError, match="Computed observables are read-only"):
+    with pytest.raises(ValueError, match="MergedObservable is read-only"):
         merged.set((5, 6))
 
     # Value should still reflect source values

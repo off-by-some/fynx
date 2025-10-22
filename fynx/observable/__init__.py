@@ -179,6 +179,7 @@ See Also
 from fynx.observable.computed import (
     ComputedObservable,
     ConditionalNeverMet,
+    ConditionalNotMet,
     ConditionalObservable,
     MergedObservable,
 )

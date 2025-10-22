@@ -65,6 +65,7 @@ __email__ = "cassidybridges@gmail.com"
 
 from .observable import (
     ConditionalNeverMet,
+    ConditionalNotMet,
     ConditionalObservable,
     MergedObservable,
     Observable,
@@ -81,6 +82,7 @@ __all__ = [
     "MergedObservable",
     "ConditionalObservable",
     "ConditionalNeverMet",
+    "ConditionalNotMet",
     "ReactiveContext",
     "ReactiveFunctionWasCalled",
     "observable",

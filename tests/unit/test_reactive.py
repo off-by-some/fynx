@@ -2,7 +2,7 @@
 
 import pytest
 
-from fynx import Store, observable, reactive
+from fynx import ReactiveFunctionWasCalled, Store, observable, reactive
 from tests.test_factories import create_temperature_monitor_store
 
 

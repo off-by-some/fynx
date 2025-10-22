@@ -115,9 +115,7 @@ class TestReadmeExamples:
         # Accessing value when conditions are unmet should raise ConditionalNotMet
         from fynx.observable.computed import ConditionalNotMet
 
-        with pytest.raises(
-            ConditionalNotMet, match="Conditions are not currently satisfied"
-        ):
+        with pytest.raises(ConditionalNotMet, match="Conditions not satisfied"):
             _ = preview_ready.value
 
         # Clear processing - should unblock
@@ -251,17 +249,13 @@ class TestReadmeExamples:
         # Accessing value when conditions are unmet should raise ConditionalNotMet
         from fynx.observable.computed import ConditionalNotMet
 
-        with pytest.raises(
-            ConditionalNotMet, match="Conditions are not currently satisfied"
-        ):
+        with pytest.raises(ConditionalNotMet, match="Conditions not satisfied"):
             _ = filtered.value
 
         data.set(7)  # not even
 
         # Still throws error
-        with pytest.raises(
-            ConditionalNotMet, match="Conditions are not currently satisfied"
-        ):
+        with pytest.raises(ConditionalNotMet, match="Conditions not satisfied"):
             _ = filtered.value
 
         data.set(10)  # positive and even
