@@ -145,3 +145,90 @@ def get_observable_type(obj: Any) -> str:
         ```
     """
     return obj.__class__.__name__
+
+
+def create_computed_observable(*args, **kwargs):
+    """
+    Create a ComputedObservable instance with the given arguments.
+
+    This factory function forwards all arguments to the ComputedObservable constructor.
+
+    Args:
+        *args: Positional arguments passed to ComputedObservable constructor
+        **kwargs: Keyword arguments passed to ComputedObservable constructor
+
+    Returns:
+        A new ComputedObservable instance
+
+    Example:
+        ```python
+        from fynx.observable.computed.types import create_computed_observable
+
+        # Create computed observable with key, initial value, computation function, and source
+        computed = create_computed_observable(
+            "doubled",
+            0,
+            lambda x: x * 2,
+            source_observable
+        )
+        ```
+    """
+    from fynx.observable.computed.computed import ComputedObservable
+
+    return ComputedObservable(*args, **kwargs)
+
+
+def create_conditional_observable(*args, **kwargs):
+    """
+    Create a ConditionalObservable instance with the given arguments.
+
+    This factory function forwards all arguments to the ConditionalObservable constructor.
+
+    Args:
+        *args: Positional arguments passed to ConditionalObservable constructor
+        **kwargs: Keyword arguments passed to ConditionalObservable constructor
+
+    Returns:
+        A new ConditionalObservable instance
+
+    Example:
+        ```python
+        from fynx.observable.computed.types import create_conditional_observable
+
+        # Create conditional observable with source and conditions
+        conditional = create_conditional_observable(
+            source_observable,
+            lambda x: x > 0,
+            other_condition
+        )
+        ```
+    """
+    from fynx.observable.computed.conditional import ConditionalObservable
+
+    return ConditionalObservable(*args, **kwargs)
+
+
+def create_merged_observable(*args, **kwargs):
+    """
+    Create a MergedObservable instance with the given arguments.
+
+    This factory function forwards all arguments to the MergedObservable constructor.
+
+    Args:
+        *args: Positional arguments passed to MergedObservable constructor
+        **kwargs: Keyword arguments passed to MergedObservable constructor
+
+    Returns:
+        A new MergedObservable instance
+
+    Example:
+        ```python
+        from fynx.observable.computed.types import create_merged_observable
+
+        # Create merged observable from multiple observables
+        merged = create_merged_observable(obs1, obs2, obs3)
+        ```
+    """
+    from fynx.observable.computed.merged import MergedObservable
+
+    return MergedObservable(*args, **kwargs)

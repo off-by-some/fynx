@@ -186,7 +186,6 @@ from fynx.observable.core.abstract.operations import (
     OperationsMixin,
     OperatorMixin,
     TupleMixin,
-    ValueMixin,
 )
 from fynx.observable.core.context import ReactiveContext
 from fynx.observable.core.context import ReactiveContext as ReactiveContextInterface
@@ -207,7 +206,6 @@ __all__ = [
     "ReactiveContext",
     "ObservableValue",
     "SubscriptableDescriptor",
-    "GenericObservable",
     "OperationsMixin",
     # Protocols
     "ObservableInterface",
@@ -217,5 +215,4 @@ __all__ = [
     # Operator mixins
     "OperatorMixin",
     "TupleMixin",
-    "ValueMixin",
 ]

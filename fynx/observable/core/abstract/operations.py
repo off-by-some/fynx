@@ -17,24 +17,24 @@ Natural Language Methods:
 Operator Mixins:
 - `OperatorMixin` - Provides operator overloading (+, >>, &, ~, |)
 - `TupleMixin` - Provides tuple-like behavior for merged observables
-- `ValueMixin` - Provides transparent value wrapper behavior
 """
 
 import weakref
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
-    Dict,
-    Optional,
-    Set,
-    Tuple,
     TypeVar,
-    Union,
 )
 
-from fynx.observable.generic import GenericObservable
-from fynx.util import LazyChainBuilder, find_ultimate_source
+from fynx.observable.computed.types import (
+    create_computed_observable,
+    create_conditional_observable,
+    create_merged_observable,
+    is_computed_observable,
+    is_conditional_observable,
+    is_merged_observable,
+)
+from fynx.observable.core.types import is_observable
 
 if TYPE_CHECKING:
     from fynx.observable.types.protocols.conditional_protocol import Conditional
@@ -61,7 +61,6 @@ class OperationsMixin:
         Creates a ComputedObservable that automatically recalculates when
         the source observable changes.
         """
-        from fynx.observable.computed import ComputedObservable
 
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
@@ -69,7 +68,7 @@ class OperationsMixin:
             return func(value)
 
         # Simply create a ComputedObservable - all complex logic is handled there
-        return ComputedObservable(
+        return create_computed_observable(
             key=f"computed_from_{getattr(self, 'key', 'unknown')}",
             initial_value=None,
             computation_func=tuple_aware_func,
@@ -89,8 +88,6 @@ class OperationsMixin:
         Returns:
             Observable that emits tuples of paired values
         """
-        from fynx.observable.computed import ComputedObservable
-
         all_sources = (self,) + others
         n_sources = len(all_sources)
 
@@ -105,7 +102,7 @@ class OperationsMixin:
             return None
 
         # Create zipped observable
-        zipped = ComputedObservable(
+        zipped = create_computed_observable(
             key=f"zipped_{n_sources}",
             initial_value=None,
             computation_func=zip_computation,
@@ -142,8 +139,6 @@ class OperationsMixin:
         """
         import time
 
-        from fynx.observable.computed import ComputedObservable
-
         # Efficient state: track last value and deadline
         last_value = [self.value]
         deadline = [0]
@@ -157,7 +152,7 @@ class OperationsMixin:
             return None
 
         # Create debounced observable
-        debounced = ComputedObservable(
+        debounced = create_computed_observable(
             key=f"debounced_{milliseconds}ms",
             initial_value=self.value,
             computation_func=debounce_computation,
@@ -210,12 +205,12 @@ class OperationsMixin:
             point3d = x.alongside(y).alongside(z)  # (x, y, z)
             ```
         """
-        if GenericObservable.is_merged_observable(other):
+        if is_merged_observable(other):
             # If other is already merged, combine with its sources
-            return GenericObservable.create_merged_observable(self, *other._source_observables)  # type: ignore
+            return create_merged_observable(self, *other._source_observables)  # type: ignore
         else:
             # Standard case: combine two observables
-            return GenericObservable.create_merged_observable(self, other)  # type: ignore
+            return create_merged_observable(self, other)  # type: ignore
 
     def requiring(self, *conditions) -> "Observable":
         """
@@ -237,18 +232,20 @@ class OperationsMixin:
             ```
         """
         # If this is already a ConditionalObservable, flatten nested conditionals
-        if GenericObservable.is_conditional_observable(self):
+        if is_conditional_observable(self):
             # Get existing conditions and combine with new ones
             existing_conditions = getattr(self, "_processed_conditions", [])
             all_conditions = list(existing_conditions) + list(conditions)
 
             # Find the ultimate source (skip all conditionals)
-            original_source = GenericObservable.get_ultimate_source(self)
+            from fynx.util import find_ultimate_source
+
+            original_source = find_ultimate_source(self)
 
             # Create flattened conditional pointing to root source
-            return GenericObservable.create_conditional_observable(original_source, *all_conditions)  # type: ignore
+            return create_conditional_observable(original_source, *all_conditions)  # type: ignore
         else:
-            return GenericObservable.create_conditional_observable(self, *conditions)  # type: ignore
+            return create_conditional_observable(self, *conditions)  # type: ignore
 
     @staticmethod
     def lift(func: Callable, *observables: "Observable") -> "Observable":
@@ -273,7 +270,7 @@ class OperationsMixin:
             return func(*values)
 
         # Create computed observable
-        lifted = GenericObservable.create_computed_observable(
+        lifted = create_computed_observable(
             f"lift_{func.__name__}", computation(), computation, None
         )
 
@@ -312,7 +309,7 @@ class OperationsMixin:
         Returns:
             Observable that emits from the first source to emit
         """
-        result = GenericObservable.create_computed_observable("race", None, None, None)
+        result = create_computed_observable("race", None, None, None)
 
         def forward_first_emission(value):
             """Forward the first emission and unsubscribe from others."""
@@ -328,27 +325,6 @@ class OperationsMixin:
         return result
 
     @staticmethod
-    def either(left: "Observable[T]", right: "Observable[T]") -> "Observable[T]":
-        """
-        Emit from either observable, preferring left when both emit.
-
-        Args:
-            left: Left observable (preferred)
-            right: Right observable
-
-        Returns:
-            Observable that emits from either source
-        """
-        result = GenericObservable.create_computed_observable(
-            "either", left.value if left.value is not None else right.value, None, None
-        )
-
-        left.subscribe(lambda v: result.set(v))
-        right.subscribe(lambda v: result.set(v) if left.value is None else None)
-
-        return result
-
-    @staticmethod
     def pure(value: T) -> "Observable[T]":
         """
         Lift a pure value into Observable context.
@@ -359,9 +335,7 @@ class OperationsMixin:
         Returns:
             Observable containing the value
         """
-        return GenericObservable.create_computed_observable(
-            f"pure_{value}", value, None, None
-        )
+        return create_computed_observable(f"pure_{value}", value, None, None)
 
     def extract(self) -> T:
         """
@@ -379,11 +353,11 @@ class OperationsMixin:
         Returns:
             Flattened observable
         """
-        if not GenericObservable.is_computed_observable(self.value):  # type: ignore
+        if not is_computed_observable(self.value):  # type: ignore
             return self  # Already flat
 
         # Create flattened observable
-        flat = GenericObservable.create_computed_observable(f"{self.key}.flat", None, None, None)  # type: ignore
+        flat = create_computed_observable(f"{self.key}.flat", None, None, None)  # type: ignore
 
         current_inner_obs = None
 
@@ -400,7 +374,7 @@ class OperationsMixin:
                 current_inner_obs.unsubscribe(update_from_inner)
 
             # Subscribe to new inner observable
-            if GenericObservable.is_computed_observable(outer_value):
+            if is_computed_observable(outer_value):
                 current_inner_obs = outer_value
                 current_inner_obs.subscribe(update_from_inner)
                 # Update with current inner value
@@ -410,7 +384,7 @@ class OperationsMixin:
         self.subscribe(switch_inner_subscription)  # type: ignore
 
         # Initial subscription
-        if GenericObservable.is_computed_observable(self.value):  # type: ignore
+        if is_computed_observable(self.value):  # type: ignore
             switch_inner_subscription(self.value)  # type: ignore
 
         return flat
@@ -644,108 +618,3 @@ class TupleMixin:
             self._source_observables[index].set(value)  # type: ignore
         else:
             raise IndexError("Index out of range")
-
-
-class ValueMixin:
-    """
-    Mixin class providing value wrapper operators for ObservableValue.
-
-    This mixin adds operators that make observable values behave transparently
-    like their underlying values in most Python contexts. It provides magic
-    methods for equality, string conversion, iteration, indexing, etc., while
-    also supporting the reactive operators.
-
-    Classes inheriting from this mixin get automatic support for:
-    - Value-like behavior (equality, string conversion, etc.)
-    - Reactive operators (__add__, __and__, __invert__, __rshift__)
-    - Transparent access to the wrapped observable
-    """
-
-    def __eq__(self, other) -> bool:
-        return self._current_value == other  # type: ignore
-
-    def __str__(self) -> str:
-        return str(self._current_value)  # type: ignore
-
-    def __repr__(self) -> str:
-        return repr(self._current_value)  # type: ignore
-
-    def __len__(self) -> int:
-        if self._current_value is None:  # type: ignore
-            return 0
-        if hasattr(self._current_value, "__len__"):  # type: ignore
-            return len(self._current_value)  # type: ignore
-        return 0
-
-    def __iter__(self):
-        if self._current_value is None:  # type: ignore
-            return iter([])
-        if hasattr(self._current_value, "__iter__"):  # type: ignore
-            return iter(self._current_value)  # type: ignore
-        return iter([self._current_value])  # type: ignore
-
-    def __getitem__(self, key):
-        if self._current_value is None:  # type: ignore
-            raise IndexError("observable value is None")
-        if hasattr(self._current_value, "__getitem__"):  # type: ignore
-            return self._current_value[key]  # type: ignore
-        raise TypeError(
-            f"'{type(self._current_value).__name__}' object is not subscriptable"  # type: ignore
-        )
-
-    def __contains__(self, item) -> bool:
-        if self._current_value is None:  # type: ignore
-            return False
-        if hasattr(self._current_value, "__contains__"):  # type: ignore
-            return item in self._current_value  # type: ignore
-        return False
-
-    def __bool__(self) -> bool:
-        return bool(self._current_value)  # type: ignore
-
-    def _unwrap_operand(self, operand):
-        """Unwrap operand if it's an ObservableValue, otherwise return as-is."""
-        if hasattr(operand, "observable"):
-            return operand.observable  # type: ignore
-        return operand
-
-    def __add__(self, other) -> "Mergeable":
-        """Support merging observables with + operator."""
-        unwrapped_other = self._unwrap_operand(other)  # type: ignore
-        from ..computed import MergedObservable
-
-        return MergedObservable(self._observable, unwrapped_other)  # type: ignore[attr-defined]
-
-    def __radd__(self, other) -> "Mergeable":
-        """Support right-side addition for merging observables."""
-        unwrapped_other = self._unwrap_operand(other)  # type: ignore
-        from ..computed import MergedObservable
-
-        return MergedObservable(unwrapped_other, self._observable)  # type: ignore[attr-defined]
-
-    def __and__(self, condition) -> "Conditional":
-        """Support conditional observables with & operator."""
-        unwrapped_condition = self._unwrap_operand(condition)  # type: ignore
-
-        # Handle callable conditions by creating computed observables
-        if callable(unwrapped_condition) and not hasattr(unwrapped_condition, "value"):
-            # Create a computed observable that evaluates the condition
-            bool_condition = self._observable.then(
-                lambda x: x is not None and bool(unwrapped_condition(x))
-            )
-            from ..computed import ConditionalObservable
-
-            return ConditionalObservable(self._observable, bool_condition)  # type: ignore[attr-defined]
-        else:
-            # Boolean observable
-            from ..computed import ConditionalObservable
-
-            return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore[attr-defined]
-
-    def __invert__(self):
-        """Support negating conditions with ~ operator."""
-        return self._observable.__invert__()  # type: ignore[attr-defined]
-
-    def __rshift__(self, func):
-        """Support computed observables with >> operator."""
-        return self._observable >> func  # type: ignore[attr-defined]

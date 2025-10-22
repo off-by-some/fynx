@@ -111,3 +111,30 @@ def get_observable_type(obj: Any) -> str:
         ```
     """
     return obj.__class__.__name__
+
+
+def create_observable(*args, **kwargs):
+    """
+    Create an Observable instance with the given arguments.
+
+    This factory function forwards all arguments to the Observable constructor.
+
+    Args:
+        *args: Positional arguments passed to Observable constructor
+        **kwargs: Keyword arguments passed to Observable constructor
+
+    Returns:
+        A new Observable instance
+
+    Example:
+        ```python
+        from fynx.observable.core.types import create_observable
+
+        # Create observable with key and initial value
+        obs = create_observable("counter", 0)
+        print(obs.value)  # 0
+        ```
+    """
+    from fynx.observable.core.observable import Observable
+
+    return Observable(*args, **kwargs)
