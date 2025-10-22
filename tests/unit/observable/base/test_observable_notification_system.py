@@ -3,7 +3,7 @@
 import pytest
 
 from fynx import Observable
-from fynx.observable.conditional import ConditionalNotMet
+from fynx.observable.computed import ConditionalNotMet
 
 
 @pytest.mark.unit

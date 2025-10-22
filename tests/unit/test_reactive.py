@@ -282,7 +282,7 @@ class TestReactiveDecoratorUnsubscribe:
 @pytest.mark.reactive
 def test_reactive_decorator_skips_inactive_conditional_observables():
     """Reactive decorator skips execution when conditional observable is not active."""
-    from fynx.observable.conditional import ConditionalObservable
+    from fynx.observable.computed import ConditionalObservable
 
     source = observable(5)
     condition = observable(False)  # Condition is false
@@ -385,7 +385,7 @@ def test_reactive_wrapper_setup_subscriptions_empty_targets():
 @pytest.mark.reactive
 def test_reactive_wrapper_setup_subscriptions_conditional_inactive():
     """Test ReactiveWrapper._setup_subscriptions() with inactive conditional (line 144->148)"""
-    from fynx.observable.conditional import ConditionalObservable
+    from fynx.observable.computed import ConditionalObservable
     from fynx.reactive import ReactiveWrapper
 
     obs = observable(5)

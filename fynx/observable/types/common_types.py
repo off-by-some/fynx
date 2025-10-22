@@ -27,7 +27,12 @@ V = TypeVar("V")  # Used in multi-step transformations
 # ============================================================================
 
 if TYPE_CHECKING:
-    from .observable_protocols import Computed, Conditional, Mergeable, Observable
+    from .protocols.observable_protocol import (
+        Computed,
+        Conditional,
+        Mergeable,
+        Observable,
+    )
 
 # ============================================================================
 # CONDITION TYPES

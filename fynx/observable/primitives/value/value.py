@@ -33,13 +33,14 @@ from typing import (
 )
 
 if TYPE_CHECKING:
+    from ...types.protocols.observable_protocol import Observable
     from ...util import LazyChainBuilder
-    from ..types.observable_protocols import Observable
 
 # Import common types
+from ...types.common_types import T
+
 # Import the TransparentValue protocol
-from ..protocols.value_protocol import TransparentValue
-from ..types.common_types import T
+from ...types.protocols.value_protocol import TransparentValue
 
 # Type variables for Value
 V = TypeVar("V")

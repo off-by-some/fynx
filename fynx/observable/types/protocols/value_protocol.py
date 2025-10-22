@@ -32,7 +32,7 @@ Example:
 from typing import Any, Iterator, Protocol, TypeVar, runtime_checkable
 
 # Import common types
-from ..types.common_types import T
+from ...types.common_types import T
 
 # ============================================================================
 # TRANSPARENT VALUE PROTOCOL

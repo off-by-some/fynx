@@ -9,10 +9,10 @@ identification logic using proper protocol-based isinstance checks.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..protocols.computed_protocol import Computed
-    from ..protocols.conditional_protocol import Conditional
-    from ..protocols.merged_protocol import Mergeable
-    from ..protocols.observable_protocol import Observable
+    from ..types.protocols.computed_protocol import Computed
+    from ..types.protocols.conditional_protocol import Conditional
+    from ..types.protocols.merged_protocol import Mergeable
+    from ..types.protocols.observable_protocol import Observable
 
 
 class GenericObservable:
@@ -26,21 +26,21 @@ class GenericObservable:
     @staticmethod
     def is_observable(obj: Any) -> bool:
         """Check if an object is any type of observable using proper type checking."""
-        from ..protocols.observable_protocol import Observable
+        from ..types.protocols.observable_protocol import Observable
 
         return isinstance(obj, Observable)
 
     @staticmethod
     def is_merged_observable(obj: Any) -> bool:
         """Check if an object is a MergedObservable."""
-        from ..merged import MergedObservable
+        from ..computed import MergedObservable
 
         return isinstance(obj, MergedObservable)
 
     @staticmethod
     def is_conditional_observable(obj: Any) -> bool:
         """Check if an object is a ConditionalObservable."""
-        from ..conditional.conditional import ConditionalObservable
+        from ..computed import ConditionalObservable
 
         return isinstance(obj, ConditionalObservable)
 
@@ -91,7 +91,7 @@ class GenericObservable:
 
         This is a factory method that avoids needing to import MergedObservable directly.
         """
-        from ..merged import MergedObservable
+        from ..computed import MergedObservable
 
         return MergedObservable(*observables)
 
@@ -104,7 +104,7 @@ class GenericObservable:
 
         This is a factory method that avoids needing to import ConditionalObservable directly.
         """
-        from ..conditional import ConditionalObservable
+        from ..computed import ConditionalObservable
 
         return ConditionalObservable(source, *conditions)
 

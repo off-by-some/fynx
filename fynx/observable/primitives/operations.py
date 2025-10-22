@@ -37,9 +37,9 @@ from ...util import LazyChainBuilder, find_ultimate_source
 from ..generic import GenericObservable
 
 if TYPE_CHECKING:
-    from ..protocols.conditional_protocol import Conditional
-    from ..protocols.merged_protocol import Mergeable
-    from ..protocols.operations_protocol import Observable
+    from ..types.protocols.conditional_protocol import Conditional
+    from ..types.protocols.merged_protocol import Mergeable
+    from ..types.protocols.operations_protocol import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -712,14 +712,14 @@ class ValueMixin:
     def __add__(self, other) -> "Mergeable":
         """Support merging observables with + operator."""
         unwrapped_other = self._unwrap_operand(other)  # type: ignore
-        from ..merged import MergedObservable
+        from ..computed import MergedObservable
 
         return MergedObservable(self._observable, unwrapped_other)  # type: ignore[attr-defined]
 
     def __radd__(self, other) -> "Mergeable":
         """Support right-side addition for merging observables."""
         unwrapped_other = self._unwrap_operand(other)  # type: ignore
-        from ..merged import MergedObservable
+        from ..computed import MergedObservable
 
         return MergedObservable(unwrapped_other, self._observable)  # type: ignore[attr-defined]
 
@@ -733,12 +733,12 @@ class ValueMixin:
             bool_condition = self._observable.then(
                 lambda x: x is not None and bool(unwrapped_condition(x))
             )
-            from ..conditional import ConditionalObservable
+            from ..computed import ConditionalObservable
 
             return ConditionalObservable(self._observable, bool_condition)  # type: ignore[attr-defined]
         else:
             # Boolean observable
-            from ..conditional import ConditionalObservable
+            from ..computed import ConditionalObservable
 
             return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore[attr-defined]
 

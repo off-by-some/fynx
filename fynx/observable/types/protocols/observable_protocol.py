@@ -47,7 +47,7 @@ from typing import (
 )
 
 # Import common types
-from ..types.common_types import (
+from ...types.common_types import (
     Condition,
     ConditionFunction,
     T,

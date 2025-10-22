@@ -592,7 +592,7 @@ def test_merged_observable_value_derives_from_source_observables():
 @pytest.mark.observable
 def test_merged_observable_cleanup_removes_empty_function_mappings():
     """MergedObservable cleanup removes empty function mappings from _func_to_contexts."""
-    from fynx.observable.merged import MergedObservable, _func_to_contexts
+    from fynx.observable.computed import MergedObservable, _func_to_contexts
 
     obs1 = Observable("obs1", 1)
     obs2 = Observable("obs2", 2)

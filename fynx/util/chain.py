@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from .algebraic_optimizer import AlgebraicOptimizer
 
 if TYPE_CHECKING:
-    from ..observable.protocols.observable_protocol import Observable
+    from ..observable.types.protocols.observable_protocol import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -423,7 +423,7 @@ def benchmark_all_modes(n: int = 10000):
     """
     import time
 
-    from ..observable.primitives.observable import Observable
+    from ..observable.core.observable import Observable
 
     results = {}
 

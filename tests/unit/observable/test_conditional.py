@@ -3,7 +3,7 @@
 import pytest
 
 from fynx.observable import Observable
-from fynx.observable.conditional import ConditionalObservable
+from fynx.observable.computed import ConditionalObservable
 
 
 @pytest.mark.unit
@@ -100,7 +100,7 @@ def test_conditional_observable_initial_value_based_on_conditions():
     conditional2 = source2 & condition2
 
     # Accessing value when conditions never met raises ConditionalNeverMet
-    from fynx.observable.conditional import ConditionalNeverMet
+    from fynx.observable.computed import ConditionalNeverMet
 
     with pytest.raises(ConditionalNeverMet):
         _ = conditional2.value
@@ -158,12 +158,12 @@ def test_conditional_observable_operator_creates_flat_structure():
 
 import pytest
 
-from fynx.observable.conditional import (
+from fynx.observable.computed import (
     ConditionalNeverMet,
     ConditionalNotMet,
     ConditionalObservable,
 )
-from fynx.observable.primitives.observable import Observable
+from fynx.observable.core.observable import Observable
 
 
 @pytest.mark.unit

@@ -48,11 +48,11 @@ Example:
 
 from typing import Any, Callable, List, Optional, Set, TypeVar, Union
 
-from ..computed import ComputedObservable
-from ..operations import OperatorMixin
 from ..primitives.derived_value import DerivedValue
-from ..protocols.conditional_protocol import Conditional
-from ..protocols.observable_protocol import Observable
+from ..primitives.operations import OperatorMixin
+from ..types.protocols.conditional_protocol import Conditional
+from ..types.protocols.observable_protocol import Observable
+from .computed import ComputedObservable
 
 T = TypeVar("T")
 Condition = Union[Observable[bool], Callable[[T], bool], "ConditionalObservable"]
@@ -337,8 +337,8 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
                 raise ValueError(f"Condition {i} cannot be None")
 
             # Check if condition is a valid type (check class hierarchy to avoid triggering property access)
+            from ..core.observable import Observable
             from ..primitives.base_observable import BaseObservable
-            from ..primitives.observable import Observable
 
             is_observable = isinstance(condition, Observable)
             is_base_observable = isinstance(condition, BaseObservable)

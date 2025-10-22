@@ -101,7 +101,7 @@ class ReactiveWrapper:
             else:
                 # Single observable subscription
                 def observable_handler(value=None):
-                    from .observable.conditional import ConditionalObservable
+                    from .observable.computed import ConditionalObservable
 
                     if (
                         isinstance(target, ConditionalObservable)
@@ -114,7 +114,7 @@ class ReactiveWrapper:
                     self._invoke_reactive(current_value)
 
                 # Call immediately (if possible)
-                from .observable.conditional import ConditionalObservable
+                from .observable.computed import ConditionalObservable
 
                 # Store initial active state to avoid double calls
                 initial_is_active = getattr(target, "is_active", True)

@@ -53,7 +53,7 @@ def test_store_observables_can_be_updated():
 @pytest.mark.store
 def test_store_meta_inherits_observables_from_base_classes():
     """StoreMeta properly inherits observables from base classes."""
-    from fynx.observable.value import SubscriptableDescriptor
+    from fynx.observable.primitives.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         base_attr = observable("base_value")
@@ -74,7 +74,7 @@ def test_store_meta_inherits_observables_from_base_classes():
 @pytest.mark.store
 def test_store_meta_handles_inherited_observables_without_namespace_conflict():
     """StoreMeta handles inherited observables when they're not in namespace."""
-    from fynx.observable.value import SubscriptableDescriptor
+    from fynx.observable.primitives.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         shared_attr = observable("shared_value")
@@ -95,7 +95,7 @@ def test_store_meta_handles_inherited_observables_without_namespace_conflict():
 @pytest.mark.store
 def test_store_meta_creates_descriptors_for_inherited_observables():
     """StoreMeta creates new descriptors for inherited observables."""
-    from fynx.observable.value import SubscriptableDescriptor
+    from fynx.observable.primitives.value import SubscriptableDescriptor
 
     class BaseStore(Store):
         inherited_attr = observable("inherited_value")

@@ -153,31 +153,31 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ..primitives.observable import Observable as ObservableImpl
-    from ..conditional import ConditionalObservable
-    from ..protocols.conditional_protocol import Conditional
-    from ..protocols.merged_protocol import Mergeable
-    from ..protocols.observable_protocol import Observable
-    from ..merged import MergedObservable
+    from ...core.observable import Observable as ObservableImpl
+    from ...computed import ConditionalObservable
+    from ...types.protocols.conditional_protocol import Conditional
+    from ...types.protocols.merged_protocol import Mergeable
+    from ...types.protocols.observable_protocol import Observable
+    from ...computed import MergedObservable
 
 from .value import ObservableValue
 
 
 # Runtime imports to avoid circular dependencies
 def _get_observable_impl():
-    from ..primitives.observable import Observable as ObservableImpl
+    from ...core.observable import Observable as ObservableImpl
 
     return ObservableImpl
 
 
 def _get_conditional_observable():
-    from ..conditional import ConditionalObservable
+    from ...computed import ConditionalObservable
 
     return ConditionalObservable
 
 
 def _get_merged_observable():
-    from ..merged import MergedObservable
+    from ...computed import MergedObservable
 
     return MergedObservable
 

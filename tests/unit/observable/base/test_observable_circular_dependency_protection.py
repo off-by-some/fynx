@@ -1,6 +1,6 @@
 import pytest
 
-from fynx.observable.primitives.observable import Observable
+from fynx.observable.core.observable import Observable
 
 
 @pytest.mark.unit
@@ -124,7 +124,7 @@ def test_reactive_context_cleanup_removes_empty_function_mappings():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_computed_key():
     """Observable descriptor updates key for computed observables in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     class TestClass:
         pass
@@ -144,7 +144,7 @@ def test_observable_descriptor_set_name_updates_computed_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_regular_key():
     """Observable descriptor updates key for regular observables in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     class TestClass:
         pass
@@ -163,7 +163,7 @@ def test_observable_descriptor_set_name_updates_regular_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_skips_computed_processing():
     """Observable descriptor skips processing for computed observables in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     class TestClass:
         pass
@@ -184,7 +184,7 @@ def test_observable_descriptor_set_name_skips_computed_processing():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_handles_store_class():
     """Observable descriptor returns early for Store classes in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     # Mock Store class
     class MockStore:
@@ -204,7 +204,7 @@ def test_observable_descriptor_set_name_handles_store_class():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_key():
     """Observable descriptor updates key in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     class TestClass:
         pass
@@ -223,7 +223,7 @@ def test_observable_descriptor_set_name_updates_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_key_for_computed():
     """Observable descriptor updates key for computed observables in __set_name__."""
-    from fynx.observable.primitives.observable import Observable
+    from fynx.observable.core.observable import Observable
 
     class TestClass:
         pass

@@ -3,7 +3,7 @@
 import pytest
 
 from fynx.observable import Observable
-from fynx.observable.value import ObservableValue, SubscriptableDescriptor
+from fynx.observable.primitives.value import ObservableValue, SubscriptableDescriptor
 
 
 @pytest.mark.unit

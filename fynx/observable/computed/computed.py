@@ -454,7 +454,7 @@ class ComputedObservable(DerivedValue[T]):
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
             # Check if this observable produces tuples (i.e., it's mergeable)
-            from ..protocols.merged_protocol import Mergeable
+            from ..types.protocols.merged_protocol import Mergeable
 
             if isinstance(self, Mergeable) and isinstance(value, tuple):
                 # This is a merged observable producing a tuple - unpack it
@@ -464,7 +464,7 @@ class ComputedObservable(DerivedValue[T]):
                 return func(value)
 
         # Create a regular computed observable (disable lazy optimization for now)
-        from ..operations import OperationsMixin
+        from ..primitives.operations import OperationsMixin
 
         return OperationsMixin.then(self, func)
 

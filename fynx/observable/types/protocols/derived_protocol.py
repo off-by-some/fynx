@@ -9,7 +9,7 @@ the base observable with additional capabilities.
 from typing import TYPE_CHECKING, Optional, Protocol, TypeVar, runtime_checkable
 
 # Import common types
-from ..types.common_types import T
+from ...types.common_types import T
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:

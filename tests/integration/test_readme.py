@@ -99,7 +99,7 @@ class TestReadmeExamples:
         preview_ready = uploaded_file & is_valid & (~is_processing)
 
         # Initially conditions never met, so accessing value raises ConditionalNeverMet
-        from fynx.observable.conditional import ConditionalNeverMet
+        from fynx.observable.computed import ConditionalNeverMet
 
         with pytest.raises(ConditionalNeverMet):
             _ = preview_ready.value
@@ -113,7 +113,7 @@ class TestReadmeExamples:
         is_processing.set(True)
 
         # Accessing value when conditions are unmet should raise ConditionalNotMet
-        from fynx.observable.conditional import ConditionalNotMet
+        from fynx.observable.computed import ConditionalNotMet
 
         with pytest.raises(
             ConditionalNotMet, match="Conditions are not currently satisfied"
@@ -249,7 +249,7 @@ class TestReadmeExamples:
         data.set(-4)  # not positive
 
         # Accessing value when conditions are unmet should raise ConditionalNotMet
-        from fynx.observable.conditional import ConditionalNotMet
+        from fynx.observable.computed import ConditionalNotMet
 
         with pytest.raises(
             ConditionalNotMet, match="Conditions are not currently satisfied"

@@ -41,7 +41,7 @@ from typing import (
 )
 
 # Import common types
-from ..types.common_types import Condition, ConditionFunction, T, TransformFunction, U
+from ...types.common_types import Condition, ConditionFunction, T, TransformFunction, U
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:

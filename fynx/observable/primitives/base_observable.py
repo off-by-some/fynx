@@ -20,10 +20,10 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Any, Callable, Optional, Set, Type, TypeVar
 
-from ..operations import OperatorMixin
-from ..types.observable_protocols import Observable as ObservableInterface
-from ..value.value import ObservableValue
+from ..types.protocols.observable_protocol import Observable as ObservableInterface
 from .context import ReactiveContext
+from .operations import OperatorMixin
+from .value.value import ObservableValue
 
 T = TypeVar("T")
 
@@ -402,7 +402,7 @@ class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
         except ImportError:
             pass
 
-        from ..value.descriptors import SubscriptableDescriptor
+        from .value.descriptors import SubscriptableDescriptor
 
         descriptor = SubscriptableDescriptor(self._value_wrapper.unwrap())
         descriptor.attr_name = name
