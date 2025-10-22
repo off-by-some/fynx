@@ -33,13 +33,13 @@ from typing import (
     Union,
 )
 
-from ...util import LazyChainBuilder, find_ultimate_source
-from ..generic import GenericObservable
+from fynx.observable.generic import GenericObservable
+from fynx.util import LazyChainBuilder, find_ultimate_source
 
 if TYPE_CHECKING:
-    from ..types.protocols.conditional_protocol import Conditional
-    from ..types.protocols.merged_protocol import Mergeable
-    from ..types.protocols.operations_protocol import Observable
+    from fynx.observable.types.protocols.conditional_protocol import Conditional
+    from fynx.observable.types.protocols.merged_protocol import Mergeable
+    from fynx.observable.types.protocols.operations_protocol import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -61,7 +61,7 @@ class OperationsMixin:
         Creates a ComputedObservable that automatically recalculates when
         the source observable changes.
         """
-        from ..computed import ComputedObservable
+        from fynx.observable.computed import ComputedObservable
 
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
@@ -89,7 +89,7 @@ class OperationsMixin:
         Returns:
             Observable that emits tuples of paired values
         """
-        from ..computed import ComputedObservable
+        from fynx.observable.computed import ComputedObservable
 
         all_sources = (self,) + others
         n_sources = len(all_sources)
@@ -142,7 +142,7 @@ class OperationsMixin:
         """
         import time
 
-        from ..computed import ComputedObservable
+        from fynx.observable.computed import ComputedObservable
 
         # Efficient state: track last value and deadline
         last_value = [self.value]

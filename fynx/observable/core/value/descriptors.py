@@ -153,12 +153,12 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ...core.observable import Observable as ObservableImpl
-    from ...computed import ConditionalObservable
-    from ...types.protocols.conditional_protocol import Conditional
-    from ...types.protocols.merged_protocol import Mergeable
-    from ...types.protocols.observable_protocol import Observable
-    from ...computed import MergedObservable
+    from fynx.observable.core.observable import Observable as ObservableImpl
+    from fynx.observable.computed import ConditionalObservable
+    from fynx.observable.types.protocols.conditional_protocol import Conditional
+    from fynx.observable.types.protocols.merged_protocol import Mergeable
+    from fynx.observable.types.protocols.observable_protocol import Observable
+    from fynx.observable.computed import MergedObservable
 
 from .value import ObservableValue
 

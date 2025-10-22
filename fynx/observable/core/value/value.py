@@ -33,14 +33,14 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ...types.protocols.observable_protocol import Observable
-    from ...util import LazyChainBuilder
+    from fynx.observable.types.protocols.observable_protocol import Observable
+    from fynx.util import LazyChainBuilder
 
 # Import common types
-from ...types.common_types import T
+from fynx.observable.types.common_types import T
 
 # Import the TransparentValue protocol
-from ...types.protocols.value_protocol import TransparentValue
+from fynx.observable.types.protocols.value_protocol import TransparentValue
 
 # Type variables for Value
 V = TypeVar("V")

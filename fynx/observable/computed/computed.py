@@ -143,28 +143,24 @@ See Also
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, TypeVar
 
-from ..primitives.base_observable import BaseObservable
-
-# Import at runtime for actual usage
-from ..primitives.derived_value import DerivedValue
+from fynx.observable.core.abstract.base_observable import BaseObservable
+from fynx.observable.core.abstract.derived_value import DerivedValue
 
 
-# Lazy imports to avoid circular dependencies
 def _get_lazy_chain_builder():
-    from ...util import LazyChainBuilder
+    from fynx.util import LazyChainBuilder
 
     return LazyChainBuilder
 
 
 def _get_find_ultimate_source():
-    from ...util import find_ultimate_source
+    from fynx.util import find_ultimate_source
 
     return find_ultimate_source
 
 
 T = TypeVar("T")
 
-# Global intern pool for structural sharing
 _intern_pool = None
 
 
@@ -226,7 +222,7 @@ class ComputedObservable(DerivedValue[T]):
         # If we have a source observable, subscribe to it for updates
         if source_observable is not None:
             # Add dependency edge to cycle detector
-            from ..primitives.context import ReactiveContextImpl
+            from fynx.observable.core.abstract.context import ReactiveContextImpl
 
             cycle_detector = ReactiveContextImpl._get_cycle_detector()
             cycle_detector.add_edge(source_observable, self)
@@ -464,7 +460,7 @@ class ComputedObservable(DerivedValue[T]):
                 return func(value)
 
         # Create a regular computed observable (disable lazy optimization for now)
-        from ..primitives.operations import OperationsMixin
+        from fynx.observable.core.abstract.operations import OperationsMixin
 
         return OperationsMixin.then(self, func)
 

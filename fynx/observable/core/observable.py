@@ -8,7 +8,7 @@ that extends BaseObservable with write access and transaction support.
 
 from typing import Any, Callable, Optional, Type, TypeVar
 
-from ..primitives.base_observable import BaseObservable
+from fynx.observable.core.abstract.base_observable import BaseObservable
 
 T = TypeVar("T")
 

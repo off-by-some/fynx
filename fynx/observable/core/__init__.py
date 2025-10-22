@@ -5,7 +5,7 @@ FynX Observable Core Module
 This module contains the core Observable implementation.
 """
 
-from .observable import Observable
+from fynx.observable.core.observable import Observable
 
 __all__ = [
     "Observable",

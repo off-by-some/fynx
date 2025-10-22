@@ -12,13 +12,13 @@ No need for complex caching or special chain handling.
 
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, TypeVar
 
-from ..primitives.derived_value import DerivedValue
-from ..primitives.operations import OperatorMixin, TupleMixin
-from ..types.protocols.merged_protocol import Mergeable
-from .computed import ComputedObservable
+from fynx.observable.computed.computed import ComputedObservable
+from fynx.observable.core.abstract.derived_value import DerivedValue
+from fynx.observable.core.abstract.operations import OperatorMixin, TupleMixin
+from fynx.observable.types.protocols.merged_protocol import Mergeable
 
 if TYPE_CHECKING:
-    from ..types.protocols.observable_protocol import Observable
+    from fynx.observable.types.protocols.observable_protocol import Observable
 
 # Global registry for function-to-context mappings (for cleanup testing)
 _func_to_contexts = {}
@@ -110,7 +110,7 @@ class MergedObservable(DerivedValue[T], Mergeable[T], OperatorMixin, TupleMixin)
         )
 
         # Add dependency edges to cycle detector for all sources
-        from ..primitives.context import ReactiveContextImpl
+        from fynx.observable.core.abstract.context import ReactiveContextImpl
 
         cycle_detector = ReactiveContextImpl._get_cycle_detector()
         for obs in flattened_sources:

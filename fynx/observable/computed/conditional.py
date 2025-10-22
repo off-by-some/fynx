@@ -48,11 +48,11 @@ Example:
 
 from typing import Any, Callable, List, Optional, Set, TypeVar, Union
 
-from ..primitives.derived_value import DerivedValue
-from ..primitives.operations import OperatorMixin
-from ..types.protocols.conditional_protocol import Conditional
-from ..types.protocols.observable_protocol import Observable
-from .computed import ComputedObservable
+from fynx.observable.computed.computed import ComputedObservable
+from fynx.observable.core.abstract.derived_value import DerivedValue
+from fynx.observable.core.abstract.operations import OperatorMixin
+from fynx.observable.types.protocols.conditional_protocol import Conditional
+from fynx.observable.types.protocols.observable_protocol import Observable
 
 T = TypeVar("T")
 Condition = Union[Observable[bool], Callable[[T], bool], "ConditionalObservable"]
@@ -337,8 +337,8 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
                 raise ValueError(f"Condition {i} cannot be None")
 
             # Check if condition is a valid type (check class hierarchy to avoid triggering property access)
-            from ..core.observable import Observable
-            from ..primitives.base_observable import BaseObservable
+            from fynx.observable.core.abstract.base_observable import BaseObservable
+            from fynx.observable.core.observable import Observable
 
             is_observable = isinstance(condition, Observable)
             is_base_observable = isinstance(condition, BaseObservable)
@@ -525,8 +525,7 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
 
         Handles different types of conditions appropriately.
         """
-        from ..primitives.base_observable import BaseObservable
-        from .conditional import ConditionalObservable
+        from fynx.observable.core.abstract.base_observable import BaseObservable
 
         if isinstance(condition, ConditionalObservable):
             # Compound/public conditional interface - use its public state
@@ -602,7 +601,7 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
 
         # Add cycle detection for the source dependency
         if self._source_observable is not None:
-            from ..primitives.context import ReactiveContextImpl
+            from fynx.observable.core.abstract.context import ReactiveContextImpl
 
             cycle_detector = ReactiveContextImpl._get_cycle_detector()
             cycle_detector.add_edge(self._source_observable, self)

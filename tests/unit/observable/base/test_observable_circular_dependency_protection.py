@@ -48,7 +48,7 @@ def test_observable_unsubscribe_stops_future_notifications():
 @pytest.mark.observable
 def test_reactive_context_dispose_removes_from_store_observables():
     """ReactiveContext dispose removes observer from all store observables when _store_observables is set."""
-    from fynx.observable.primitives.context import ReactiveContext
+    from fynx.observable.core.abstract.context import ReactiveContext
 
     # Create mock observables
     obs1 = Observable("obs1", 1)
@@ -95,7 +95,7 @@ def test_observable_cycle_detection_prevents_infinite_loops():
 @pytest.mark.observable
 def test_reactive_context_cleanup_removes_empty_function_mappings():
     """ReactiveContext cleanup removes empty function mappings from _func_to_contexts."""
-    from fynx.observable.primitives.context import ReactiveContext
+    from fynx.observable.core.abstract.context import ReactiveContext
     from fynx.registry import _func_to_contexts
 
     def test_func():

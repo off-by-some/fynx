@@ -20,10 +20,12 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import Any, Callable, Optional, Set, Type, TypeVar
 
-from ..types.protocols.observable_protocol import Observable as ObservableInterface
-from .context import ReactiveContext
-from .operations import OperatorMixin
-from .value.value import ObservableValue
+from fynx.observable.core.abstract.context import ReactiveContext
+from fynx.observable.core.abstract.operations import OperatorMixin
+from fynx.observable.core.value.value import ObservableValue
+from fynx.observable.types.protocols.observable_protocol import (
+    Observable as ObservableInterface,
+)
 
 T = TypeVar("T")
 
@@ -402,7 +404,7 @@ class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
         except ImportError:
             pass
 
-        from .value.descriptors import SubscriptableDescriptor
+        from fynx.observable.core.value.descriptors import SubscriptableDescriptor
 
         descriptor = SubscriptableDescriptor(self._value_wrapper.unwrap())
         descriptor.attr_name = name

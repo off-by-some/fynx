@@ -36,15 +36,13 @@ from typing import (
     runtime_checkable,
 )
 
-# Import cycle detector for dependency graph management
-from ...util.cycle_detector import IncrementalTopoSort
-
 # Import common types
-from ..types.common_types import T, U
+from fynx.observable.types.common_types import T, U
+from fynx.util.cycle_detector import IncrementalTopoSort
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from ..types.protocols.observable_protocol import Observable
+    from fynx.observable.types.protocols.observable_protocol import Observable
 
 # ============================================================================
 # REACTIVE CONTEXT PROTOCOL
@@ -181,7 +179,7 @@ class ReactiveContextImpl(ReactiveContext):
     def run(self, value=None) -> None:
         """Run the reactive function, tracking dependencies."""
         # Import here to avoid circular imports
-        from ..core.observable import Observable
+        from fynx.observable.core.observable import Observable
 
         old_context = Observable._current_context
         Observable._current_context = self
