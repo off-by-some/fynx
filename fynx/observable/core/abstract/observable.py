@@ -206,11 +206,9 @@ class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
     @staticmethod
     def _is_conditional(obj) -> bool:
         """Check if an object is a conditional observable."""
-        return (
-            hasattr(obj, "_conditions_met")
-            and hasattr(obj, "is_active")
-            and hasattr(obj, "_processed_conditions")
-        )
+        from fynx.observable.computed.types import is_conditional_observable
+
+        return is_conditional_observable(obj)
 
     # Magic methods for transparent behavior
     def __bool__(self) -> bool:

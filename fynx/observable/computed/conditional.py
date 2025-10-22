@@ -11,8 +11,10 @@ Key improvements:
 
 from typing import Any, Callable, List, Optional, TypeVar, Union
 
+from fynx.observable.computed.types import is_conditional_observable
 from fynx.observable.core.abstract.derived import ComputationState, DerivedValue
 from fynx.observable.core.abstract.operations import OperatorMixin
+from fynx.observable.core.types import is_base_observable
 from fynx.observable.types.protocols.conditional_protocol import Conditional
 from fynx.observable.types.protocols.observable_protocol import Observable
 
@@ -53,8 +55,8 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
             # Check if condition is valid type
             if not (
                 callable(condition)
-                or hasattr(condition, "value")
-                or hasattr(condition, "subscribe")
+                or is_base_observable(condition)
+                or is_conditional_observable(condition)
             ):
                 raise TypeError(
                     f"Condition {i} must be an Observable, ObservableValue, callable, or ConditionalObservable"
@@ -69,7 +71,7 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
 
         # Subscribe to condition observables
         for condition in conditions:
-            if hasattr(condition, "subscribe"):
+            if is_base_observable(condition) or is_conditional_observable(condition):
                 condition.subscribe(self._on_source_change)
 
         # Evaluate initial state
@@ -106,6 +108,16 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
             self._has_ever_been_active = True
         return self._conditions_met
 
+    def _on_source_change(self, value: Any) -> None:
+        """Handle source changes and update condition state."""
+        # Update conditions state before processing
+        self._conditions_met = self._evaluate_conditions()
+        if self._conditions_met:
+            self._has_ever_been_active = True
+
+        # Call parent implementation
+        super()._on_source_change(value)
+
     def _get_fallback_value(self) -> T:
         """Raise appropriate exception based on whether conditions were ever met."""
         if not self._has_ever_been_active:
@@ -125,7 +137,7 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
             if callable(condition):
                 if not condition(source_value):
                     return False
-            elif hasattr(condition, "value"):
+            elif is_base_observable(condition) or is_conditional_observable(condition):
                 if not bool(condition.value):
                     return False
         return True
