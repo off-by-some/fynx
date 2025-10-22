@@ -199,7 +199,7 @@ def test_store_subscription_notifies_on_any_observable_change():
         discount_percent = observable(0.0)
 
         final_price = (total_price + discount_percent).then(
-            lambda price, discount: price * (1 - discount / 100)
+            lambda t: t[0] * (1 - t[1] / 100)
         )
 
     # Arrange
@@ -245,7 +245,7 @@ def test_complex_reactive_workflow_with_multiple_stores():
         widgets = observable(100)
         gadgets = observable(50)
 
-        total_items = (widgets + gadgets).then(lambda w, g: w + g)
+        total_items = (widgets + gadgets).then(lambda t: t[0] + t[1])
 
     class PricingStore(Store):
         base_price_per_item = observable(10.0)
@@ -263,11 +263,7 @@ def test_complex_reactive_workflow_with_multiple_stores():
                 self.base_price_per_item
                 + self.inventory_total
                 + self.bulk_discount_threshold
-            ).then(
-                lambda base, total, threshold: (
-                    base * 0.9 if total >= threshold else base
-                )
-            )
+            ).then(lambda t: (t[0] * 0.9 if t[1] >= t[2] else t[0]))
 
     # Arrange
     inventory = InventoryStore()

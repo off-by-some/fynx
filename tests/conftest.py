@@ -107,8 +107,6 @@ def complex_computation_store():
         )
 
         # Computed: scaled total
-        scaled_total = (total + multiplier).then(
-            lambda total, multiplier: total * multiplier
-        )
+        scaled_total = (total + multiplier).then(lambda t: t[0] * t[1])
 
     return ComplexStore()

@@ -143,8 +143,10 @@ See Also
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, TypeVar
 
+from ..primitives.base_observable import BaseObservable
+
 # Import at runtime for actual usage
-from ..primitives.observable import Observable
+from ..primitives.derived_value import DerivedValue
 
 
 # Lazy imports to avoid circular dependencies
@@ -166,7 +168,7 @@ T = TypeVar("T")
 _intern_pool = None
 
 
-class ComputedObservable(Observable[T]):
+class ComputedObservable(DerivedValue[T]):
     """
     A read-only observable that derives its value from other observables.
 
@@ -203,13 +205,12 @@ class ComputedObservable(Observable[T]):
         key: Optional[str] = None,
         initial_value: Optional[T] = None,
         computation_func: Optional[Callable] = None,
-        source_observable: Optional["Observable"] = None,
+        source_observable: Optional["BaseObservable"] = None,
     ) -> None:
-        super().__init__(key, initial_value)
+        super().__init__(key, initial_value, source_observable)
 
         # Original fields
         self._computation_func = computation_func
-        self._source_observable = source_observable
 
         # FUNCTION COMPOSITION: Track transformation chain for optimization
         # This enables automatic collapsing of .then().then().then() chains
@@ -261,7 +262,7 @@ class ComputedObservable(Observable[T]):
                         self._notify_observers(computed_value)
                 else:
                     # Lazy evaluation: just mark as dirty
-                    self._is_dirty = True
+                    self._mark_dirty()
 
             source_observable.subscribe(on_source_change)
 
@@ -269,7 +270,7 @@ class ComputedObservable(Observable[T]):
         self._composed_func: Optional[Callable] = computation_func
 
         # Cache the ultimate source to avoid O(N) chain walking
-        self._cached_ultimate_source: Optional["Observable"] = None
+        self._cached_ultimate_source: Optional["BaseObservable"] = None
 
         # Flag to prevent recursion during updates
         self._is_updating = False
@@ -277,17 +278,11 @@ class ComputedObservable(Observable[T]):
         # Lazy evaluation: track if value needs recomputation
         self._is_dirty = True
 
-    def _evaluate_and_notify(self):
-        """Evaluate the computation and notify observers if value changed."""
-        if (
-            not self._is_dirty
-            or self._computation_func is None
-            or self._source_observable is None
-        ):
-            return
+    def _compute_value(self) -> T:
+        """Apply computation function to source value."""
+        if self._computation_func is None or self._source_observable is None:
+            return self._value_wrapper.unwrap()
 
-        # Get current value and compute new value
-        old_value = self._value_wrapper.unwrap()
         source_value = self._get_source_value_iteratively()
 
         # Mark source as being computed from to detect circular dependencies
@@ -295,7 +290,7 @@ class ComputedObservable(Observable[T]):
         self._source_observable._computed_from = self
 
         try:
-            computed_value = self._computation_func(source_value)
+            return self._computation_func(source_value)
         finally:
             # Restore previous state
             if was_computed_from is not None:
@@ -303,13 +298,14 @@ class ComputedObservable(Observable[T]):
             else:
                 delattr(self._source_observable, "_computed_from")
 
-        # Update stored value
-        self._value_wrapper._value = computed_value
-        self._is_dirty = False
+    def _should_recompute(self) -> bool:
+        """Check if recomputation is needed."""
+        return self._is_dirty
 
-        # Notify observers if the value changed
-        if old_value != computed_value:
-            self._notify_observers(computed_value)
+    def _on_source_change(self, value: Any) -> None:
+        """Handle source changes."""
+        self._mark_dirty()
+        self._evaluate_if_dirty()
 
     def _set_computed_value(self, value: Optional[T]) -> None:
         """
@@ -329,9 +325,10 @@ class ComputedObservable(Observable[T]):
         # Mark as clean to prevent re-evaluation
         self._is_dirty = False
         # Always notify observers when computed value changes
-        super().set(value)
+        self._value_wrapper._value = value
+        self._notify_observers(value)
 
-    def _extend_chain(self, func: Callable) -> "LazyChainBuilder":
+    def _extend_chain(self, func: Callable) -> Any:
         """
         Extend chain with lazy building approach.
 
@@ -364,8 +361,8 @@ class ComputedObservable(Observable[T]):
         For regular computed observables, only recomputes when dirty.
         """
         # Track dependency if we're in a reactive context
-        if Observable._current_context is not None:
-            Observable._current_context.add_dependency(self)
+        if BaseObservable._current_context is not None:
+            BaseObservable._current_context.add_dependency(self)
 
         # If this is a lazy computed observable, materialize on first access
         if getattr(self, "_is_lazy", False):
@@ -386,7 +383,7 @@ class ComputedObservable(Observable[T]):
             and self._computation_func is not None
             and self._source_observable is not None
         ):
-            self._evaluate_and_notify()
+            self._compute_and_update()
 
         # Return the current value (either cached or newly computed)
         return super().value
@@ -471,7 +468,7 @@ class ComputedObservable(Observable[T]):
 
         return OperationsMixin.then(self, func)
 
-    def _find_ultimate_source(self) -> "Observable":
+    def _find_ultimate_source(self) -> "BaseObservable":
         """
         Find the ultimate non-computed source observable with O(1) caching.
 
@@ -572,41 +569,3 @@ class ComputedObservable(Observable[T]):
                 self._composed_func.__name__ if self._composed_func else None
             ),
         }
-
-    def set(self, value: Optional[T]) -> None:
-        """
-        Prevent direct modification of computed observable values.
-
-        Computed observables are read-only by design because their values are
-        automatically calculated from other observables. Attempting to set them
-        directly would break the reactive relationship and defeat the purpose
-        of computed values.
-
-        To create a computed observable, use the >> operator or .then() method instead:
-
-        ```python
-        from fynx import observable
-
-        base = observable(5)
-        # Correct: Create computed value
-        doubled = base >> (lambda x: x * 2)
-
-        # Incorrect: Try to set computed value directly
-        doubled.set(10)  # Raises ValueError
-        ```
-
-        Args:
-            value: The value that would be set (ignored).
-                  This parameter exists for API compatibility but is not used.
-
-        Raises:
-            ValueError: Always raised to prevent direct modification of computed values.
-                       Use the >> operator or .then() method to create derived observables instead.
-
-        See Also:
-            >> operator: Modern syntax for creating computed observables
-            _set_computed_value: Internal method used by the framework
-        """
-        raise ValueError(
-            "Computed observables are read-only and cannot be set directly"
-        )

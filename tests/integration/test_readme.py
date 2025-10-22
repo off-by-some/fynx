@@ -23,7 +23,7 @@ class TestReadmeExamples:
 
         # Reactive computation
         total_price = (CartStore.item_count + CartStore.price_per_item) >> (
-            lambda count, price: count * price
+            lambda t: t[0] * t[1]
         )
 
         # Test initial state
@@ -83,7 +83,7 @@ class TestReadmeExamples:
             last_name = observable("Doe")
 
         # Combine and transform
-        full_name = (User.first_name + User.last_name) >> (lambda f, l: f"{f} {l}")
+        full_name = (User.first_name + User.last_name) >> (lambda t: f"{t[0]} {t[1]}")
         assert full_name.value == "John Doe"
 
         User.first_name = "Jane"
@@ -210,7 +210,7 @@ class TestReadmeExamples:
         last_name = observable("Doe")
 
         # Product creates a tuple observable
-        full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
+        full_name = (first_name + last_name) >> (lambda t: f"{t[0]} {t[1]}")
         assert full_name.value == "Jane Doe"
 
         first_name.set("John")  # full_name automatically becomes "John Doe"
@@ -291,7 +291,7 @@ class TestReadmeExamples:
         discount = observable(0.1)
         is_valid = quantity >> (lambda q: q > 0)
 
-        total = ((price + quantity) >> (lambda p, q: p * q)) & is_valid
+        total = ((price + quantity) >> (lambda t: t[0] * t[1])) & is_valid
         discounted = total >> (
             lambda t: t * (1 - discount.value) if t is not None else 0
         )

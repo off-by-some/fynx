@@ -592,7 +592,7 @@ def test_then_operator_creates_computed_observable_from_merged_sources():
     num1 = observable(3)
     num2 = observable(4)
     combined = num1 + num2
-    summed = combined.then(lambda a, b: a + b)
+    summed = combined.then(lambda t: t[0] + t[1])
 
     assert summed.value == 7  # 3 + 4
 
@@ -611,7 +611,7 @@ def test_computed_observables_can_be_chained():
     num1 = observable(3)
     num2 = observable(4)
     combined = num1 + num2
-    summed = combined.then(lambda a, b: a + b)
+    summed = combined.then(lambda t: t[0] + t[1])
     final = summed.then(lambda s: s * 2)
 
     assert final.value == 14  # (3 + 4) * 2
@@ -645,7 +645,7 @@ def test_rshift_operator_chains_transformations_on_merged_observables():
     num1 = observable(3)
     num2 = observable(4)
     combined = num1 + num2
-    summed = combined >> (lambda a, b: a + b)
+    summed = combined >> (lambda t: t[0] + t[1])
     formatted = summed >> (lambda s: f"Sum: {s}")
 
     assert summed.value == 7  # 3 + 4

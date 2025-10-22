@@ -50,6 +50,7 @@ from typing import Any, Callable, List, Optional, Set, TypeVar, Union
 
 from ..computed import ComputedObservable
 from ..operations import OperatorMixin
+from ..primitives.derived_value import DerivedValue
 from ..protocols.conditional_protocol import Conditional
 from ..protocols.observable_protocol import Observable
 
@@ -101,7 +102,7 @@ class ConditionalNotMet(Exception):
     """
 
 
-class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin):
+class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
     """
     A conditional observable that filters values based on one or more conditions.
 
@@ -248,14 +249,72 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         # Initialize the base observable WITHOUT the source to prevent automatic subscription
         # We'll handle the subscription manually with proper conditional logic
-        super().__init__("conditional", initial_value, None, None)
-
-        # Manually set the source observable since we didn't pass it to the parent
-        self._source_observable = source_observable
+        super().__init__("conditional", initial_value, source_observable)
 
         # Set up dependency tracking and observers
         self._all_dependencies = self._find_all_dependencies()
         self._setup_observers()
+
+        # If conditions are initially met, update the value
+        if self._conditions_met:
+            self._has_ever_had_valid_value = True
+            self._value_wrapper.value = self._get_root_source_value()
+
+    def _compute_value(self) -> T:
+        """Pass through source value (no transformation)."""
+        return self._source_observable.value
+
+    def _should_recompute(self) -> bool:
+        """Check if recomputation is needed."""
+        return self._is_dirty and self._conditions_met
+
+    def _on_source_change(self, value: Any) -> None:
+        """Handle source changes."""
+        self._update_conditional_state()
+
+    def _update_conditional_state(self) -> None:
+        """
+        Update the conditional state when dependencies change.
+
+        This method is called whenever any dependency changes value.
+        """
+        previous_conditions_satisfied = self._conditions_met
+        previous_value = self._value_wrapper.value
+
+        # Check current condition state
+        self._conditions_met = self._check_if_conditions_are_satisfied()
+
+        # Only update value and notify if conditions are satisfied
+        if self._conditions_met:
+            # For nested conditionals, source might be inactive - get root source value
+            current_source_value = self._get_root_source_value()
+
+            # Update value if it changed or if conditions just became met for the first time
+            should_update = (
+                self._value_wrapper.value != current_source_value
+                or not self._has_ever_had_valid_value
+            )
+
+            if should_update:
+                self._has_ever_had_valid_value = True
+                # Setting value triggers _on_value_change which calls _notify_observers
+                self._value_wrapper.value = current_source_value
+        else:
+            # Conditions are not met - update internal state but don't notify
+            # This handles the case where we're notified by source but conditions are unmet
+            if self._has_ever_had_valid_value:
+                # We had a valid value before, so we're transitioning from active to inactive
+                # Don't notify observers - this maintains pullback semantics
+                pass
+
+    def _should_notify_observers(self) -> bool:
+        """
+        Override hook from BaseObservable.
+
+        Returns False when conditions are not met, preventing the
+        epoch notification system from calling observers.
+        """
+        return self._conditions_met
 
     def _validate_inputs(
         self, source_observable: "Observable[T]", conditions: tuple
@@ -278,9 +337,11 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                 raise ValueError(f"Condition {i} cannot be None")
 
             # Check if condition is a valid type (check class hierarchy to avoid triggering property access)
+            from ..primitives.base_observable import BaseObservable
             from ..primitives.observable import Observable
 
             is_observable = isinstance(condition, Observable)
+            is_base_observable = isinstance(condition, BaseObservable)
             is_observable_value = hasattr(condition, "observable") and hasattr(
                 condition, "value"
             )
@@ -290,7 +351,11 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             is_conditional = isinstance(condition, ConditionalObservable)
 
             if not (
-                is_observable or is_observable_value or is_callable or is_conditional
+                is_observable
+                or is_base_observable
+                or is_observable_value
+                or is_callable
+                or is_conditional
             ):
                 raise TypeError(
                     f"Condition {i} must be an Observable, ObservableValue, callable, or ConditionalObservable, "
@@ -460,7 +525,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         Handles different types of conditions appropriately.
         """
-        from ..primitives.observable import Observable as BaseObservable
+        from ..primitives.base_observable import BaseObservable
         from .conditional import ConditionalObservable
 
         if isinstance(condition, ConditionalObservable):
@@ -542,54 +607,9 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             cycle_detector = ReactiveContextImpl._get_cycle_detector()
             cycle_detector.add_edge(self._source_observable, self)
 
-    def _update_conditional_state(self) -> None:
-        """
-        Update the conditional state when dependencies change.
-
-        This method is called whenever any dependency changes value.
-        """
-        previous_conditions_satisfied = self._conditions_met
-        previous_value = self._value_wrapper.value
-
-        # Check current condition state
-        self._conditions_met = self._check_if_conditions_are_satisfied()
-
-        # Only update value and notify if conditions are satisfied
-        if self._conditions_met:
-            # For nested conditionals, source might be inactive - get root source value
-            current_source_value = self._get_root_source_value()
-
-            # Update value if it changed or if conditions just became met for the first time
-            should_update = (
-                self._value_wrapper.value != current_source_value
-                or not self._has_ever_had_valid_value
-            )
-
-            if should_update:
-                self._has_ever_had_valid_value = True
-                # Setting value triggers _on_value_change which calls _notify_observers
-                self._value_wrapper.value = current_source_value
-        else:
-            # Conditions are not met - update internal state but don't notify
-            # This handles the case where we're notified by source but conditions are unmet
-            if self._has_ever_had_valid_value:
-                # We had a valid value before, so we're transitioning from active to inactive
-                # Don't notify observers - this maintains pullback semantics
-                pass
-
-    def _notify_observers(self, value: Optional[T]) -> None:
-        """Override to only notify when conditions are met."""
-        # Check if conditions are met before notifying
-        if not self._conditions_met:
-            # Don't notify when conditions are not met
-            return
-
-        # Use the parent's notification method
-        super()._notify_observers(value)
-
     def _should_notify_observers(self) -> bool:
         """
-        Check if this observable should notify its observers.
+        Override hook from BaseObservable.
 
         Returns False when conditions are not met, preventing the
         epoch notification system from calling observers.

@@ -65,15 +65,8 @@ class OperationsMixin:
 
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
-            # Check if this observable produces tuples (i.e., it's mergeable)
-            from ..protocols.merged_protocol import Mergeable
-
-            if isinstance(self, Mergeable) and isinstance(value, tuple):
-                # This is a merged observable producing a tuple - unpack it
-                return func(*value)
-            else:
-                # Single value observable
-                return func(value)
+            # Always pass the value as-is, no automatic unpacking
+            return func(value)
 
         # Simply create a ComputedObservable - all complex logic is handled there
         return ComputedObservable(

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, TypeVar
 
 from ..computed import ComputedObservable
 from ..operations import OperatorMixin, TupleMixin
+from ..primitives.derived_value import DerivedValue
 from ..protocols.merged_protocol import Mergeable
 
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ _func_to_contexts = {}
 T = TypeVar("T")
 
 
-class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, TupleMixin):
+class MergedObservable(DerivedValue[T], Mergeable[T], OperatorMixin, TupleMixin):
     """
     A wrapper that combines multiple observables into a single reactive tuple.
 
@@ -96,9 +97,17 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         for i, obs in enumerate(flattened_sources):
             self._current_values[i] = obs.value
 
-        # Initialize as a ComputedObservable
+        # Initialize update handlers before calling super().__init__()
+        self._update_handlers = []
+
+        # Initialize as a DerivedValue with multiple sources
         initial_tuple = tuple(self._current_values)
-        super().__init__("merged", initial_tuple, lambda _: tuple(self._current_values))
+        super().__init__(
+            "merged",
+            initial_tuple,
+            flattened_sources[0] if flattened_sources else None,
+            flattened_sources,
+        )
 
         # Add dependency edges to cycle detector for all sources
         from ..primitives.context import ReactiveContextImpl
@@ -107,9 +116,22 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         for obs in flattened_sources:
             cycle_detector.add_edge(obs, self)
 
-        # Subscribe to sources with index tracking
-        self._update_handlers = []
-        for i, obs in enumerate(flattened_sources):
+    def _compute_value(self) -> tuple:
+        """Combine all source values into tuple."""
+        return tuple(obs.value for obs in self._source_observables)
+
+    def _should_recompute(self) -> bool:
+        """Check if recomputation is needed."""
+        return self._is_dirty
+
+    def _on_source_change(self, value: Any) -> None:
+        """Handle source changes."""
+        self._mark_dirty()
+        self._evaluate_if_dirty()
+
+    def _setup_source_observers(self) -> None:
+        """Override to subscribe to ALL sources."""
+        for i, obs in enumerate(self._source_observables):
             handler = self._create_update_handler(i)
             self._update_handlers.append(handler)
             obs.subscribe(handler)

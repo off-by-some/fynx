@@ -33,9 +33,9 @@ class GenericObservable:
     @staticmethod
     def is_merged_observable(obj: Any) -> bool:
         """Check if an object is a MergedObservable."""
-        from ..protocols.merged_protocol import Mergeable
+        from ..merged import MergedObservable
 
-        return isinstance(obj, Mergeable)
+        return isinstance(obj, MergedObservable)
 
     @staticmethod
     def is_conditional_observable(obj: Any) -> bool:
