@@ -135,10 +135,10 @@ def test_merged_observable_subscription_notifies_on_any_source_change():
     callback_executed = False
     received_values = None
 
-    def callback(a, b):
+    def callback(values):
         nonlocal callback_executed, received_values
         callback_executed = True
-        received_values = (a, b)
+        received_values = values
 
     merged.subscribe(callback)
 
@@ -162,9 +162,9 @@ def test_merged_observable_subscription_receives_current_values():
 
     received_args = None
 
-    def callback(*args):
+    def callback(values):
         nonlocal received_args
-        received_args = args
+        received_args = values
 
     merged.subscribe(callback)
 

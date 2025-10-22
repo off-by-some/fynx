@@ -368,17 +368,33 @@ class Store(metaclass=StoreMeta):
         """Subscribe a function to react to all observable changes in the store."""
         snapshot = StoreSnapshot(cls, cls._observable_attrs)
 
-        def store_reaction():
+        def store_reaction(value=None):
             snapshot._take_snapshot()
             func(snapshot)
 
-        context = Observable._create_subscription_context(store_reaction, func, None)
-        # Subscribe to all observables (including computed ones)
-        context._store_observables = list(cls._observables.values())
-        for observable in context._store_observables:
-            observable.add_observer(context.run)
+        # Subscribe to all observables directly
+        subscriptions = []
+        for observable in cls._observables.values():
+            observable.add_observer(store_reaction)
+            subscriptions.append(observable)
+
+        # Store the subscriptions for later unsubscribe
+        if not hasattr(cls, "_subscription_contexts"):
+            cls._subscription_contexts = {}
+        cls._subscription_contexts[func] = {
+            "reaction": store_reaction,
+            "subscriptions": subscriptions,
+        }
 
     @classmethod
     def unsubscribe(cls, func: Callable) -> None:
         """Unsubscribe a function from all observables."""
-        Observable._dispose_subscription_contexts(func)
+        if (
+            hasattr(cls, "_subscription_contexts")
+            and func in cls._subscription_contexts
+        ):
+            context = cls._subscription_contexts[func]
+            # Unsubscribe from all observables
+            for observable in context["subscriptions"]:
+                observable.remove_observer(context["reaction"])
+            del cls._subscription_contexts[func]

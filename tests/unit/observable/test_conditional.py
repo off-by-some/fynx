@@ -158,12 +158,12 @@ def test_conditional_observable_operator_creates_flat_structure():
 
 import pytest
 
-from fynx.observable.base import Observable
 from fynx.observable.conditional import (
     ConditionalNeverMet,
     ConditionalNotMet,
     ConditionalObservable,
 )
+from fynx.observable.primitives.base import Observable
 
 
 @pytest.mark.unit

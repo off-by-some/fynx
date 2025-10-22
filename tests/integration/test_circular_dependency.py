@@ -93,9 +93,14 @@ def test_circular_dependency_should_be_detected():
     # Create computed that modifies its source
     computed_obs = obs_a >> (lambda x: (obs_a.set(x + 1), x)[1])
 
-    # The circular dependency is detected when the computed is triggered
+    # Subscribe to make it evaluate immediately when source changes
+    computed_obs.subscribe(lambda v: None)
+
+    # The circular dependency is detected when the source is set
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
-        obs_a.set(5)  # This should trigger the circular dependency error
+        obs_a.set(
+            5
+        )  # This triggers immediate evaluation and circular dependency detection
 
 
 def test_long_computed_chain_no_recursion():

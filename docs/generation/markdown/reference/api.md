@@ -41,6 +41,8 @@ Observables are containers for values that change over time. Unlike regular vari
 
 **[Observable Operators](observable-operators.md)** — The operators (`+`, `>>`, `&`, `~`) and methods (`.then()`, `.requiring()`) that let you compose observables into reactive pipelines. The `>>` operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.
 
+**[Transactions](transactions.md)** — Safe reentrant updates and batched notifications. Use transactions when you need to update an observable from within its own subscriber, or when you want to batch multiple changes into a single notification. This prevents circular dependencies while enabling sophisticated state coordination patterns.
+
 ### Stores: Organizing State
 
 While standalone observables are useful for small scripts, real applications need structure. Stores group related observables and computed values into cohesive units.
@@ -80,6 +82,24 @@ count.set(current + 1)         # Write
 # Store observables
 current = AppStore.count       # Read
 AppStore.count = current + 1   # Write
+```
+
+### Transactions: Safe Reentrant Updates
+
+```python
+# Safe reentrant updates using transactions
+def update_from_subscriber(value):
+    with count.transaction():
+        count.set(value + 1)  # Safe!
+
+count.subscribe(update_from_subscriber)
+
+# Batch multiple changes
+with count.transaction():
+    count.set(1)
+    count.set(2)
+    count.set(3)
+# Only one notification sent with final value (3)
 ```
 
 ### Deriving Values
@@ -130,6 +150,32 @@ should_save = has_changes & is_valid
 
 # Negate conditions
 is_idle = ~is_busy
+```
+
+### Transactions: Advanced State Management
+
+```python
+# Safe reentrant updates
+def auto_increment(value):
+    with counter.transaction():
+        counter.set(value + 1)
+
+counter.subscribe(auto_increment)
+
+# Batch multiple updates
+with user_profile.transaction():
+    user_profile.name = "Alice"
+    user_profile.email = "alice@example.com"
+    user_profile.last_updated = datetime.now()
+# Single notification sent after all updates complete
+
+# Prevent circular dependencies
+def bad_update(value):
+    counter.set(value + 1)  # ❌ RuntimeError: Circular dependency detected
+
+def good_update(value):
+    with counter.transaction():
+        counter.set(value + 1)  # ✅ Safe!
 ```
 
 ## Complete Example: Putting It All Together
@@ -207,7 +253,7 @@ Focus on: [Store](store.md), [Observable Operators](observable-operators.md) (es
 
 ### Need complex state logic?
 
-Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@reactive](reactive-decorator.md)
+Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [Transactions](transactions.md), [@reactive](reactive-decorator.md)
 
 ### Performance optimization?
 

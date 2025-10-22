@@ -135,6 +135,122 @@ counter.set(2)  # No output - logger no longer subscribed
 
 You must pass the exact same function reference to `unsubscribe()` that you passed to `subscribe()`. This is why lambda functions can be tricky—you can't easily unsubscribe them later. For cleanup-critical code, use named functions.
 
+## Transactions: Safe Reentrant Updates
+
+Sometimes you need to update an observable from within one of its own subscribers. This creates a potential circular dependency—the observable is already notifying subscribers, and now you're trying to notify them again.
+
+FynX prevents infinite loops with **circular dependency detection**:
+
+```python
+counter = observable(0)
+
+def increment_on_change(value):
+    # This would cause a circular dependency error
+    counter.set(value + 1)  # ❌ RuntimeError: Circular dependency detected
+
+counter.subscribe(increment_on_change)
+counter.set(5)  # Raises RuntimeError
+```
+
+But what if you legitimately need to update an observable from within a subscriber? Use **transactions** for safe, controlled reentrant updates:
+
+```python
+counter = observable(0)
+
+def increment_on_change(value):
+    # Use transaction for safe reentrant updates
+    with counter.transaction():
+        counter.set(value + 1)  # ✅ Safe!
+
+counter.subscribe(increment_on_change)
+counter.set(5)  # Works correctly
+```
+
+### How Transactions Work
+
+Transactions defer notifications until the transaction completes, then send a single notification with the final value:
+
+```python
+counter = observable(0)
+notifications = []
+
+def track_notifications(value):
+    notifications.append(value)
+
+counter.subscribe(track_notifications)
+
+# Without transaction - multiple notifications
+counter.set(1)
+counter.set(2)
+counter.set(3)
+print(notifications)  # [1, 2, 3]
+
+notifications.clear()
+
+# With transaction - single notification
+with counter.transaction():
+    counter.set(1)
+    counter.set(2)
+    counter.set(3)
+print(notifications)  # [3] - only the final value
+```
+
+### When to Use Transactions
+
+Use transactions when you need to:
+
+* **Update an observable from within its own subscriber** — Safe reentrant updates
+* **Batch multiple changes** — Reduce notification overhead
+* **Ensure atomic updates** — Prevent intermediate inconsistent states
+* **Coordinate complex state changes** — Multiple observables updating together
+
+```python
+# Example: Form validation with batched updates
+class FormStore(Store):
+    name = observable("")
+    email = observable("")
+    is_valid = observable(False)
+
+def validate_form():
+    with FormStore.is_valid.transaction():
+        # Multiple validation checks
+        name_valid = len(FormStore.name.value) > 0
+        email_valid = "@" in FormStore.email.value
+        FormStore.is_valid.set(name_valid and email_valid)
+        # Only one notification sent when transaction completes
+
+# Subscribe to validation changes
+FormStore.is_valid.subscribe(lambda valid: print(f"Form valid: {valid}"))
+
+# Update form fields
+FormStore.name = "Alice"  # Triggers validation
+FormStore.email = "alice@example.com"  # Triggers validation
+# Output: "Form valid: True" (only once, after both updates)
+```
+
+### Transaction Best Practices
+
+* **Keep transactions short** — Long transactions can make debugging harder
+* **Use for legitimate reentrancy** — Don't use transactions to work around design issues
+* **Prefer declarative patterns** — Often, computed observables are cleaner than manual transactions
+* **Test transaction behavior** — Ensure your batched updates work as expected
+
+```python
+# Good: Using transactions for legitimate coordination
+def update_user_profile(user_data):
+    with UserStore.transaction():  # If Store had transaction support
+        UserStore.name = user_data['name']
+        UserStore.email = user_data['email']
+        UserStore.last_updated = datetime.now()
+
+# Better: Using computed observables for derived state
+class UserStore(Store):
+    name = observable("")
+    email = observable("")
+    display_name = name >> (lambda n: n.title())
+    is_complete = (name + email) >> (lambda n, e: bool(n and e))
+```
+
 ## Observables vs. Regular Variables
 
 Let's make the difference concrete. Here's state management without observables:

@@ -101,17 +101,23 @@ def test_observable_with_mutable_containers():
     current_list = obs.value
     current_list.append(4)
 
-    # Assert - Observable doesn't auto-detect in-place mutations
-    # This tests the expected behavior: observables track explicit set() calls only
-    assert obs.value == [1, 2, 3, 4]
+    # Assert - Observable returns defensive copies, so in-place mutations
+    # don't affect the stored value. Only explicit set() calls trigger changes.
+    assert obs.value == [1, 2, 3]  # Original value unchanged
+    assert current_list == [1, 2, 3, 4]  # Local copy was modified
     assert len(notifications) == 0  # No notification for in-place change
+
+    # Explicit set() should trigger notification
+    obs.set([1, 2, 3, 4])
+    assert obs.value == [1, 2, 3, 4]
+    assert len(notifications) == 1
 
     # Act - Proper update via set()
     obs.set([1, 2, 3, 4, 5])
 
     # Assert - Now notification is sent
-    assert len(notifications) == 1
-    assert notifications[0] == [1, 2, 3, 4, 5]
+    assert len(notifications) == 2
+    assert notifications[1] == [1, 2, 3, 4, 5]
 
 
 @pytest.mark.edge_case

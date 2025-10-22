@@ -176,24 +176,22 @@ See Also
 - `fynx.reactive`: For reactive decorators and subscriptions
 """
 
-from .base import Observable, ReactiveContext
 from .computed import ComputedObservable
 from .conditional import ConditionalNeverMet, ConditionalObservable
-from .descriptors import ObservableValue, SubscriptableDescriptor
-from .interfaces import (
-    Conditional,
-    Mergeable,
-)
-from .interfaces import Observable as ObservableInterface
-from .interfaces import ReactiveContext as ReactiveContextInterface
+from .conditional.protocol import Conditional
+from .generic import GenericObservable
 from .merged import MergedObservable
-from .operators import (
+from .merged.protocol import Mergeable
+from .operations import (
+    OperationsMixin,
     OperatorMixin,
     TupleMixin,
     ValueMixin,
-    and_operator,
-    rshift_operator,
 )
+from .primitives.base import Observable, ReactiveContext
+from .primitives.context import ReactiveContext as ReactiveContextInterface
+from .primitives.protocol import Observable as ObservableInterface
+from .value import ObservableValue, SubscriptableDescriptor
 
 __all__ = [
     "Observable",
@@ -204,8 +202,8 @@ __all__ = [
     "ReactiveContext",
     "ObservableValue",
     "SubscriptableDescriptor",
-    "rshift_operator",
-    "and_operator",
+    "GenericObservable",
+    "OperationsMixin",
     # Protocols
     "ObservableInterface",
     "Mergeable",

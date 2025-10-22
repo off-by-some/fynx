@@ -54,8 +54,10 @@ def test_computed_observable_stores_computation_function():
     base = Observable("base", 5)
     computed_obs = base.then(test_func)
 
-    # Implementation detail: stores computation function
-    assert computed_obs._computation_func == test_func
+    # Implementation detail: stores composed function
+    assert hasattr(computed_obs, "_composed_func")
+    # Verify it works correctly
+    assert computed_obs.value == 15  # 5 * 3
 
 
 @pytest.mark.unit

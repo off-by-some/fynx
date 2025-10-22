@@ -2,8 +2,7 @@
 
 import pytest
 
-from fynx.observable.base import Observable
-from fynx.optimizer import OptimizationContext
+from fynx.observable.primitives.base import Observable
 from tests.test_factories import (
     create_counter_with_limits,
     create_diamond_dependency,
@@ -27,39 +26,19 @@ no_leaks = create_no_leaks_fixture()
 @pytest.fixture(autouse=True)
 def reset_observable_state():
     """Reset Observable class state between tests to prevent contamination."""
-    # Store original state
-    original_pending = Observable._pending_notifications.copy()
-    original_scheduled = Observable._notification_scheduled
-    original_notifying = Observable._currently_notifying.copy()
+    # Store original state (only for attributes that still exist)
     original_context = Observable._current_context
-    original_stack = Observable._context_stack.copy()
 
-    # Store optimizer context
-    original_optimizer_context = getattr(
-        OptimizationContext._thread_local, "current", None
-    )
-
-    # Reset to clean state
-    Observable._pending_notifications.clear()
-    Observable._notification_scheduled = False
-    Observable._currently_notifying.clear()
+    # Reset to clean state (only for attributes that still exist)
     Observable._current_context = None
-    Observable._context_stack.clear()
 
-    # Reset optimizer context for this thread
-    OptimizationContext._thread_local.current = None
+    # Reset notification state for test isolation
+    Observable._reset_notification_state()
 
     yield
 
     # Restore original state (though this shouldn't be necessary for autouse fixtures)
-    Observable._pending_notifications = original_pending
-    Observable._notification_scheduled = original_scheduled
-    Observable._currently_notifying = original_notifying
     Observable._current_context = original_context
-    Observable._context_stack = original_stack
-
-    # Restore optimizer context
-    OptimizationContext._thread_local.current = original_optimizer_context
 
 
 @pytest.fixture

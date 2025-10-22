@@ -253,7 +253,8 @@ def test_merged_observable_subscription_notifies_on_any_source_change():
     current_age = observable(30)
     callback_calls = []
 
-    def on_combined_change(name, age):
+    def on_combined_change(values):
+        name, age = values
         callback_calls.append(f"Name: {name}, Age: {age}")
 
     current_name_and_age = current_name + current_age
@@ -276,7 +277,8 @@ def test_merged_observable_unsubscription_stops_notifications():
     current_age = observable(30)
     callback_calls = []
 
-    def on_combined_change(name, age):
+    def on_combined_change(values):
+        name, age = values
         callback_calls.append(f"Name: {name}, Age: {age}")
 
     current_name_and_age = current_name + current_age
@@ -659,17 +661,18 @@ def test_rshift_operator_chains_transformations_on_merged_observables():
 @pytest.mark.edge_case
 def test_circular_dependency_detection_raises_runtime_error():
     """Circular dependencies in computed observables raise RuntimeError"""
-    computed_obs = observable(0)
 
-    def update_func():
-        # This creates a circular dependency by updating the observable
-        # that's currently being updated
-        computed_obs.set(computed_obs.value + 1)
+    # Create a true circular dependency
+    obs_a = observable(1)
 
-    # Create a context that updates computed_obs when computed_obs changes
-    context = ReactiveContext(update_func, lambda: None, computed_obs)
-    computed_obs.add_observer(context.run)
+    # Create computed that modifies its source during computation
+    computed_obs = obs_a >> (lambda x: (obs_a.set(x + 1), x)[1])
 
-    # This should raise RuntimeError due to circular dependency
+    # Subscribe to make it evaluate immediately when source changes
+    computed_obs.subscribe(lambda v: None)
+
+    # The circular dependency is detected when the source is set
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
-        computed_obs.set(1)  # This triggers the circular update
+        obs_a.set(
+            5
+        )  # This triggers immediate evaluation and circular dependency detection

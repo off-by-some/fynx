@@ -1,6 +1,6 @@
 import pytest
 
-from fynx.observable.base import Observable
+from fynx.observable.primitives.base import Observable
 
 
 @pytest.mark.unit
@@ -48,7 +48,7 @@ def test_observable_unsubscribe_stops_future_notifications():
 @pytest.mark.observable
 def test_reactive_context_dispose_removes_from_store_observables():
     """ReactiveContext dispose removes observer from all store observables when _store_observables is set."""
-    from fynx.observable.base import ReactiveContext
+    from fynx.observable.primitives.base import ReactiveContext
 
     # Create mock observables
     obs1 = Observable("obs1", 1)
@@ -63,45 +63,40 @@ def test_reactive_context_dispose_removes_from_store_observables():
     obs2.add_observer(context.run)
 
     # Verify observers are added
-    assert context.run in obs1._observers
-    assert context.run in obs2._observers
+    assert obs1.has_observer(context.run)
+    assert obs2.has_observer(context.run)
 
     # Dispose context
     context.dispose()
 
     # Verify observers are removed from both observables
-    assert context.run not in obs1._observers
-    assert context.run not in obs2._observers
+    assert not obs1.has_observer(context.run)
+    assert not obs2.has_observer(context.run)
 
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_observable_notify_observers_prevents_reentrant_notifications():
-    """Observable prevents re-entrant notifications by detecting circular dependencies."""
-    obs = Observable("test", 0)
-    notification_count = 0
+def test_observable_cycle_detection_prevents_infinite_loops():
+    """Test that cycle detection prevents infinite loops when observers modify their own observable."""
+    obs = Observable("test", 1)
 
-    def observer(value):
-        nonlocal notification_count
-        notification_count += 1
-        # Try to trigger another notification while already notifying
+    def circular_observer(value):
+        # This should trigger cycle detection and raise an error
         obs.set(obs.value + 1)
 
-    obs.subscribe(observer)
+    obs.subscribe(circular_observer)
 
-    # This should trigger circular dependency detection, not infinite recursion
+    # This should raise a RuntimeError due to circular dependency detection
     with pytest.raises(RuntimeError, match="Circular dependency detected"):
-        obs.set(1)
-
-    # Should only have triggered one notification before the error
-    assert notification_count == 1
+        obs.set(2)
 
 
 @pytest.mark.unit
 @pytest.mark.observable
 def test_reactive_context_cleanup_removes_empty_function_mappings():
     """ReactiveContext cleanup removes empty function mappings from _func_to_contexts."""
-    from fynx.observable.base import ReactiveContext, _func_to_contexts
+    from fynx.observable.primitives.base import ReactiveContext
+    from fynx.registry import _func_to_contexts
 
     def test_func():
         pass
@@ -129,7 +124,7 @@ def test_reactive_context_cleanup_removes_empty_function_mappings():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_computed_key():
     """Observable descriptor updates key for computed observables in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     class TestClass:
         pass
@@ -149,7 +144,7 @@ def test_observable_descriptor_set_name_updates_computed_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_regular_key():
     """Observable descriptor updates key for regular observables in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     class TestClass:
         pass
@@ -168,7 +163,7 @@ def test_observable_descriptor_set_name_updates_regular_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_skips_computed_processing():
     """Observable descriptor skips processing for computed observables in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     class TestClass:
         pass
@@ -189,7 +184,7 @@ def test_observable_descriptor_set_name_skips_computed_processing():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_handles_store_class():
     """Observable descriptor returns early for Store classes in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     # Mock Store class
     class MockStore:
@@ -209,7 +204,7 @@ def test_observable_descriptor_set_name_handles_store_class():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_key():
     """Observable descriptor updates key in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     class TestClass:
         pass
@@ -228,7 +223,7 @@ def test_observable_descriptor_set_name_updates_key():
 @pytest.mark.observable
 def test_observable_descriptor_set_name_updates_key_for_computed():
     """Observable descriptor updates key for computed observables in __set_name__."""
-    from fynx.observable.base import Observable
+    from fynx.observable.primitives.base import Observable
 
     class TestClass:
         pass

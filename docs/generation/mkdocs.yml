@@ -35,6 +35,7 @@ nav:
           - MergedObservable: reference/merged-observable.md
           - ConditionalObservable: reference/conditional-observable.md
           - Observable Descriptors: reference/observable-descriptors.md
+          - Transactions: reference/transactions.md
       - Stores: reference/store.md
       - Reactive Decorators:
           - "@reactive": reference/reactive-decorator.md

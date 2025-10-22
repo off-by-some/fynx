@@ -100,7 +100,7 @@ class ReactiveWrapper:
 
             else:
                 # Single observable subscription
-                def observable_handler():
+                def observable_handler(value=None):
                     from .observable.conditional import ConditionalObservable
 
                     if (
@@ -116,27 +116,27 @@ class ReactiveWrapper:
                 # Call immediately (if possible)
                 from .observable.conditional import ConditionalObservable
 
-                if isinstance(target, ConditionalObservable) and not target.is_active:
-                    # Don't call reactive function when conditional is not active
+                # Store initial active state to avoid double calls
+                initial_is_active = getattr(target, "is_active", True)
+
+                if isinstance(target, ConditionalObservable) and not initial_is_active:
+                    # Don't call reactive function when conditional is not initially active
                     pass
                 else:
                     current_value = target.value
                     self._invoke_reactive(current_value)
 
                 # Subscribe
-                context = Observable._create_subscription_context(
-                    observable_handler, self._func, target
-                )
-                if target is not None:
-                    target.add_observer(context.run)
-                    self._subscriptions.append((target, self._func))
+                target.subscribe(observable_handler)
+                self._subscriptions.append((target, observable_handler))
         else:
             # Multiple observables - merge them
             merged = self._targets[0]
             for obs in self._targets[1:]:
                 merged = merged + obs
 
-            def merged_handler(*values):
+            def merged_handler(values):
+                # Unpack the tuple from the merged observable
                 self._invoke_reactive(*values)
 
             # Call immediately with current values
