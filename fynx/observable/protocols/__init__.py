@@ -20,8 +20,8 @@ from .computed_protocol import Computed
 from .conditional_protocol import Conditional
 from .derived_protocol import DerivedObservable
 from .merged_protocol import Mergeable
+from .observable_protocol import Observable
 from .operations_protocol import ReactiveOperations, TupleBehavior
-from .primitives_protocol import Observable
 from .value_protocol import TransparentValue
 
 __all__ = [

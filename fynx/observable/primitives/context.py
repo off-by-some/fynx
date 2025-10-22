@@ -44,7 +44,7 @@ from ..types.common_types import T, U
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from ..protocols.primitives_protocol import Observable
+    from ..protocols.observable_protocol import Observable
 
 # ============================================================================
 # REACTIVE CONTEXT PROTOCOL
@@ -181,7 +181,7 @@ class ReactiveContextImpl(ReactiveContext):
     def run(self, value=None) -> None:
         """Run the reactive function, tracking dependencies."""
         # Import here to avoid circular imports
-        from .base import Observable
+        from .observable import Observable
 
         old_context = Observable._current_context
         Observable._current_context = self

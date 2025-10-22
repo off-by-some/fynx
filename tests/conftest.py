@@ -2,7 +2,7 @@
 
 import pytest
 
-from fynx.observable.primitives.base import Observable
+from fynx.observable.primitives.observable import Observable
 from tests.test_factories import (
     create_counter_with_limits,
     create_diamond_dependency,

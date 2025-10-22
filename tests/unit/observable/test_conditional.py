@@ -163,7 +163,7 @@ from fynx.observable.conditional import (
     ConditionalNotMet,
     ConditionalObservable,
 )
-from fynx.observable.primitives.base import Observable
+from fynx.observable.primitives.observable import Observable
 
 
 @pytest.mark.unit

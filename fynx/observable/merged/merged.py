@@ -17,7 +17,7 @@ from ..operations import OperatorMixin, TupleMixin
 from ..protocols.merged_protocol import Mergeable
 
 if TYPE_CHECKING:
-    from ..protocols.primitives_protocol import Observable
+    from ..protocols.observable_protocol import Observable
 
 # Global registry for function-to-context mappings (for cleanup testing)
 _func_to_contexts = {}

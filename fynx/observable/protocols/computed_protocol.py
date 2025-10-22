@@ -46,11 +46,11 @@ from ..types.common_types import Condition, ConditionFunction, T, TransformFunct
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
     from .derived_protocol import DerivedObservable
-    from .primitives_protocol import Observable
+    from .observable_protocol import Observable
 else:
     # Import at runtime to avoid circular imports
     from .derived_protocol import DerivedObservable
-    from .primitives_protocol import Observable
+    from .observable_protocol import Observable
 
 # ============================================================================
 # COMPUTED OBSERVABLE PROTOCOL

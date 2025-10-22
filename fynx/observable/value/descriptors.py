@@ -153,11 +153,11 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ..primitives.base import Observable as ObservableImpl
+    from ..primitives.observable import Observable as ObservableImpl
     from ..conditional import ConditionalObservable
     from ..protocols.conditional_protocol import Conditional
     from ..protocols.merged_protocol import Mergeable
-    from ..protocols.primitives_protocol import Observable
+    from ..protocols.observable_protocol import Observable
     from ..merged import MergedObservable
 
 from .value import ObservableValue
@@ -165,7 +165,7 @@ from .value import ObservableValue
 
 # Runtime imports to avoid circular dependencies
 def _get_observable_impl():
-    from ..primitives.base import Observable as ObservableImpl
+    from ..primitives.observable import Observable as ObservableImpl
 
     return ObservableImpl
 

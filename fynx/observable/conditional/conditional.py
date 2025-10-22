@@ -51,7 +51,7 @@ from typing import Any, Callable, List, Optional, Set, TypeVar, Union
 from ..computed import ComputedObservable
 from ..operations import OperatorMixin
 from ..protocols.conditional_protocol import Conditional
-from ..protocols.primitives_protocol import Observable
+from ..protocols.observable_protocol import Observable
 
 T = TypeVar("T")
 Condition = Union[Observable[bool], Callable[[T], bool], "ConditionalObservable"]
@@ -278,7 +278,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                 raise ValueError(f"Condition {i} cannot be None")
 
             # Check if condition is a valid type (check class hierarchy to avoid triggering property access)
-            from ..primitives.base import Observable
+            from ..primitives.observable import Observable
 
             is_observable = isinstance(condition, Observable)
             is_observable_value = hasattr(condition, "observable") and hasattr(
@@ -460,7 +460,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         Handles different types of conditions appropriately.
         """
-        from ..primitives.base import Observable as BaseObservable
+        from ..primitives.observable import Observable as BaseObservable
         from .conditional import ConditionalObservable
 
         if isinstance(condition, ConditionalObservable):

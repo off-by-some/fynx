@@ -186,11 +186,12 @@ from .operations import (
     TupleMixin,
     ValueMixin,
 )
-from .primitives.base import Observable, ReactiveContext
+from .primitives.context import ReactiveContext
 from .primitives.context import ReactiveContext as ReactiveContextInterface
+from .primitives.observable import Observable
 from .protocols.conditional_protocol import Conditional
 from .protocols.merged_protocol import Mergeable
-from .protocols.primitives_protocol import Observable as ObservableInterface
+from .protocols.observable_protocol import Observable as ObservableInterface
 from .value import ObservableValue, SubscriptableDescriptor
 
 __all__ = [

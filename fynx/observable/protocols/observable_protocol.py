@@ -1,5 +1,5 @@
 """
-FynX Primitives Protocols - Core Observable Interface Definitions
+FynX Observable Protocol - Core Observable Interface Definitions
 ================================================================
 
 This module defines Protocol-based interfaces for the core Observable in FynX,

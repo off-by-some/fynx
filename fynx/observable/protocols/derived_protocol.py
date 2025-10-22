@@ -13,10 +13,10 @@ from ..types.common_types import T
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from .primitives_protocol import Observable
+    from .observable_protocol import Observable
 else:
     # Import at runtime to avoid circular imports
-    from .primitives_protocol import Observable
+    from .observable_protocol import Observable
 
 
 @runtime_checkable

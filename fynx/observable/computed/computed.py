@@ -144,7 +144,7 @@ import weakref
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, TypeVar
 
 # Import at runtime for actual usage
-from ..primitives.base import Observable
+from ..primitives.observable import Observable
 
 
 # Lazy imports to avoid circular dependencies

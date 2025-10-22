@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..protocols.computed_protocol import Computed
     from ..protocols.conditional_protocol import Conditional
     from ..protocols.merged_protocol import Mergeable
-    from ..protocols.primitives_protocol import Observable
+    from ..protocols.observable_protocol import Observable
 
 
 class GenericObservable:
@@ -26,7 +26,7 @@ class GenericObservable:
     @staticmethod
     def is_observable(obj: Any) -> bool:
         """Check if an object is any type of observable using proper type checking."""
-        from ..protocols.primitives_protocol import Observable
+        from ..protocols.observable_protocol import Observable
 
         return isinstance(obj, Observable)
 
