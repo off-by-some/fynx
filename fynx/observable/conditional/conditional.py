@@ -6,58 +6,29 @@ emit values when certain conditions are satisfied. This is useful for filtering
 data streams, implementing conditional logic, and creating reactive pipelines
 that respond to specific states.
 
-## Mathematical Foundation: Pullbacks as Smart Gates
+## How Conditional Observables Work
 
-Conditional observables are built on the mathematical concept of pullbacks, but you can think of them as **smart gates** that only let values through when all conditions agree.
+Conditional observables act as filters that only let values through when all
+specified conditions are satisfied. Think of them as gates that only open when
+all conditions return True.
 
-### The Intuitive Analogy
-
-Think of a pullback like a security checkpoint:
-- **Source data** = People trying to get through
-- **Conditions** = Security guards checking different criteria
-- **Pullback** = The gate that only opens when ALL guards say "yes"
-
-```
-People → [Guard1: Age>18] → Gate → [Guard2: HasTicket] → Gate → [Guard3: NoWeapons] → Gate → Allowed Through
-```
-
-Only people who pass ALL checks get through. This is exactly what `data & condition1 & condition2` does!
-
-### What We're Actually Building
+### Basic Usage
 
 When you write:
 ```python
 data & condition1 & condition2
 ```
 
-We're creating a chain of gates:
-```python
-((data & condition1) & condition2)
-```
-
-Each `&` adds another security check. The final result only lets values through when:
+This creates a filtered observable that only emits values when:
 - `condition1(value) == True` AND
 - `condition2(value) == True` AND
 - ... (all conditions must be True)
 
-### The Mathematical Reality
+### Key Properties
 
-Under the hood, this creates a filtered set:
-```python
-ConditionalObservable(source, c1, c2, ..., cn) ≅
-    {s ∈ source | c1(s) ∧ c2(s) ∧ ... ∧ cn(s)}
-```
-
-Translation: "All values from source where every condition says True"
-
-### Why Order Doesn't Matter
-
-The `&` operator is commutative (`data & cond1 & cond2` ≡ `data & cond2 & cond1`) because:
-- All conditions check the same thing: "Is this True?"
-- Multiple "True" checks can be done in any order
-- It's like having multiple security guards - the order doesn't matter, they all need to say "yes"
-
-This gives us the intuitive behavior you'd expect from logical AND operations.
+- **Filtering**: Only notifies when conditions are satisfied AND value changes
+- **Commutative**: `data & cond1 & cond2` ≡ `data & cond2 & cond1`
+- **Associative**: `(data & cond1) & cond2` ≡ `data & (cond1 & cond2)`
 
 ## Practical Usage
 
@@ -73,13 +44,6 @@ Example:
     data.set(15)  # filtered will emit 15
     data.set(8)   # filtered will not emit
     ```
-
-## Key Properties
-
-- **Pullback Semantics**: Only notifies when conditions are satisfied AND value changes
-- **Commutative**: `data & cond1 & cond2` ≡ `data & cond2 & cond1`
-- **Associative**: `(data & cond1) & cond2` ≡ `data & (cond1 & cond2)`
-- **Universal**: Any compatible reactive function factors through the conditional uniquely
 """
 
 from typing import Any, Callable, List, Optional, Set, TypeVar, Union
@@ -141,11 +105,10 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
     """
     A conditional observable that filters values based on one or more conditions.
 
-    Think of this as a **smart gate** that only lets values through when all conditions
-    are satisfied. It's like having multiple security guards - only values that pass
-    ALL checks get through.
+    This observable only emits values when all specified conditions are satisfied.
+    It acts as a filter that blocks values that don't meet the criteria.
 
-    ## How It Works (The Gate Analogy)
+    ## How It Works
 
     ```
     Source Data → [Condition 1] → [Condition 2] → [Condition 3] → Filtered Output
@@ -155,27 +118,16 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
     Only values where ALL conditions return `True` make it through to the output.
 
-    ## Mathematical Foundation
-
-    A ConditionalObservable represents the filtered subset:
-    ```
-    ConditionalObservable(source, c1, c2, ..., cn) ≅
-        {s ∈ source | c1(s) ∧ c2(s) ∧ ... ∧ cn(s)}
-    ```
-
-    Translation: "All values from source where every condition says True"
-
     ## Key Properties
 
-    - **Smart Gate Behavior**: Only notifies when conditions are satisfied AND value changes
+    - **Filtering**: Only notifies when conditions are satisfied AND value changes
     - **Commutative**: `data & cond1 & cond2` ≡ `data & cond2 & cond1` (order doesn't matter)
     - **Associative**: `(data & cond1) & cond2` ≡ `data & (cond1 & cond2)` (grouping doesn't matter)
-    - **Universal**: Any compatible reactive function factors through the conditional uniquely
 
     ## Behavior States
 
-    - **Active State**: All conditions are satisfied → gate is open, values flow through
-    - **Inactive State**: Any condition fails → gate is closed, no values pass
+    - **Active State**: All conditions are satisfied → values flow through
+    - **Inactive State**: Any condition fails → no values pass
     - **Value Access**:
       - Active: Returns the current filtered value
       - Inactive: Raises ConditionalNotMet or ConditionalNeverMet
@@ -183,7 +135,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
     ## Empty Conditions (Special Case)
 
-    When no conditions are provided, the gate is always open:
+    When no conditions are provided, the filter is always open:
     ```python
     always_open = data & ()  # Equivalent to just `data`
     ```
@@ -192,7 +144,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
     ## Examples
 
-    Basic filtering (single guard):
+    Basic filtering:
         ```python
         from fynx import observable
 
@@ -203,7 +155,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         data.set(5)   # filtered becomes inactive (fails the check)
         ```
 
-    Multiple conditions (multiple guards):
+    Multiple conditions:
         ```python
         is_positive = observable(True)
         is_even = lambda x: x % 2 == 0
@@ -212,10 +164,10 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Only emits when data > 0 AND data is even
         ```
 
-    Chaining conditionals (checkpoint stations):
+    Chaining conditionals:
         ```python
-        step1 = data & (lambda x: x > 0)      # First checkpoint
-        step2 = step1 & (lambda x: x < 100)   # Second checkpoint
+        step1 = data & (lambda x: x > 0)      # First filter
+        step2 = step1 & (lambda x: x < 100)   # Second filter
         # Equivalent to: data & (lambda x: x > 0) & (lambda x: x < 100)
         ```
     """
@@ -226,27 +178,20 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         """
         Create a conditional observable that filters values based on conditions.
 
-        This constructor builds a smart gate that represents the filtered subset:
-        ```
-        ConditionalObservable(source, c1, c2, ..., cn) ≅
-            {s ∈ source | c1(s) ∧ c2(s) ∧ ... ∧ cn(s)}
-        ```
-
         Args:
             source_observable: The observable whose values will be conditionally emitted.
-                              This is the "source" in the gate analogy.
             *conditions: Variable number of conditions that form the filtering criteria.
                         Each condition can be:
                         - Observable[bool]: A boolean observable (external condition)
                         - Callable: A predicate function that takes the source value and returns bool
-                        - ConditionalObservable: A compound condition (nested gate)
+                        - ConditionalObservable: A compound condition (nested filter)
 
         Raises:
             ValueError: If source_observable is None
             TypeError: If conditions contain invalid types
 
         Empty Conditions Behavior:
-            When no conditions are provided (`*conditions` is empty), the gate is always open:
+            When no conditions are provided (`*conditions` is empty), the filter is always open:
             ```python
             always_open = ConditionalObservable(data)  # Equivalent to just `data`
             ```
@@ -256,36 +201,26 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             - Creating "pass-through" observables
             - Testing and debugging scenarios
 
-        Mathematical Interpretation:
-            This creates the gate P in the diagram:
-            ```
-            Source → [Condition 1] → [Condition 2] → ... → Gate P → Filtered Output
-            ```
-
-            Where P = {s ∈ source | ∀c ∈ conditions: c(s) = True}
-
-            If no conditions: P = source (gate always open)
-
         Examples:
             ```python
             from fynx import observable
 
-            # Single predicate condition (one guard)
+            # Single predicate condition
             data = observable(42)
             positive = data & (lambda x: x > 0)
 
-            # Multiple conditions (multiple guards)
+            # Multiple conditions
             filtered = data & (lambda x: x > 0) & (lambda x: x < 100)
 
             # Mixed condition types
             is_ready = observable(True)
             valid_data = data & is_ready & (lambda x: x % 2 == 0)
 
-            # Nested conditionals (checkpoint stations)
+            # Nested conditionals
             step1 = data & (lambda x: x > 0)
             step2 = step1 & (lambda x: x < 100)
 
-            # Empty conditions (always open gate)
+            # Empty conditions (always open filter)
             always_open = ConditionalObservable(data)  # Just passes through
             ```
         """
@@ -674,31 +609,25 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         that pass through the source value when conditions are met.
 
         **Gate Analogy:**
-            This is like asking "What's the current value at the gate?"
-            - If gate is open: Returns the value that passed through
-            - If gate is closed: Raises an exception (no value to return)
+            This is like asking "What's the current value at the filter?"
+            - If filter is open: Returns the value that passed through
+            - If filter is closed: Raises an exception (no value to return)
 
-        Mathematical Interpretation:
-            This property implements the projection from the gate:
-            ```
-            Source → [Condition 1] → [Condition 2] → Gate → Filtered Output
-            ```
-
-            When active: Returns s where s ∈ {x ∈ source | ∀c ∈ conditions: c(x) = True}
-            When inactive: Gate is closed, no value available (raises exception)
+        When active: Returns values that satisfy all conditions
+        When inactive: Filter is closed, no value available (raises exception)
 
         Example:
             ```python
             data = observable(5)
-            filtered = data & (lambda x: x > 10)  # Gate checks: "Is value > 10?"
+            filtered = data & (lambda x: x > 10)  # Filter checks: "Is value > 10?"
 
             try:
-                value = filtered.value  # Raises ConditionalNeverMet (gate never opened)
+                value = filtered.value  # Raises ConditionalNeverMet (filter never opened)
             except ConditionalNeverMet:
-                print("Gate has never been open")
+                print("Filter has never been open")
 
             data.set(15)
-            value = filtered.value  # Returns 15 (gate is open, value passed through)
+            value = filtered.value  # Returns 15 (filter is open, value passed through)
             ```
         """
         if self.is_active:
@@ -714,40 +643,35 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
     @property
     def is_active(self) -> bool:
         """
-        True if conditions are currently satisfied (gate is open).
+        True if conditions are currently satisfied (filter is open).
 
         This property indicates whether the conditional observable is currently
         in an active state where it can emit values. Think of it as checking
-        if the security gate is currently open.
+        if the filter is currently open.
 
-        In mathematical terms, this represents whether the gate is non-empty:
-        ```
-        is_active = ∃s ∈ source: ∀c ∈ conditions: c(s) = True
-        ```
+        **Filter States:**
 
-        **Gate States:**
-
-        When active (gate open):
+        When active (filter open):
         - ✅ Can emit values through notifications
         - ✅ Allows safe access to `.value` property
         - ✅ Represents a non-empty filtered subset
-        - 🚪 Gate is open, values flow through
+        - 🚪 Filter is open, values flow through
 
-        When inactive (gate closed):
+        When inactive (filter closed):
         - ❌ Does not emit notifications
         - ❌ Raises exceptions when accessing `.value`
         - ❌ Represents an empty filtered subset
-        - 🚪 Gate is closed, no values pass
+        - 🚪 Filter is closed, no values pass
 
         Example:
             ```python
             data = observable(5)
-            filtered = data & (lambda x: x > 10)  # Gate checks: "Is value > 10?"
+            filtered = data & (lambda x: x > 10)  # Filter checks: "Is value > 10?"
 
-            print(filtered.is_active)  # False (5 <= 10, gate is closed)
+            print(filtered.is_active)  # False (5 <= 10, filter is closed)
 
             data.set(15)
-            print(filtered.is_active)  # True (15 > 10, gate is open)
+            print(filtered.is_active)  # True (15 > 10, filter is open)
             ```
         """
         return self._conditions_met

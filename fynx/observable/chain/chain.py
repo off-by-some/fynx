@@ -17,26 +17,24 @@ _materialized_cache = weakref.WeakValueDictionary()
 _ultimate_source_cache = weakref.WeakValueDictionary()
 
 # ============================================================================
-# THE FINAL FORM - ZERO INTERMEDIATE OBJECTS
+# LAZY CHAIN BUILDER - EFFICIENT FUNCTION COMPOSITION
 # ============================================================================
 
 
 class LazyChainBuilder:
     """
-    The ultimate chain builder: ZERO intermediate objects.
+    Efficient chain builder that accumulates functions and materializes them once.
 
-    Key Innovation: Mutable accumulation, returns self.
+    This builder accumulates transformation functions and only creates the final
+    observable when materialize() is called, avoiding intermediate object creation.
 
-    Performance:
+    Performance characteristics:
     - then(): O(1) - append to internal list, return self
     - No object creation until materialize()
-    - 10,000 functions = 1 builder object (not 10,000)
+    - Function composition reduces chain length
 
     Memory: Single builder + growable array
     Time: O(n) total for building + materializing
-
-    Breakthrough: Python's list.append() is O(1) amortized.
-    No linked lists, no nodes, just pure array growth.
     """
 
     __slots__ = (
@@ -58,8 +56,9 @@ class LazyChainBuilder:
 
     def then(self, func: Callable) -> "LazyChainBuilder":
         """
-        O(1) append - mutate and return self.
-        Zero object allocation.
+        Add a function to the chain and return self for chaining.
+
+        No object allocation occurs until materialize() is called.
         """
         if self._frozen:
             raise RuntimeError("Cannot modify frozen chain")
@@ -101,7 +100,7 @@ class LazyChainBuilder:
 
     def materialize(self) -> Any:
         """
-        Materialize ONCE. Creates immutable result.
+        Create the final observable from the accumulated functions.
 
         Performance:
         - O(n) where n = function count
@@ -131,7 +130,7 @@ class LazyChainBuilder:
 
         ultimate_source = self._get_ultimate_source()
 
-        # ALGEBRAIC OPTIMIZATION: Apply function fusion to reduce chain length
+        # Apply function fusion to reduce chain length
         functions_snapshot = self._functions.copy()
         optimized_functions = AlgebraicOptimizer.optimize_chain(functions_snapshot)
 
@@ -161,7 +160,7 @@ class LazyChainBuilder:
         )
 
         result._composed_functions = functions_snapshot
-        result._is_yoneda_optimized = True
+        result._is_composition_optimized = True
 
         # Cache and freeze
         _materialized_cache[cache_key] = result
@@ -173,8 +172,7 @@ class LazyChainBuilder:
 
     def _make_composed_function(self, functions: list[Callable]) -> Callable:
         """
-        Create hyper-optimized composed function.
-        Special cases for common lengths.
+        Create composed function with special cases for common lengths.
         """
         n = len(functions)
 
@@ -192,7 +190,7 @@ class LazyChainBuilder:
             f0, f1, f2, f3 = functions
             return lambda x: f3(f2(f1(f0(x))))
 
-        # General case - but with tuple for speed
+        # General case - use tuple for speed
         funcs_tuple = tuple(functions)
         func_count = len(funcs_tuple)
 
@@ -232,17 +230,16 @@ class LazyChainBuilder:
 
 
 # ============================================================================
-# TURBO MODE - PRE-ALLOCATED ARRAYS
+# PRE-ALLOCATED CHAIN BUILDER - FOR KNOWN SIZES
 # ============================================================================
 
 
 class TurboChainBuilder:
     """
-    For extreme performance: pre-allocate array of exact size.
-    Use when you know chain length in advance.
+    Pre-allocated chain builder for when you know the chain length in advance.
 
-    Performance:
-    - 30-50% faster than LazyChainBuilder
+    Performance characteristics:
+    - 30-50% faster than LazyChainBuilder for known sizes
     - Zero array resizing
     - Minimal memory allocation
     """
@@ -256,7 +253,7 @@ class TurboChainBuilder:
         self._size = size
 
     def then(self, func: Callable) -> "TurboChainBuilder":
-        """O(1) - no bounds checking for speed."""
+        """Add function to pre-allocated array."""
         self._functions[self._index] = func
         self._index += 1
         return self
@@ -279,18 +276,17 @@ class TurboChainBuilder:
 
 
 # ============================================================================
-# BATCH MODE - ZERO-OVERHEAD FOR BULK OPERATIONS
+# BATCH MODE - DIRECT MATERIALIZATION
 # ============================================================================
 
 
 def chain_batch(source: Any, functions: list[Callable]) -> Any:
     """
-    Ultra-fast path: materialize directly from function list.
-    Bypasses all builder overhead.
+    Direct materialization from function list.
 
     Use for batch operations where you have all functions upfront.
 
-    Performance:
+    Performance characteristics:
     - Fastest possible path
     - Zero builder objects
     - Direct to ComputedObservable
@@ -360,7 +356,7 @@ def chain_batch(source: Any, functions: list[Callable]) -> Any:
     )
 
     result._composed_functions = list(functions)
-    result._is_yoneda_optimized = True
+    result._is_composition_optimized = True
 
     _materialized_cache[cache_key] = result
     return result

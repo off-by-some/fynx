@@ -87,8 +87,8 @@ class OperationsMixin:
         """
         Zip this observable with others using efficient pairwise emission.
 
-        Mathematical elegance: emits pairs as soon as both sources have values,
-        implementing the zip operation from functional programming efficiently.
+        Emits pairs as soon as both sources have values,
+        implementing the zip operation from functional programming.
 
         Args:
             *others: Other observables to zip with
@@ -137,10 +137,9 @@ class OperationsMixin:
 
     def debounce(self, milliseconds: float) -> "Observable":
         """
-        Debounce emissions using efficient temporal stabilization.
+        Debounce emissions using temporal stabilization.
 
-        Mathematical elegance: "last value wins" with timeout - only emits
-        the most recent value after a stabilization period with no new values.
+        Only emits the most recent value after a stabilization period with no new values.
 
         Args:
             milliseconds: Stabilization timeout in milliseconds
@@ -171,7 +170,7 @@ class OperationsMixin:
             computation_func=debounce_computation,
         )
 
-        # Efficient subscription: single timer, last-value-wins
+        # Single timer approach for efficiency
         def on_source_change(new_value):
             last_value[0] = new_value
             deadline[0] = time.time() * 1000 + milliseconds
@@ -244,7 +243,6 @@ class OperationsMixin:
             result = data.requiring(lambda x: x > 0, is_ready, other_condition)
             ```
         """
-        # PULLBACK FUSION OPTIMIZATION
         # If this is already a ConditionalObservable, flatten nested conditionals
         if GenericObservable.is_conditional_observable(self):
             # Get existing conditions and combine with new ones
@@ -263,7 +261,6 @@ class OperationsMixin:
     def lift(func: Callable, *observables: "Observable") -> "Observable":
         """
         Lift a pure function into the Observable context.
-        Implements applicative functor: <*>
 
         Args:
             func: Pure function to lift
@@ -315,7 +312,6 @@ class OperationsMixin:
     def race(*observables: "Observable[T]") -> "Observable[T]":
         """
         Create an observable that emits from whichever source emits first.
-        Implements categorical coproduct with racing semantics.
 
         Args:
             *observables: Observables to race
@@ -342,7 +338,6 @@ class OperationsMixin:
     def either(left: "Observable[T]", right: "Observable[T]") -> "Observable[T]":
         """
         Emit from either observable, preferring left when both emit.
-        Implements categorical coproduct.
 
         Args:
             left: Left observable (preferred)
@@ -363,8 +358,7 @@ class OperationsMixin:
     @staticmethod
     def pure(value: T) -> "Observable[T]":
         """
-        Lift a pure value into Observable context (unit of monad).
-        Free functor: Values → Observables
+        Lift a pure value into Observable context.
 
         Args:
             value: Pure value to lift
@@ -378,8 +372,7 @@ class OperationsMixin:
 
     def extract(self) -> T:
         """
-        Extract value from Observable context (counit of comonad).
-        Forgetful functor: Observables → Values
+        Extract value from Observable context.
 
         Returns:
             Current value of the observable
@@ -389,7 +382,6 @@ class OperationsMixin:
     def flatten(self) -> "Observable[T]":
         """
         Flatten Observable[Observable[T]] → Observable[T]
-        Implements monadic join: μ: M(M(A)) → M(A)
 
         Returns:
             Flattened observable
@@ -483,13 +475,11 @@ class OperationsMixin:
 
     def dimap(self, pre: Callable, post: Callable) -> "Observable":
         """
-        Profunctor mapping: contravariant on input, covariant on output.
-
-        This implements profunctor dimap: (a → b) → (c → d) → P b c → P a d
+        Transform input and output of this observable.
 
         Args:
-            pre: Transform input before processing (contravariant)
-            post: Transform output after processing (covariant)
+            pre: Transform input before processing
+            post: Transform output after processing
 
         Returns:
             Observable with transformed input and output

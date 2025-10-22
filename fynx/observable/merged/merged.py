@@ -1,10 +1,10 @@
 """
-FynX MergedObservable - Simplified Tuple-Based Reactive Values
-=============================================================
+FynX MergedObservable - Tuple-Based Reactive Values
+==================================================
 
-This module provides a simplified MergedObservable that's just a thin wrapper
-over ComputedObservable. It provides semantic clarity for merging operations
-without the complexity of special-cased implementations.
+This module provides a MergedObservable that combines multiple observables
+into a single reactive tuple. It provides semantic clarity for merging operations
+without complex special-cased implementations.
 
 The key insight: merging is just tuple construction with multiple dependencies.
 No need for complex caching or special chain handling.
@@ -27,16 +27,16 @@ T = TypeVar("T")
 
 class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, TupleMixin):
     """
-    A thin wrapper that combines multiple observables into a single reactive tuple.
+    A wrapper that combines multiple observables into a single reactive tuple.
 
-    This is essentially just a ComputedObservable with multiple dependencies.
-    The "merging" is simply tuple construction - no special optimization needed.
+    This is essentially a ComputedObservable with multiple dependencies.
+    The merging is tuple construction with reactive updates.
 
-    Key Benefits:
-    - Semantic clarity: `x + y` expresses intent clearly
-    - Simple implementation: ~20 LOC vs 200+ LOC
-    - No special cases: works with all existing operators
-    - Future-proof: can add optimizations later if needed
+    Key characteristics:
+    - Combines observables into tuples: `x + y` creates `(x.value, y.value)`
+    - Updates when any source changes
+    - Works with all existing operators
+    - Simple implementation with good performance
 
     Example:
         ```python
@@ -65,8 +65,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         """
         Create a merged observable from multiple source observables.
 
-        Uses delta-based updates for O(1) performance instead of O(n) tuple rebuilds.
-        Handles nested MergedObservables properly for associative operations.
+        Uses efficient updates and handles nested MergedObservables properly.
 
         Args:
             *observables: Variable number of Observable instances to combine.
@@ -78,7 +77,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         if not observables:
             raise ValueError("At least one observable must be provided for merging")
 
-        # Flatten nested MergedObservables for mathematical associativity: (a + b) + c = a + b + c
+        # Flatten nested MergedObservables for associativity: (a + b) + c = a + b + c
         flattened_sources = []
         for obs in observables:
             if isinstance(obs, MergedObservable):
@@ -90,7 +89,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         self._source_observables = flattened_sources
         self._n_sources = len(flattened_sources)
 
-        # Pre-allocate tuple storage for O(1) updates
+        # Pre-allocate tuple storage for efficient updates
         self._current_values = [None] * self._n_sources
 
         # Initialize current values
@@ -108,7 +107,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         for obs in flattened_sources:
             cycle_detector.add_edge(obs, self)
 
-        # Subscribe to sources with proper index tracking
+        # Subscribe to sources with index tracking
         self._update_handlers = []
         for i, obs in enumerate(flattened_sources):
             handler = self._create_update_handler(i)
@@ -119,7 +118,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         """Create an update handler for a specific source index."""
 
         def update_merged(_=None):
-            # Delta update: only change the specific index
+            # Update only the specific index
             self._current_values[index] = self._source_observables[index].value
             # Rebuild tuple efficiently
             self._set_computed_value(tuple(self._current_values))

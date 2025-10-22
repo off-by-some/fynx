@@ -168,30 +168,21 @@ _intern_pool = None
 
 class ComputedObservable(Observable[T]):
     """
-    A read-only observable with Yoneda lemma optimization for transformation chains.
+    A read-only observable that derives its value from other observables.
 
     ComputedObservable is a subclass of Observable that represents computed/derived
     values. Unlike regular observables, computed observables are read-only and cannot
     be set directly - their values are automatically calculated from their dependencies.
 
-    This enhanced version includes Yoneda lemma optimization that detects and collapses
-    chains of .then() operations into a single composed function, dramatically reducing
-    overhead for deep transformation chains.
+    This implementation includes function composition optimization that combines
+    chains of .then() operations into a single composed function, reducing
+    overhead for transformation chains.
 
-    Mathematical Foundation:
-        Yoneda lemma: Nat(Hom(A, -), F) ≅ F(A)
-
-        For functors (observables), this means:
-        - source.then(f).then(g).then(h)
-        - Is isomorphic to: source.then(h ∘ g ∘ f)
-
-        The isomorphism preserves all behavior while collapsing structure.
-
-    Performance Impact:
-        - Chain of N transformations: O(N) observables → O(1) observable
-        - Memory: 70-90% reduction for deep chains
-        - Speed: 3-5x faster updates (single subscription vs chain)
-        - Subscriptions: N → 1 (massive reduction in overhead)
+    Performance characteristics:
+        - Chain composition reduces intermediate observables
+        - Memory usage scales with chain complexity
+        - Updates propagate through composed functions
+        - Single subscription per composed chain
 
     Example:
         ```python
@@ -202,7 +193,7 @@ class ComputedObservable(Observable[T]):
         doubled = ComputedObservable("doubled", lambda: counter.value * 2)
         doubled.set(10)  # Raises ValueError: Computed observables are read-only
 
-        # Yoneda optimization automatically applies to chains:
+        # Function composition applies to chains:
         # source.then(f).then(g).then(h) → source.then(h ∘ g ∘ f)
         ```
     """
@@ -220,7 +211,7 @@ class ComputedObservable(Observable[T]):
         self._computation_func = computation_func
         self._source_observable = source_observable
 
-        # YONEDA OPTIMIZATION: Track transformation chain using Church encoding
+        # FUNCTION COMPOSITION: Track transformation chain for optimization
         # This enables automatic collapsing of .then().then().then() chains
         self._transformation_chain: Optional[Any] = None
 
@@ -229,7 +220,7 @@ class ComputedObservable(Observable[T]):
             self._transformation_chain = (computation_func,)
 
         # Track if this is part of an optimized chain
-        self._is_yoneda_optimized = False
+        self._is_composition_optimized = False
 
         # If we have a source observable, subscribe to it for updates
         if source_observable is not None:
@@ -324,8 +315,8 @@ class ComputedObservable(Observable[T]):
         """
         Internal method for updating computed observable values.
 
-        Enhanced with Yoneda optimization awareness - if this is part of an
-        optimized chain, updates propagate through the composed function.
+        If this is part of an optimized chain, updates propagate through
+        the composed function.
 
         Warning:
             This method should only be called by the FynX framework internals.
@@ -376,7 +367,7 @@ class ComputedObservable(Observable[T]):
         if Observable._current_context is not None:
             Observable._current_context.add_dependency(self)
 
-        # LAZY MATERIALIZATION: If this is a lazy computed observable, materialize on first access
+        # If this is a lazy computed observable, materialize on first access
         if getattr(self, "_is_lazy", False):
             materialized = self._lazy_builder.materialize()
             # Transfer the materialized observable's properties to self
@@ -389,7 +380,7 @@ class ComputedObservable(Observable[T]):
             delattr(self, "_is_lazy")
             delattr(self, "_lazy_builder")
 
-        # LAZY EVALUATION: Only recompute if dirty
+        # Only recompute if dirty
         elif (
             self._is_dirty
             and self._computation_func is not None
@@ -512,9 +503,9 @@ class ComputedObservable(Observable[T]):
     @staticmethod
     def _compose_chain(funcs: List[Callable]) -> Callable:
         """
-        Compose a list of functions into a single function using Church encoding.
+        Compose a list of functions into a single function.
 
-        Implements mathematical function composition: (f ∘ g)(x) = f(g(x))
+        Implements function composition: (f ∘ g)(x) = f(g(x))
         For a chain [f, g, h], creates: x → h(g(f(x)))
 
         Args:
@@ -538,17 +529,17 @@ class ComputedObservable(Observable[T]):
 
     def get_optimization_stats(self) -> dict:
         """
-        Get statistics about Yoneda optimizations applied to this observable.
+        Get statistics about function composition optimizations applied to this observable.
 
         Returns:
             Dictionary with optimization metrics:
-            - is_optimized: Whether Yoneda optimization is active
+            - is_optimized: Whether function composition optimization is active
             - chain_length: Number of composed transformations
             - functions_collapsed: Original functions replaced by single composition
             - memory_saved_estimate: Estimated observables eliminated
             - subscription_reduction: Number of subscriptions saved
         """
-        if not self._is_yoneda_optimized:
+        if not self._is_composition_optimized:
             chain_len = (
                 len(self._transformation_chain.transformations)
                 if self._transformation_chain
