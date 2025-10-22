@@ -457,7 +457,7 @@ class ComputedObservable(Observable[T]):
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
             # Check if this observable produces tuples (i.e., it's mergeable)
-            from ..merged.protocol import Mergeable
+            from ..protocols.merged_protocol import Mergeable
 
             if isinstance(self, Mergeable) and isinstance(value, tuple):
                 # This is a merged observable producing a tuple - unpack it

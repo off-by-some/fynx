@@ -155,9 +155,9 @@ from typing import (
 if TYPE_CHECKING:
     from ..primitives.base import Observable as ObservableImpl
     from ..conditional import ConditionalObservable
-    from ..conditional.protocol import Conditional
-    from ..merged.protocol import Mergeable
-    from ..primitives.protocol import Observable
+    from ..protocols.conditional_protocol import Conditional
+    from ..protocols.merged_protocol import Mergeable
+    from ..protocols.primitives_protocol import Observable
     from ..merged import MergedObservable
 
 from .value import ObservableValue

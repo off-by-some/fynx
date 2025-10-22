@@ -13,11 +13,11 @@ No need for complex caching or special chain handling.
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, TypeVar
 
 from ..computed import ComputedObservable
-from ..merged.protocol import Mergeable
 from ..operations import OperatorMixin, TupleMixin
+from ..protocols.merged_protocol import Mergeable
 
 if TYPE_CHECKING:
-    from ..primitives.protocol import Observable
+    from ..protocols.primitives_protocol import Observable
 
 # Global registry for function-to-context mappings (for cleanup testing)
 _func_to_contexts = {}

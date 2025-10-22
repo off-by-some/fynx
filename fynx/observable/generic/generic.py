@@ -9,10 +9,10 @@ identification logic using proper protocol-based isinstance checks.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..computed.protocol import Computed
-    from ..conditional.protocol import Conditional
-    from ..merged.protocol import Mergeable
-    from ..primitives.protocol import Observable
+    from ..protocols.computed_protocol import Computed
+    from ..protocols.conditional_protocol import Conditional
+    from ..protocols.merged_protocol import Mergeable
+    from ..protocols.primitives_protocol import Observable
 
 
 class GenericObservable:
@@ -26,14 +26,14 @@ class GenericObservable:
     @staticmethod
     def is_observable(obj: Any) -> bool:
         """Check if an object is any type of observable using proper type checking."""
-        from ..primitives.protocol import Observable
+        from ..protocols.primitives_protocol import Observable
 
         return isinstance(obj, Observable)
 
     @staticmethod
     def is_merged_observable(obj: Any) -> bool:
         """Check if an object is a MergedObservable."""
-        from ..merged.protocol import Mergeable
+        from ..protocols.merged_protocol import Mergeable
 
         return isinstance(obj, Mergeable)
 

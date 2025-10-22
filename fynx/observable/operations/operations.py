@@ -37,9 +37,9 @@ from ...util import LazyChainBuilder, find_ultimate_source
 from ..generic import GenericObservable
 
 if TYPE_CHECKING:
-    from ..conditional.protocol import Conditional
-    from ..merged.protocol import Mergeable
-    from .protocol import Observable
+    from ..protocols.conditional_protocol import Conditional
+    from ..protocols.merged_protocol import Mergeable
+    from ..protocols.operations_protocol import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -66,7 +66,7 @@ class OperationsMixin:
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
             # Check if this observable produces tuples (i.e., it's mergeable)
-            from ..merged.protocol import Mergeable
+            from ..protocols.merged_protocol import Mergeable
 
             if isinstance(self, Mergeable) and isinstance(value, tuple):
                 # This is a merged observable producing a tuple - unpack it

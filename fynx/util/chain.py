@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from .algebraic_optimizer import AlgebraicOptimizer
 
 if TYPE_CHECKING:
-    from ..primitives.protocol import Observable
+    from ..observable.protocols.primitives_protocol import Observable
 
 T = TypeVar("T")
 U = TypeVar("U")

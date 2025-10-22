@@ -71,7 +71,7 @@ from ..types.common_types import (
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
     from ..types.observable_protocols import Computed, Conditional, Mergeable
-    from .primitives.protocol import Observable
+    from .primitives_protocol import Observable
 
 # ============================================================================
 # REACTIVE OPERATIONS PROTOCOL

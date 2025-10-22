@@ -49,9 +49,9 @@ Example:
 from typing import Any, Callable, List, Optional, Set, TypeVar, Union
 
 from ..computed import ComputedObservable
-from ..conditional.protocol import Conditional
 from ..operations import OperatorMixin
-from ..primitives.protocol import Observable
+from ..protocols.conditional_protocol import Conditional
+from ..protocols.primitives_protocol import Observable
 
 T = TypeVar("T")
 Condition = Union[Observable[bool], Callable[[T], bool], "ConditionalObservable"]

@@ -16,7 +16,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from fynx.observable.primitives.base import Observable
-from fynx.observable.value.protocol import TransparentValue
+from fynx.observable.protocols.value_protocol import TransparentValue
 from fynx.observable.value.value import ObservableValue
 
 

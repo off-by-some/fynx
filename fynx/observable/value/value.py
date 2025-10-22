@@ -37,10 +37,9 @@ if TYPE_CHECKING:
     from ..types.observable_protocols import Observable
 
 # Import common types
-from ..types.common_types import T
-
 # Import the TransparentValue protocol
-from .protocol import TransparentValue
+from ..protocols.value_protocol import TransparentValue
+from ..types.common_types import T
 
 # Type variables for Value
 V = TypeVar("V")

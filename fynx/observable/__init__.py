@@ -178,10 +178,8 @@ See Also
 
 from .computed import ComputedObservable
 from .conditional import ConditionalNeverMet, ConditionalObservable
-from .conditional.protocol import Conditional
 from .generic import GenericObservable
 from .merged import MergedObservable
-from .merged.protocol import Mergeable
 from .operations import (
     OperationsMixin,
     OperatorMixin,
@@ -190,7 +188,9 @@ from .operations import (
 )
 from .primitives.base import Observable, ReactiveContext
 from .primitives.context import ReactiveContext as ReactiveContextInterface
-from .primitives.protocol import Observable as ObservableInterface
+from .protocols.conditional_protocol import Conditional
+from .protocols.merged_protocol import Mergeable
+from .protocols.primitives_protocol import Observable as ObservableInterface
 from .value import ObservableValue, SubscriptableDescriptor
 
 __all__ = [

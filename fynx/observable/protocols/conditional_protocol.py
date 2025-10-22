@@ -44,12 +44,12 @@ from ..types.common_types import Condition, ConditionFunction, T, TransformFunct
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from ..primitives.protocol import Observable
-    from ..types.observable_protocols import DerivedObservable
+    from .derived_protocol import DerivedObservable
+    from .primitives_protocol import Observable
 else:
     # Import at runtime to avoid circular imports
-    from ..primitives.protocol import Observable
-    from ..types.observable_protocols import DerivedObservable
+    from .derived_protocol import DerivedObservable
+    from .primitives_protocol import Observable
 
 # ============================================================================
 # CONDITIONAL OBSERVABLE PROTOCOL

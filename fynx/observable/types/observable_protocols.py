@@ -38,10 +38,10 @@ from typing import TypeVar as TypeVarAlias
 from typing import Union, overload, runtime_checkable
 
 # Import mixin protocols from operations
-from ..operations.protocol import ReactiveOperations, TupleBehavior
+from ..protocols.operations_protocol import ReactiveOperations, TupleBehavior
 
 # Import TransparentValue and ObservableValue from the new location
-from ..value.protocol import TransparentValue
+from ..protocols.value_protocol import TransparentValue
 from ..value.value import ObservableValue
 
 # Import common types

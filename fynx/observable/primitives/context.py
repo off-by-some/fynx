@@ -44,7 +44,7 @@ from ..types.common_types import T, U
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from .protocol import Observable
+    from ..protocols.primitives_protocol import Observable
 
 # ============================================================================
 # REACTIVE CONTEXT PROTOCOL

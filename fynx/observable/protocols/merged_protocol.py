@@ -45,14 +45,14 @@ from ..types.common_types import Condition, ConditionFunction, T, TransformFunct
 
 # Forward references to avoid circular imports
 if TYPE_CHECKING:
-    from ..operations.protocol import TupleBehavior
-    from ..primitives.protocol import Observable
-    from ..types.observable_protocols import DerivedObservable
+    from .derived_protocol import DerivedObservable
+    from .operations_protocol import TupleBehavior
+    from .primitives_protocol import Observable
 else:
     # Import at runtime to avoid circular imports
-    from ..operations.protocol import TupleBehavior
-    from ..primitives.protocol import Observable
-    from ..types.observable_protocols import DerivedObservable
+    from .derived_protocol import DerivedObservable
+    from .operations_protocol import TupleBehavior
+    from .primitives_protocol import Observable
 
 # ============================================================================
 # MERGEABLE OBSERVABLE PROTOCOL
