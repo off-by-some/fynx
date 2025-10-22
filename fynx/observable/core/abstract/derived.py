@@ -18,7 +18,7 @@ DerivedValue provides:
 from abc import abstractmethod
 from typing import Any, Callable, List, Optional, Set, TypeVar
 
-from .base_observable import BaseObservable
+from .observable import BaseObservable
 
 T = TypeVar("T")
 

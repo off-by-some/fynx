@@ -143,8 +143,8 @@ See Also
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, TypeVar
 
-from fynx.observable.core.abstract.base_observable import BaseObservable
-from fynx.observable.core.abstract.derived_value import DerivedValue
+from fynx.observable.core.abstract.derived import DerivedValue
+from fynx.observable.core.abstract.observable import BaseObservable
 
 
 def _get_lazy_chain_builder():
@@ -222,7 +222,7 @@ class ComputedObservable(DerivedValue[T]):
         # If we have a source observable, subscribe to it for updates
         if source_observable is not None:
             # Add dependency edge to cycle detector
-            from fynx.observable.core.abstract.context import ReactiveContextImpl
+            from fynx.observable.core.context import ReactiveContextImpl
 
             cycle_detector = ReactiveContextImpl._get_cycle_detector()
             cycle_detector.add_edge(source_observable, self)

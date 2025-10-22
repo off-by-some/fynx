@@ -1,9 +1,9 @@
 """
-FynX Primitives Context - Reactive Context Protocol and Implementation
-====================================================================
+FynX ReactiveContext - Reactive Context Protocol and Implementation
+================================================================
 
-This module defines the ReactiveContext protocol and implementation for the primitives package,
-providing the interface and concrete implementation for reactive execution contexts that manage dependency tracking.
+This module defines the ReactiveContext protocol and implementation for managing
+dependency tracking in reactive execution contexts.
 
 The ReactiveContext protocol provides the interface for reactive execution contexts
 that track which observables are accessed during function execution and automatically

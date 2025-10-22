@@ -17,93 +17,20 @@ BaseObservable provides:
 
 import threading
 from abc import ABC, abstractmethod
-from collections import deque
 from typing import Any, Callable, Optional, Set, Type, TypeVar
 
-from fynx.observable.core.abstract.context import ReactiveContext
 from fynx.observable.core.abstract.operations import OperatorMixin
+from fynx.observable.core.context import (
+    PropagationContext,
+    ReactiveContext,
+    TransactionContext,
+)
 from fynx.observable.core.value.value import ObservableValue
 from fynx.observable.types.protocols.observable_protocol import (
     Observable as ObservableInterface,
 )
 
 T = TypeVar("T")
-
-
-class PropagationContext:
-    """Manages breadth-first change propagation to prevent stack overflow."""
-
-    _local = threading.local()
-
-    @classmethod
-    def _get_state(cls) -> dict:
-        if not hasattr(cls._local, "state"):
-            cls._local.state = {"is_propagating": False, "pending": deque()}
-        return cls._local.state
-
-    @classmethod
-    def _enqueue_notification(
-        cls, observer: Callable, observable: Any, value: Any
-    ) -> None:
-        cls._get_state()["pending"].append((observer, observable, value))
-
-    @classmethod
-    def _process_notifications(cls) -> None:
-        state = cls._get_state()
-        if state["is_propagating"]:
-            return
-
-        state["is_propagating"] = True
-        try:
-            while state["pending"]:
-                observer, observable, value = state["pending"].popleft()
-                # Check if observable should notify before calling observer
-                if (
-                    hasattr(observable, "_should_notify_observers")
-                    and not observable._should_notify_observers()
-                ):
-                    continue
-                observer(value)
-        finally:
-            state["is_propagating"] = False
-
-    @classmethod
-    def _reset_state(cls) -> None:
-        """Reset the propagation state for testing."""
-        cls._local.__dict__.clear()
-
-
-class TransactionContext:
-    """Batches observable updates and emits single notification on commit."""
-
-    _local = threading.local()
-
-    @classmethod
-    def _get_active(cls) -> list:
-        if not hasattr(cls._local, "active"):
-            cls._local.active = []
-        return cls._local.active
-
-    def __init__(self, observable: "BaseObservable"):
-        self.observable = observable
-        self._is_outermost = False
-
-    def __enter__(self):
-        active = self._get_active()
-        self._is_outermost = not active
-        active.append(self)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        active = self._get_active()
-        active.pop()
-        if self._is_outermost and not active:
-            PropagationContext._process_notifications()
-
-    @classmethod
-    def _reset_state(cls) -> None:
-        """Reset the transaction state for testing."""
-        cls._local.__dict__.clear()
 
 
 class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
@@ -272,7 +199,7 @@ class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
     @staticmethod
     def _is_derived(obj) -> bool:
         """Check if an object is a derived observable."""
-        from .derived_value import DerivedValue
+        from .derived import DerivedValue
 
         return isinstance(obj, DerivedValue)
 

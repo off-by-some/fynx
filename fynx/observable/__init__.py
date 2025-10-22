@@ -182,16 +182,14 @@ from fynx.observable.computed import (
     ConditionalObservable,
     MergedObservable,
 )
-from fynx.observable.core.abstract.context import ReactiveContext
-from fynx.observable.core.abstract.context import (
-    ReactiveContext as ReactiveContextInterface,
-)
 from fynx.observable.core.abstract.operations import (
     OperationsMixin,
     OperatorMixin,
     TupleMixin,
     ValueMixin,
 )
+from fynx.observable.core.context import ReactiveContext
+from fynx.observable.core.context import ReactiveContext as ReactiveContextInterface
 from fynx.observable.core.observable import Observable
 from fynx.observable.core.value import ObservableValue, SubscriptableDescriptor
 from fynx.observable.types.protocols.conditional_protocol import Conditional

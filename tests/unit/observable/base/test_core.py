@@ -3,7 +3,7 @@
 import pytest
 
 from fynx import Observable, observable
-from fynx.observable.core.abstract.context import ReactiveContext
+from fynx.observable.core.context import ReactiveContext
 
 
 @pytest.mark.unit

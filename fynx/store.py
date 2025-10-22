@@ -160,7 +160,7 @@ from typing import (
 
 from .observable import Observable, SubscriptableDescriptor
 from .observable.computed import ComputedObservable
-from .observable.core.abstract.base_observable import BaseObservable
+from .observable.core.abstract.observable import BaseObservable
 
 T = TypeVar("T")
 
