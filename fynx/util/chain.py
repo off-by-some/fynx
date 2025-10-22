@@ -1,10 +1,23 @@
+"""
+FynX Chain Utilities
+===================
+
+This module provides chain functionality for FynX, including lazy chain builders
+and chain operations for efficient function composition.
+
+Key classes:
+- LazyChainBuilder: Efficient chain builder that accumulates functions
+- TurboChainBuilder: Pre-allocated chain builder for known sizes
+- Chain utilities: find_ultimate_source, chain_batch, etc.
+"""
+
 from __future__ import annotations
 
 import array
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
-from ..optimizations import AlgebraicOptimizer
+from .algebraic_optimizer import AlgebraicOptimizer
 
 if TYPE_CHECKING:
     from ..primitives.protocol import Observable
@@ -110,7 +123,7 @@ class LazyChainBuilder:
         if self._materialized:
             return self._result
 
-        from ..computed import ComputedObservable
+        from ..observable.computed import ComputedObservable
 
         # Empty chain
         if not self._functions:
@@ -294,7 +307,7 @@ def chain_batch(source: Any, functions: list[Callable]) -> Any:
     if not functions:
         return source
 
-    from ..computed import ComputedObservable
+    from ..observable.computed import ComputedObservable
 
     # Cache key
     cache_key = (id(source), tuple(id(f) for f in functions))
@@ -405,12 +418,12 @@ def benchmark_all_modes(n: int = 10000):
     Compare all chain building modes.
 
     Usage:
-        >>> from fynx.chain import benchmark_all_modes
+        >>> from fynx.util.chain import benchmark_all_modes
         >>> benchmark_all_modes(10000)
     """
     import time
 
-    from ..primitives.base import Observable
+    from ..observable.primitives.base import Observable
 
     results = {}
 
@@ -451,32 +464,3 @@ def benchmark_all_modes(n: int = 10000):
     print("=" * 50)
 
     return results
-
-
-# ============================================================================
-# USAGE EXAMPLES
-# ============================================================================
-
-"""
-USAGE GUIDE
-===========
-
-# Pattern 1: Incremental building (most common)
-builder = LazyChainBuilder(source)
-builder.then(f1).then(f2).then(f3)  # Mutates, returns self
-result = builder.materialize()  # Creates observable
-
-# Pattern 2: Pre-allocated (when you know size)
-turbo = TurboChainBuilder(source, size=10000)
-for func in functions:
-    turbo.then(func)
-result = turbo.materialize()
-
-# Pattern 3: Batch mode (fastest)
-result = chain_batch(source, [f1, f2, f3, ...])
-
-# Pattern 4: Branching chains
-builder = LazyChainBuilder(source).then(f1).then(f2)
-branch_a = builder.clone().then(f3).materialize()
-branch_b = builder.clone().then(f4).materialize()
-"""

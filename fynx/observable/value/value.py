@@ -33,7 +33,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from ..chain import LazyChainBuilder
+    from ...util import LazyChainBuilder
     from ..types.observable_protocols import Observable
 
 # Import common types

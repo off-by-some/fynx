@@ -33,7 +33,7 @@ from typing import (
     Union,
 )
 
-from ..chain import LazyChainBuilder, find_ultimate_source
+from ...util import LazyChainBuilder, find_ultimate_source
 from ..generic import GenericObservable
 
 if TYPE_CHECKING:

@@ -149,13 +149,13 @@ from ..primitives.base import Observable
 
 # Lazy imports to avoid circular dependencies
 def _get_lazy_chain_builder():
-    from ..chain import LazyChainBuilder
+    from ...util import LazyChainBuilder
 
     return LazyChainBuilder
 
 
 def _get_find_ultimate_source():
-    from ..chain import find_ultimate_source
+    from ...util import find_ultimate_source
 
     return find_ultimate_source
 
@@ -452,7 +452,7 @@ class ComputedObservable(Observable[T]):
         CRITICAL FIX: Return LazyChainBuilder directly to avoid eager materialization.
         Only materialize when actually needed (value access, set operations, etc.)
         """
-        from ..chain import LazyChainBuilder
+        from ...util import LazyChainBuilder
 
         # Create a wrapper function that handles tuple unpacking for merged observables
         def tuple_aware_func(value):
