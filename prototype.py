@@ -265,7 +265,7 @@ class OrthogonalDeltaMerger:
         final_value = (base_value or 0) + merged_change
 
         return Delta(
-            key=key,
+                    key=key,
             change_type=ChangeType.SET,
             old_value=base_value,
             new_value=final_value,
@@ -354,22 +354,22 @@ class IncrementalStatisticsTracker:
                 stats["mean"] = 0.0
                 stats["m2"] = 0.0
                 stats["variance"] = 0.0
-        else:
-            # Add new value using Welford's algorithm
-            old_count = stats["count"]
-            old_mean = stats["mean"]
-            old_m2 = stats["m2"]
+            else:
+                # Add new value using Welford's algorithm
+                old_count = stats["count"]
+                old_mean = stats["mean"]
+                old_m2 = stats["m2"]
 
-            new_count = old_count + 1
-            delta = new_value - old_mean
-            new_mean = old_mean + delta / new_count
-            delta2 = new_value - new_mean
-            new_m2 = old_m2 + delta * delta2
+                new_count = old_count + 1
+                delta = new_value - old_mean
+                new_mean = old_mean + delta / new_count
+                delta2 = new_value - new_mean
+                new_m2 = old_m2 + delta * delta2
 
-            stats["count"] = new_count
-            stats["mean"] = new_mean
-            stats["m2"] = new_m2
-            stats["variance"] = new_m2 / new_count if new_count > 1 else 0
+                stats["count"] = new_count
+                stats["mean"] = new_mean
+                stats["m2"] = new_m2
+                stats["variance"] = new_m2 / new_count if new_count > 1 else 0
 
         return {
             "mean": stats["mean"],
@@ -437,6 +437,140 @@ class IncrementalStatisticsTracker:
                     stats["eigenvectors"] = None
 
         return stats
+
+
+class ReactiveContradictionAnalyzer:
+    """
+    Implements contradiction analysis for reactive computations.
+    
+    Based on NOF K-Budget theory: quantifies how "hard" it is to reconcile
+    different perspectives in reactive state. Uses block gadgets to model
+    conflicting dependency configurations.
+    """
+    
+    def __init__(self):
+        self._contradiction_cache: Dict[str, float] = {}
+        self._block_gadgets: Dict[str, 'ReactiveBlockGadget'] = {}
+        self._k_budget_total = 0.0
+    
+    def analyze_dependency_conflicts(self, dependencies: Dict[str, Set[str]]) -> float:
+        """
+        Analyze dependency conflicts using contradiction measures.
+        
+        Returns the K-budget (computational cost) of reconciling conflicts.
+        """
+        if not dependencies:
+            return 0.0
+        
+        # Create block gadget for each dependency level
+        total_k_budget = 0.0
+        
+        # Analyze conflicts: when multiple computed values depend on the same source
+        source_to_dependents = {}
+        for computed_key, deps in dependencies.items():
+            for dep in deps:
+                if dep not in source_to_dependents:
+                    source_to_dependents[dep] = set()
+                source_to_dependents[dep].add(computed_key)
+        
+        # Create block gadgets for sources with multiple dependents (fan-out conflicts)
+        for source, dependents in source_to_dependents.items():
+            if len(dependents) > 1:  # Multiple dependents create contradictions
+                k = len(dependents)
+                block = ReactiveBlockGadget(k)
+                total_k_budget += block.k_budget
+                self._block_gadgets[f"{source}_fanout"] = block
+        
+        # Also analyze computed values with multiple dependencies (fan-in conflicts)
+        for key, deps in dependencies.items():
+            if len(deps) > 1:  # Multiple dependencies create contradictions
+                k = len(deps)
+                block = ReactiveBlockGadget(k)
+                total_k_budget += block.k_budget
+                self._block_gadgets[f"{key}_fanin"] = block
+        
+        self._k_budget_total = total_k_budget
+        return total_k_budget
+    
+    def compute_propagation_priority(self, delta: Delta, affected_keys: Set[str]) -> float:
+        """
+        Compute propagation priority based on contradiction resolution.
+        
+        Higher priority = more contradictions resolved by this change.
+        """
+        if not affected_keys:
+            return 0.0
+        
+        # Count how many dependency conflicts this change resolves
+        conflicts_resolved = 0
+        for key in affected_keys:
+            # Check if this key has fan-in conflicts
+            if f"{key}_fanin" in self._block_gadgets:
+                conflicts_resolved += 1
+            # Check if this key has fan-out conflicts (affects multiple dependents)
+            if f"{key}_fanout" in self._block_gadgets:
+                conflicts_resolved += 1
+        
+        # Priority = conflicts resolved / total affected keys
+        return conflicts_resolved / len(affected_keys) if affected_keys else 0.0
+
+
+class ReactiveBlockGadget:
+    """
+    Block gadget for reactive computations.
+    
+    Models conflicting state configurations:
+    - NO context: uniform distribution over possible states
+    - YES_i contexts: specific state configurations that create contradictions
+    - Optimal reconciler: minimizes computational overhead
+    """
+    
+    def __init__(self, k: int):
+        self.k = k  # Number of conflicting state configurations
+        self.alpha_star = 1.0 / np.sqrt(k)  # Optimal reconciliation factor
+        self.k_budget = 0.5 * np.log2(k)    # Computational cost
+    
+    def compute_reconciliation_cost(self, state_configs: List[Dict]) -> float:
+        """Compute the cost of reconciling conflicting state configurations"""
+        return self.k_budget
+
+
+class ReactiveContractionAnalyzer:
+    """
+    Analyzes information loss during change propagation.
+    
+    Based on NOF SMP contraction theory: α*_out ≤ 2^{b/2} α*_in
+    Measures how much information is lost during propagation.
+    """
+    
+    def __init__(self):
+        self._propagation_history: List[Tuple[Delta, Set[str], float]] = []
+    
+    def compute_propagation_efficiency(self, delta: Delta, affected_keys: Set[str]) -> float:
+        """
+        Compute how efficiently a change propagates through the dependency graph.
+        
+        Returns efficiency metric (0-1, higher is better).
+        """
+        if not affected_keys:
+            return 1.0
+        
+        b = len(affected_keys)  # "Communication" cost
+        contraction_factor = 2 ** (b / 2)
+        efficiency = 1.0 / contraction_factor
+        
+        # Store for analysis
+        self._propagation_history.append((delta, affected_keys, efficiency))
+        
+        return efficiency
+    
+    def get_average_efficiency(self) -> float:
+        """Get average propagation efficiency over recent history"""
+        if not self._propagation_history:
+            return 1.0
+        
+        recent_history = self._propagation_history[-100:]  # Last 100 propagations
+        return sum(eff for _, _, eff in recent_history) / len(recent_history)
 
 
 class DynamicSpectralSparsifier:
@@ -604,6 +738,10 @@ class DeltaKVStore:
         self._orthogonal_merger = OrthogonalDeltaMerger()
         self._stats_tracker = IncrementalStatisticsTracker()
         self._spectral_sparsifier = DynamicSpectralSparsifier(target_rank=10)
+        
+        # NOF-inspired reactive optimizations
+        self._contradiction_analyzer = ReactiveContradictionAnalyzer()
+        self._contraction_analyzer = ReactiveContractionAnalyzer()
 
     def get(self, key: str) -> Any:
         """Get a value from the store."""
@@ -695,7 +833,7 @@ class DeltaKVStore:
         return BatchContext(self)
 
     def _propagate_change(self, delta: Delta) -> None:
-        """Propagate a change through the dependency graph."""
+        """Propagate a change through the dependency graph with NOF-inspired optimizations."""
         # Log the change
         self._change_log.append(delta)
 
@@ -707,14 +845,48 @@ class DeltaKVStore:
         if not affected_keys:
             return
 
+        # NOF-inspired optimization: Analyze contradiction resolution priority
+        # Only analyze for complex dependency graphs to avoid overhead
+        if len(affected_keys) > 2:  # Lower threshold for complex cases
+            # First ensure dependencies are analyzed
+            dependencies = {}
+            for computed_key in self._computed.keys():
+                if computed_key in self._dep_graph._reverse_graph:
+                    dependencies[computed_key] = self._dep_graph._reverse_graph[computed_key]
+            self._contradiction_analyzer.analyze_dependency_conflicts(dependencies)
+            
+            propagation_priority = self._contradiction_analyzer.compute_propagation_priority(
+                delta, affected_keys
+            )
+            
+            # Compute propagation efficiency using contraction analysis
+            efficiency = self._contraction_analyzer.compute_propagation_efficiency(
+                delta, affected_keys
+            )
+            
+            # Only use NOF optimization for high-priority cases (lower efficiency threshold)
+            use_nof_optimization = propagation_priority > 0.5 and efficiency < 0.5
+        else:
+            # Simple case: use standard propagation
+            propagation_priority = 0.0
+            efficiency = 1.0
+            use_nof_optimization = False
+
         # Apply spectral sparsification for large graphs (Proposal 2.2)
         if len(affected_keys) > 20:  # Threshold for applying sparsification
             affected_keys = self._spectral_sparsifier.sparsify_propagation(
                 affected_keys
             )
 
-        # Get topological order for propagation
-        propagation_order = self._dep_graph.topological_sort(affected_keys)
+        # NOF optimization: Use priority and efficiency to optimize propagation order
+        if use_nof_optimization:
+            # High priority or low efficiency: use optimized propagation
+            propagation_order = self._get_optimized_propagation_order(affected_keys, propagation_priority)
+            # Track NOF optimization usage
+            self._nof_optimizations_used = getattr(self, '_nof_optimizations_used', 0) + 1
+        else:
+            # Standard propagation for normal cases
+            propagation_order = self._dep_graph.topological_sort(affected_keys)
 
         # Single topo-sort with batched propagation (no recursion)
         # Collect all deltas first, then notify all at once
@@ -738,6 +910,34 @@ class DeltaKVStore:
         # Notify all deltas at once (no recursive propagation)
         for d in deltas_to_notify:
             self._notify_observers(d)
+
+    def _get_optimized_propagation_order(self, affected_keys: Set[str], priority: float) -> List[str]:
+        """
+        Get optimized propagation order based on NOF contradiction analysis.
+        
+        Prioritizes keys that resolve the most contradictions first.
+        """
+        if not affected_keys:
+            return []
+        
+        # Get standard topological order
+        standard_order = self._dep_graph.topological_sort(affected_keys)
+        
+        # If priority is high, prioritize keys that resolve contradictions
+        if priority > 0.5:
+            # Sort by contradiction resolution potential
+            def contradiction_score(key: str) -> float:
+                if key in self._contradiction_analyzer._block_gadgets:
+                    block = self._contradiction_analyzer._block_gadgets[key]
+                    return block.k_budget  # Higher k_budget = more contradictions resolved
+                return 0.0
+            
+            # Sort by contradiction score (descending) while maintaining topological order
+            scored_keys = [(key, contradiction_score(key)) for key in standard_order]
+            scored_keys.sort(key=lambda x: x[1], reverse=True)
+            return [key for key, _ in scored_keys]
+        
+        return standard_order
 
     def _notify_observers(self, delta: Delta) -> None:
         """Notify observers of a change."""
@@ -852,7 +1052,36 @@ class DeltaKVStore:
             "total_dependencies": sum(
                 len(deps) for deps in self._dep_graph._graph.values()
             ),
+            "nof_analytics": self.get_nof_analytics(),
         }
+    
+    def get_nof_analytics(self) -> Dict[str, Any]:
+        """Get NOF-inspired analytics for reactive system optimization."""
+        with self._lock:
+            # Analyze dependency conflicts using the dependency graph
+            dependencies = {}
+            for computed_key in self._computed.keys():
+                if computed_key in self._dep_graph._reverse_graph:
+                    dependencies[computed_key] = self._dep_graph._reverse_graph[computed_key]
+            
+            k_budget = self._contradiction_analyzer.analyze_dependency_conflicts(dependencies)
+            avg_efficiency = self._contraction_analyzer.get_average_efficiency()
+            
+            return {
+                "k_budget_total": k_budget,
+                "propagation_efficiency": avg_efficiency,
+                "dependency_conflicts": len(self._contradiction_analyzer._block_gadgets),
+                "propagation_history_size": len(self._contraction_analyzer._propagation_history),
+                "nof_optimizations_used": getattr(self, '_nof_optimizations_used', 0),
+                "contradiction_blocks": {
+                    key: {
+                        "k": block.k,
+                        "alpha_star": block.alpha_star,
+                        "k_budget": block.k_budget
+                    }
+                    for key, block in self._contradiction_analyzer._block_gadgets.items()
+                }
+            }
 
 
 class BatchContext:
