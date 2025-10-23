@@ -19,10 +19,12 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional, Set, Type, TypeVar
 
+from fynx.observable.computed.types import is_derived_observable
 from fynx.observable.core.abstract.operations import OperatorMixin
 from fynx.observable.core.context import (
     PropagationContext,
     ReactiveContext,
+    ReactiveContextImpl,
     TransactionContext,
 )
 from fynx.observable.core.value.value import ObservableValue
@@ -122,11 +124,63 @@ class BaseObservable(ABC, ObservableInterface[T], OperatorMixin):
     def subscribe(self, func: Callable) -> "BaseObservable[T]":
         """Subscribe to value changes."""
         self.add_observer(func)
+
+        # Track dependency if the observer is an observable
+        self._track_dependency_if_observable(func)
+
         return self
+
+    def _track_dependency_if_observable(self, func: Callable) -> None:
+        """
+        Track dependency in cycle detector if the observer is an observable.
+
+        This enables topological sorting of notifications by ensuring that
+        when Observable A subscribes to Observable B, we track that A depends on B.
+        """
+        # Check if the observer is a bound method of an observable
+        if hasattr(func, "__self__"):
+            # This is a bound method, get the instance
+            observable = func.__self__
+        else:
+            # This is not a bound method, check if it's an observable directly
+            observable = func
+
+        # Only track dependencies for derived observables
+        if not is_derived_observable(observable):
+            return
+
+        # This is a derived observable subscribing to us
+        # Track the dependency: observable depends on self
+        cycle_detector = ReactiveContextImpl._get_cycle_detector()
+        cycle_detector.add_edge(self, observable)
 
     def unsubscribe(self, func: Callable) -> None:
         """Unsubscribe from value changes."""
         self.remove_observer(func)
+
+        # Remove dependency tracking if the observer is an observable
+        self._untrack_dependency_if_observable(func)
+
+    def _untrack_dependency_if_observable(self, func: Callable) -> None:
+        """
+        Remove dependency tracking if the observer is an observable.
+        """
+        # Check if the observer is a bound method of an observable
+        if hasattr(func, "__self__"):
+            # This is a bound method, get the instance
+            observable = func.__self__
+        else:
+            # This is not a bound method, check if it's an observable directly
+            observable = func
+
+        # Only untrack dependencies for derived observables
+        if not is_derived_observable(observable):
+            return
+
+        # This is a derived observable unsubscribing from us
+        # Remove the dependency: observable no longer depends on self
+        cycle_detector = ReactiveContextImpl._get_cycle_detector()
+        cycle_detector.remove_edge(self, observable)
 
     def _notify_observers(self, value: Optional[T]) -> None:
         """

@@ -14,6 +14,7 @@ from typing import Any, Callable, List, Optional, TypeVar, Union
 from fynx.observable.computed.types import is_conditional_observable
 from fynx.observable.core.abstract.derived import ComputationState, DerivedValue
 from fynx.observable.core.abstract.operations import OperatorMixin
+from fynx.observable.core.context import ReactiveContextImpl
 from fynx.observable.core.types import is_base_observable
 from fynx.observable.types.protocols.conditional_protocol import Conditional
 from fynx.observable.types.protocols.observable_protocol import Observable
@@ -69,10 +70,18 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
         self._processed_conditions = conditions
         super().__init__("conditional", None, source)
 
-        # Subscribe to condition observables
+        # Subscribe to condition observables for reactive decorator compatibility
+        # This ensures we get notified when conditions change
         for condition in conditions:
             if is_base_observable(condition) or is_conditional_observable(condition):
                 condition.subscribe(self._on_source_change)
+
+        # Track dependencies in cycle detector for topological sorting
+        # This ensures we're processed after our dependencies
+        cycle_detector = ReactiveContextImpl._get_cycle_detector()
+        for condition in conditions:
+            if is_base_observable(condition) or is_conditional_observable(condition):
+                cycle_detector.add_edge(condition, self)
 
         # Evaluate initial state
         self._conditions_met = self._evaluate_conditions()
@@ -110,13 +119,20 @@ class ConditionalObservable(DerivedValue[T], Conditional[T], OperatorMixin):
 
     def _on_source_change(self, value: Any) -> None:
         """Handle source changes and update condition state."""
-        # Update conditions state before processing
+        # Don't evaluate conditions here - let _should_notify_observers do it
+        # This ensures conditions are evaluated AFTER all dependencies are updated
+        super()._on_source_change(value)
+
+    def _should_notify_observers(self) -> bool:
+        """Check if we should notify observers - re-evaluate conditions at notification time."""
+        # Re-evaluate conditions just before notification
+        # This ensures we have the latest values from all dependencies
         self._conditions_met = self._evaluate_conditions()
         if self._conditions_met:
             self._has_ever_been_active = True
 
-        # Call parent implementation
-        super()._on_source_change(value)
+        # Only notify if conditions are met
+        return self._conditions_met
 
     def _get_fallback_value(self) -> T:
         """Raise appropriate exception based on whether conditions were ever met."""

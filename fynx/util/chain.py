@@ -17,6 +17,8 @@ import array
 import weakref
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
+from fynx.observable.core.types import is_derived_observable
+
 from .algebraic_optimizer import AlgebraicOptimizer
 
 if TYPE_CHECKING:
@@ -101,7 +103,7 @@ class LazyChainBuilder:
             visited.add(obj_id)
 
             if (
-                hasattr(current, "_source_observable")
+                is_derived_observable(current)
                 and current._source_observable is not None
             ):
                 current = current._source_observable
@@ -327,7 +329,7 @@ def chain_batch(source: Any, functions: list[Callable]) -> Any:
                 break
             visited.add(obj_id)
             if (
-                hasattr(current, "_source_observable")
+                is_derived_observable(current)
                 and current._source_observable is not None
             ):
                 current = current._source_observable
