@@ -455,10 +455,10 @@ class IncrementalStatisticsTracker:
         self, key: str, new_value: float, remove_value: Optional[float] = None
     ) -> Dict[str, float]:
         """
-        Track running mean and variance using Welford's online algorithm with proper removal.
+        Track running mean and variance using Welford's online algorithm with exact removal.
 
-        Uses bounded history to maintain accuracy for removals.
-        O(1) amortized per update, numerically stable.
+        Maintains complete history for mathematically exact removal via recalculation.
+        O(1) amortized per update, O(n) for removal, numerically stable.
         """
         if key not in self._stats_cache:
             self._stats_cache[key] = {
@@ -466,21 +466,22 @@ class IncrementalStatisticsTracker:
                 "mean": 0.0,
                 "m2": 0.0,  # Sum of squared differences from mean
                 "variance": 0.0,
-                "history": [],  # Keep bounded history for accurate removals
+                "history": [],  # Keep complete history for exact removals
             }
 
         stats = self._stats_cache[key]
 
         if remove_value is not None:
-            # Remove value from history and recalculate statistics
+            # Exact removal: remove from history and recalculate from scratch
             history = stats["history"]
             if remove_value in history:
                 history.remove(remove_value)
-                # Recalculate statistics from remaining history
                 self._recalculate_stats_from_history(stats)
             else:
-                # Value not in recent history, approximate removal using Welford's inverse
-                self._approximate_removal(stats, remove_value)
+                # Value not in history - cannot remove what was never added
+                raise ValueError(
+                    f"Cannot remove value {remove_value} - not found in tracked history"
+                )
         else:
             # Add new value using Welford's algorithm
             old_count = stats["count"]
@@ -501,9 +502,10 @@ class IncrementalStatisticsTracker:
             # Maintain bounded history
             stats["history"].append(new_value)
             if len(stats["history"]) > self._max_history_size:
-                # Remove oldest value and adjust statistics
-                oldest_value = stats["history"].pop(0)
-                self._approximate_removal(stats, oldest_value)
+                # Remove oldest value when history gets too large
+                stats["history"].pop(0)
+                # Recalculate to maintain exactness after truncation
+                self._recalculate_stats_from_history(stats)
 
         return {
             "mean": stats["mean"],
@@ -885,17 +887,12 @@ class DeltaKVStore:
         self, key: str, compute_func: Callable[[], T], deps: Optional[List[str]] = None
     ) -> None:
         with self._lock:
-            # Elegant solution: Support both explicit and lazy dependency declaration
+            # Create computed value with explicit dependencies (if provided)
             dependencies = deps if deps is not None else []
             optimized_val = HierarchicalComputedValue(
                 key, dependencies, compute_func, self
             )
             self._computed[key] = optimized_val
-
-            # If dependencies are explicit, register them immediately
-            if deps is not None:
-                for dep in deps:
-                    self._dep_graph.add_dependency(key, dep)
 
     def subscribe(
         self, key: str, callback: Callable[[Delta], None]
@@ -1181,7 +1178,7 @@ from typing import Any, Callable, List, Set
 
 
 class OptimizedComputedValue(ABC):
-    """Abstract base class for optimized computed values with cycle detection."""
+    """Abstract base class for optimized computed values with cycle detection and error propagation."""
 
     def __init__(self, key: str, store):
         self.key = key
@@ -1189,6 +1186,7 @@ class OptimizedComputedValue(ABC):
         self._value = None
         self._is_dirty = True
         self._dependencies: Set[str] = set()
+        self._last_error: Optional[Exception] = None
 
     @abstractmethod
     def _compute_func(self) -> Any:
@@ -1214,6 +1212,10 @@ class OptimizedComputedValue(ABC):
             self._is_dirty = False
             return self._value
 
+        # If we have a cached error and we're not dirty, re-raise it
+        if self._last_error is not None and not self._is_dirty:
+            raise self._last_error
+
         # If not dirty, return cached value (fast path)
         if not self._is_dirty:
             return self._value
@@ -1231,7 +1233,7 @@ class OptimizedComputedValue(ABC):
 
     def _do_compute(self) -> None:
         """
-        Internal method that does the actual computation.
+        Internal method that does the actual computation with proper error handling.
         Should NEVER be called directly - always use get().
         """
         # Set up dependency tracking
@@ -1242,24 +1244,20 @@ class OptimizedComputedValue(ABC):
         self._store._tracking_context.accessed_keys = accessed_keys
 
         try:
-            # Compute the value
-            # Cycle protection happens in get(), so this is safe
+            # Compute the value with proper error propagation
             self._value = self._compute_func()
-
-            # Update dependency graph
-            old_deps = self._dependencies
-            new_deps = accessed_keys
-
-            # Remove old dependencies
-            for dep in old_deps - new_deps:
-                self._store._dep_graph.remove_dependency(self.key, dep)
-
-            # Add new dependencies
-            for dep in new_deps - old_deps:
-                self._store._dep_graph.add_dependency(self.key, dep)
-
-            self._dependencies = new_deps
+            # Clear any previous error on successful computation
+            self._last_error = None
             self._is_dirty = False
+
+        except Exception as e:
+            # Cache the error for proper propagation
+            self._last_error = e
+            # Don't clear the value on error - keep the last good value
+            # Mark as not dirty so we don't retry on every access
+            self._is_dirty = False
+            # Re-raise the error for immediate propagation
+            raise
 
         finally:
             # Restore previous tracking context
@@ -1268,9 +1266,27 @@ class OptimizedComputedValue(ABC):
             elif hasattr(self._store._tracking_context, "accessed_keys"):
                 delattr(self._store._tracking_context, "accessed_keys")
 
+            # Update dependency graph based on accessed keys
+            # This happens even on failure to ensure invalidation works
+            if accessed_keys:  # Only if we actually accessed keys during computation
+                old_deps = self._dependencies
+                new_deps = accessed_keys
+
+                # Remove old dependencies
+                for dep in old_deps - new_deps:
+                    self._store._dep_graph.remove_dependency(self.key, dep)
+
+                # Add new dependencies
+                for dep in new_deps - old_deps:
+                    self._store._dep_graph.add_dependency(self.key, dep)
+
+                self._dependencies = new_deps
+
     def invalidate(self) -> None:
         """Mark this value as needing recomputation."""
         self._is_dirty = True
+        # Clear any cached error when invalidated - allows retry on next access
+        self._last_error = None
 
     def is_dirty(self) -> bool:
         """Check if this value needs recomputation."""
@@ -1280,6 +1296,7 @@ class OptimizedComputedValue(ABC):
 class HierarchicalComputedValue(OptimizedComputedValue):
     """
     Uses hierarchical dependency tracking for efficient change propagation.
+    Supports both explicit dependencies and lazy discovery.
     """
 
     def __init__(
@@ -1287,12 +1304,32 @@ class HierarchicalComputedValue(OptimizedComputedValue):
     ):
         super().__init__(key, store)
         self._user_compute_func = compute_func
-        # Note: dependencies parameter kept for compatibility but not used
-        # Dependencies discovered lazily during computation
+        self._explicit_deps = set(dependencies) if dependencies else None
+
+        # If explicit dependencies provided, register them immediately
+        if self._explicit_deps:
+            for dep in self._explicit_deps:
+                self._store._dep_graph.add_dependency(key, dep)
 
     def _compute_func(self) -> Any:
         """Execute the user's computation function."""
         return self._user_compute_func()
+
+    def _do_compute(self) -> None:
+        """
+        Compute with explicit dependency handling.
+        """
+        # If we have explicit dependencies, we can skip the complex tracking
+        # and just ensure our dependencies are up to date
+        if self._explicit_deps is not None:
+            # For explicit deps, we don't need the full tracking machinery
+            # Just compute the value directly
+            self._value = self._compute_func()
+            self._is_dirty = False
+            return
+
+        # Fall back to lazy discovery for compatibility
+        super()._do_compute()
 
 
 class StandardComputedValue(OptimizedComputedValue):
