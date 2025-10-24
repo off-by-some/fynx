@@ -6,14 +6,14 @@ Comprehensive benchmarks for the Fynx-style frontend with DeltaKVStore backend.
 Tests observable operations, operator chaining, and reactive performance.
 """
 
+import gc
+import os
 import statistics
 import time
-from time import perf_counter
-import gc
-import psutil
-import os
 import tracemalloc
+from time import perf_counter
 
+import psutil
 import rx
 from rich import box
 from rich.columns import Columns
@@ -24,8 +24,8 @@ from rich.text import Text
 from rx import operators as ops
 from rx.subject import Subject
 
-from frontend import Observable, Store, reactive
-from prototype import DeltaKVStore
+from fynx.frontend import Observable, Store, reactive
+from fynx.observable import DeltaKVStore
 
 console = Console()
 
@@ -48,18 +48,18 @@ def measure_memory_impact(func, *args, **kwargs):
     """Measure memory usage before and after running a function."""
     # Get baseline memory (don't force GC here - we want to measure actual usage)
     baseline_memory = get_memory_usage()
-    
+
     # Run the function
     result = func(*args, **kwargs)
-    
+
     # Get final memory (don't force GC here - we want to measure actual usage)
     final_memory = get_memory_usage()
-    
+
     return {
-        'baseline_memory': baseline_memory,
-        'final_memory': final_memory,
-        'memory_delta': final_memory - baseline_memory,
-        'result': result
+        "baseline_memory": baseline_memory,
+        "final_memory": final_memory,
+        "memory_delta": final_memory - baseline_memory,
+        "result": result,
     }
 
 
@@ -67,29 +67,29 @@ def measure_gc_pressure(func, *args, **kwargs):
     """Measure garbage collection pressure."""
     # Get initial GC counts (don't force collection yet)
     initial_counts = gc.get_count()
-    
+
     # Run the function
     result = func(*args, **kwargs)
-    
+
     # Get counts after function execution (before forced collection)
     post_execution_counts = gc.get_count()
-    
+
     # Force collection and get final counts
     collected = gc.collect()
     final_counts = gc.get_count()
-    
+
     # Calculate GC pressure
     gc_pressure = {
-        'initial_counts': initial_counts,
-        'post_execution_counts': post_execution_counts,
-        'final_counts': final_counts,
-        'collected_objects': collected,
-        'generation_0_delta': post_execution_counts[0] - initial_counts[0],
-        'generation_1_delta': post_execution_counts[1] - initial_counts[1],
-        'generation_2_delta': post_execution_counts[2] - initial_counts[2],
-        'result': result
+        "initial_counts": initial_counts,
+        "post_execution_counts": post_execution_counts,
+        "final_counts": final_counts,
+        "collected_objects": collected,
+        "generation_0_delta": post_execution_counts[0] - initial_counts[0],
+        "generation_1_delta": post_execution_counts[1] - initial_counts[1],
+        "generation_2_delta": post_execution_counts[2] - initial_counts[2],
+        "result": result,
     }
-    
+
     return gc_pressure
 
 
@@ -97,34 +97,35 @@ def benchmark_memory_usage(store_class, n=1000, runs=3):
     """Benchmark memory usage for observable creation."""
     memory_deltas = []
     gc_pressures = []
-    
+
     for _ in range(runs):
+
         def create_observables():
             store = store_class()
             observables = []
             for i in range(n):
-                obs = store.observable(f'obs_{i}', i)
+                obs = store.observable(f"obs_{i}", i)
                 observables.append(obs)
             return observables
-        
+
         # Measure memory impact
         memory_result = measure_memory_impact(create_observables)
-        memory_deltas.append(memory_result['memory_delta'])
-        
+        memory_deltas.append(memory_result["memory_delta"])
+
         # Measure GC pressure
         gc_result = measure_gc_pressure(create_observables)
         gc_pressures.append(gc_result)
-    
+
     avg_memory_delta = statistics.mean(memory_deltas)
-    avg_gc_pressure = statistics.mean([p['generation_0_delta'] for p in gc_pressures])
-    
+    avg_gc_pressure = statistics.mean([p["generation_0_delta"] for p in gc_pressures])
+
     return {
-        'operation': 'Memory Usage (Observable Creation)',
-        'count': n,
-        'avg_memory_delta_mb': avg_memory_delta,
-        'avg_gc_pressure': avg_gc_pressure,
-        'memory_per_observable_kb': (avg_memory_delta * 1024) / n,
-        'std_dev': statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0
+        "operation": "Memory Usage (Observable Creation)",
+        "count": n,
+        "avg_memory_delta_mb": avg_memory_delta,
+        "avg_gc_pressure": avg_gc_pressure,
+        "memory_per_observable_kb": (avg_memory_delta * 1024) / n,
+        "std_dev": statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0,
     }
 
 
@@ -132,53 +133,56 @@ def benchmark_memory_reactive_updates(store_class, n=1000, runs=3):
     """Benchmark memory usage during reactive updates."""
     memory_deltas = []
     gc_pressures = []
-    
+
     for _ in range(runs):
+
         def reactive_update_cycle():
             store = store_class()
-            
+
             # Create a chain of dependencies
             chain_length = min(20, n)
             observables = []
-            
+
             # Create base observable
-            base = store.observable('base', 1)
+            base = store.observable("base", 1)
             observables.append(base)
-            
+
             # Create dependency chain
             for i in range(1, chain_length):
                 prev = observables[-1]
+
                 def make_adder(level):
                     return lambda x: x + level
+
                 next_obs = prev >> make_adder(i)
                 observables.append(next_obs)
-            
+
             # Perform many updates
             num_updates = min(100, n)
             for _ in range(num_updates):
                 base.value = base.value + 1
                 _ = observables[-1].value  # Force recomputation
-            
+
             return observables
-        
+
         # Measure memory impact
         memory_result = measure_memory_impact(reactive_update_cycle)
-        memory_deltas.append(memory_result['memory_delta'])
-        
+        memory_deltas.append(memory_result["memory_delta"])
+
         # Measure GC pressure
         gc_result = measure_gc_pressure(reactive_update_cycle)
         gc_pressures.append(gc_result)
-    
+
     avg_memory_delta = statistics.mean(memory_deltas)
-    avg_gc_pressure = statistics.mean([p['generation_0_delta'] for p in gc_pressures])
-    
+    avg_gc_pressure = statistics.mean([p["generation_0_delta"] for p in gc_pressures])
+
     return {
-        'operation': 'Memory Usage (Reactive Updates)',
-        'count': n,
-        'avg_memory_delta_mb': avg_memory_delta,
-        'avg_gc_pressure': avg_gc_pressure,
-        'memory_per_update_kb': (avg_memory_delta * 1024) / n,
-        'std_dev': statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0
+        "operation": "Memory Usage (Reactive Updates)",
+        "count": n,
+        "avg_memory_delta_mb": avg_memory_delta,
+        "avg_gc_pressure": avg_gc_pressure,
+        "memory_per_update_kb": (avg_memory_delta * 1024) / n,
+        "std_dev": statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0,
     }
 
 
@@ -188,57 +192,62 @@ def benchmark_memory_comparison_fynx_vs_rxpy(n=1000, runs=3):
     rxpy_memory_deltas = []
     fynx_gc_pressures = []
     rxpy_gc_pressures = []
-    
+
     for _ in range(runs):
         # Test Fynx Frontend
         def fynx_operation():
             store = Store()
             observables = []
             for i in range(n):
-                obs = store.observable(f'obs_{i}', i)
+                obs = store.observable(f"obs_{i}", i)
                 observables.append(obs)
                 obs.subscribe(lambda x: None)
             return observables
-        
+
         # Test RxPy
         def rxpy_operation():
             from rx.subject import Subject
+
             subjects = []
             for i in range(n):
                 subject = Subject()
                 subjects.append(subject)
                 subject.subscribe(lambda x: None)
             return subjects
-        
+
         # Measure Fynx
         fynx_memory_result = measure_memory_impact(fynx_operation)
-        fynx_memory_deltas.append(fynx_memory_result['memory_delta'])
-        
+        fynx_memory_deltas.append(fynx_memory_result["memory_delta"])
+
         fynx_gc_result = measure_gc_pressure(fynx_operation)
         fynx_gc_pressures.append(fynx_gc_result)
-        
+
         # Measure RxPy
         rxpy_memory_result = measure_memory_impact(rxpy_operation)
-        rxpy_memory_deltas.append(rxpy_memory_result['memory_delta'])
-        
+        rxpy_memory_deltas.append(rxpy_memory_result["memory_delta"])
+
         rxpy_gc_result = measure_gc_pressure(rxpy_operation)
         rxpy_gc_pressures.append(rxpy_gc_result)
-    
+
     avg_fynx_memory = statistics.mean(fynx_memory_deltas)
     avg_rxpy_memory = statistics.mean(rxpy_memory_deltas)
-    avg_fynx_gc = statistics.mean([p['generation_0_delta'] for p in fynx_gc_pressures])
-    avg_rxpy_gc = statistics.mean([p['generation_0_delta'] for p in rxpy_gc_pressures])
-    
+    avg_fynx_gc = statistics.mean([p["generation_0_delta"] for p in fynx_gc_pressures])
+    avg_rxpy_gc = statistics.mean([p["generation_0_delta"] for p in rxpy_gc_pressures])
+
     return {
-        'operation': 'Memory Comparison (Fynx vs RxPy)',
-        'count': n,
-        'fynx_memory_delta_mb': avg_fynx_memory,
-        'rxpy_memory_delta_mb': avg_rxpy_memory,
-        'fynx_gc_pressure': avg_fynx_gc,
-        'rxpy_gc_pressure': avg_rxpy_gc,
-        'memory_ratio': avg_fynx_memory / avg_rxpy_memory if avg_rxpy_memory > 0 else float('inf'),
-        'gc_ratio': avg_fynx_gc / avg_rxpy_gc if avg_rxpy_gc > 0 else float('inf'),
-        'std_dev': statistics.stdev(fynx_memory_deltas) if len(fynx_memory_deltas) > 1 else 0
+        "operation": "Memory Comparison (Fynx vs RxPy)",
+        "count": n,
+        "fynx_memory_delta_mb": avg_fynx_memory,
+        "rxpy_memory_delta_mb": avg_rxpy_memory,
+        "fynx_gc_pressure": avg_fynx_gc,
+        "rxpy_gc_pressure": avg_rxpy_gc,
+        "memory_ratio": (
+            avg_fynx_memory / avg_rxpy_memory if avg_rxpy_memory > 0 else float("inf")
+        ),
+        "gc_ratio": avg_fynx_gc / avg_rxpy_gc if avg_rxpy_gc > 0 else float("inf"),
+        "std_dev": (
+            statistics.stdev(fynx_memory_deltas) if len(fynx_memory_deltas) > 1 else 0
+        ),
     }
 
 
@@ -246,17 +255,18 @@ def benchmark_memory_efficiency(store_class, n=1000, runs=3):
     """Benchmark memory efficiency with large-scale operations."""
     memory_deltas = []
     gc_pressures = []
-    
+
     for _ in range(runs):
+
         def large_scale_operation():
             store = store_class()
-            
+
             # Create many observables with complex dependencies
             observables = []
             for i in range(n):
-                obs = store.observable(f'obs_{i}', i)
+                obs = store.observable(f"obs_{i}", i)
                 observables.append(obs)
-            
+
             # Create computed values using operator chaining
             computed_values = []
             for i in range(min(100, n // 10)):
@@ -266,49 +276,49 @@ def benchmark_memory_efficiency(store_class, n=1000, runs=3):
                     # Create a computed observable that sums multiple observables
                     base_obs = observables[start_idx]
                     computed_obs = base_obs
-                    
+
                     # Chain multiple observables together
                     for j in range(1, min(10, n - start_idx)):
                         computed_obs = computed_obs + observables[start_idx + j]
-                    
+
                     computed_values.append(computed_obs)
-            
+
             # Force computation of all computed values
             for computed in computed_values:
                 _ = computed.value
-            
+
             # Update some observables and recompute
             for i in range(0, n, 10):
-                current_val = store.get(f'obs_{i}')
+                current_val = store.get(f"obs_{i}")
                 if current_val is not None:
-                    store.set(f'obs_{i}', current_val + 1)
+                    store.set(f"obs_{i}", current_val + 1)
                 else:
-                    store.set(f'obs_{i}', 1)
-            
+                    store.set(f"obs_{i}", 1)
+
             # Force recomputation
             for computed in computed_values:
                 _ = computed.value
-            
+
             return observables, computed_values
-        
+
         # Measure memory impact
         memory_result = measure_memory_impact(large_scale_operation)
-        memory_deltas.append(memory_result['memory_delta'])
-        
+        memory_deltas.append(memory_result["memory_delta"])
+
         # Measure GC pressure
         gc_result = measure_gc_pressure(large_scale_operation)
         gc_pressures.append(gc_result)
-    
+
     avg_memory_delta = statistics.mean(memory_deltas)
-    avg_gc_pressure = statistics.mean([p['generation_0_delta'] for p in gc_pressures])
-    
+    avg_gc_pressure = statistics.mean([p["generation_0_delta"] for p in gc_pressures])
+
     return {
-        'operation': 'Memory Usage (Large Scale)',
-        'count': n,
-        'avg_memory_delta_mb': avg_memory_delta,
-        'avg_gc_pressure': avg_gc_pressure,
-        'memory_per_observable_kb': (avg_memory_delta * 1024) / n,
-        'std_dev': statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0
+        "operation": "Memory Usage (Large Scale)",
+        "count": n,
+        "avg_memory_delta_mb": avg_memory_delta,
+        "avg_gc_pressure": avg_gc_pressure,
+        "memory_per_observable_kb": (avg_memory_delta * 1024) / n,
+        "std_dev": statistics.stdev(memory_deltas) if len(memory_deltas) > 1 else 0,
     }
 
 
@@ -575,14 +585,14 @@ def run_memory_profiling_benchmarks():
     """Run memory profiling benchmarks."""
     console.print("\n")
     console.print(Panel.fit("Memory Profiling Benchmarks", style="bold magenta"))
-    
+
     benchmarks = [
         benchmark_memory_usage,
         benchmark_memory_reactive_updates,
         benchmark_memory_efficiency,
         benchmark_memory_comparison_fynx_vs_rxpy,
     ]
-    
+
     results = []
     for benchmark_func in benchmarks:
         if benchmark_func == benchmark_memory_comparison_fynx_vs_rxpy:
@@ -590,17 +600,17 @@ def run_memory_profiling_benchmarks():
         else:
             result = benchmark_func(Store, n=1000, runs=3)
         results.append(result)
-    
+
     # Separate results into different categories
     fynx_results = []
     comparison_result = None
-    
+
     for result in results:
         if "Memory Comparison" in result["operation"]:
             comparison_result = result
         else:
             fynx_results.append(result)
-    
+
     # Display Fynx Frontend Memory Analysis
     if fynx_results:
         console.print("\n[bold cyan]Fynx Frontend Memory Analysis[/bold cyan]")
@@ -610,12 +620,14 @@ def run_memory_profiling_benchmarks():
         fynx_table.add_column("Per Item (KB)", justify="right", style="yellow")
         fynx_table.add_column("GC Pressure", justify="right", style="red")
         fynx_table.add_column("Efficiency", justify="center")
-        
+
         for result in fynx_results:
             memory_delta = result["avg_memory_delta_mb"]
-            per_item = result.get("memory_per_observable_kb", result.get("memory_per_update_kb", 0))
+            per_item = result.get(
+                "memory_per_observable_kb", result.get("memory_per_update_kb", 0)
+            )
             gc_pressure = result["avg_gc_pressure"]
-            
+
             if per_item < 1:
                 efficiency = "[green]Excellent[/green]"
             elif per_item < 5:
@@ -624,56 +636,64 @@ def run_memory_profiling_benchmarks():
                 efficiency = "[orange3]Decent[/orange3]"
             else:
                 efficiency = "[red]Heavy[/red]"
-            
+
             fynx_table.add_row(
                 result["operation"].replace("Memory Usage (", "").replace(")", ""),
                 f"{memory_delta:.2f}",
                 f"{per_item:.2f}",
                 f"{gc_pressure:.0f}",
-                efficiency
+                efficiency,
             )
-        
+
         console.print(fynx_table)
-    
+
     # Display Fynx vs RxPy Comparison
     if comparison_result:
         console.print("\n[bold cyan]Fynx vs RxPy Memory Comparison[/bold cyan]")
         comparison_table = Table(title="Memory Usage Comparison")
         comparison_table.add_column("System", style="cyan", no_wrap=True)
         comparison_table.add_column("Memory (MB)", justify="right", style="green")
-        comparison_table.add_column("Per Observable (KB)", justify="right", style="yellow")
+        comparison_table.add_column(
+            "Per Observable (KB)", justify="right", style="yellow"
+        )
         comparison_table.add_column("GC Pressure", justify="right", style="red")
         comparison_table.add_column("Status", justify="center")
-        
+
         fynx_memory = comparison_result["fynx_memory_delta_mb"]
         rxpy_memory = comparison_result["rxpy_memory_delta_mb"]
         fynx_gc = comparison_result["fynx_gc_pressure"]
         rxpy_gc = comparison_result["rxpy_gc_pressure"]
         memory_ratio = comparison_result["memory_ratio"]
-        
+
         comparison_table.add_row(
             "Fynx Frontend",
             f"{fynx_memory:.2f}",
             f"{(fynx_memory * 1024) / comparison_result['count']:.2f}",
             f"{fynx_gc:.0f}",
-            "[green]More Features[/green]"
+            "[green]More Features[/green]",
         )
         comparison_table.add_row(
             "RxPy",
             f"{rxpy_memory:.2f}",
             f"{(rxpy_memory * 1024) / comparison_result['count']:.2f}",
             f"{rxpy_gc:.0f}",
-            "[blue]Lighter[/blue]"
+            "[blue]Lighter[/blue]",
         )
-        
+
         console.print(comparison_table)
-        
+
         # Summary
         console.print(f"\n[bold]Summary:[/bold]")
-        console.print(f"• Fynx uses [bold]{memory_ratio:.1f}x[/bold] more memory than RxPy")
-        console.print(f"• Fynx has [bold]{comparison_result['gc_ratio']:.1f}x[/bold] lower GC pressure")
-        console.print(f"• Memory trade-off: [bold]{memory_ratio:.1f}x[/bold] memory for [bold]18x[/bold] performance")
-    
+        console.print(
+            f"• Fynx uses [bold]{memory_ratio:.1f}x[/bold] more memory than RxPy"
+        )
+        console.print(
+            f"• Fynx has [bold]{comparison_result['gc_ratio']:.1f}x[/bold] lower GC pressure"
+        )
+        console.print(
+            f"• Memory trade-off: [bold]{memory_ratio:.1f}x[/bold] memory for [bold]18x[/bold] performance"
+        )
+
     return results
 
 

@@ -2,7 +2,6 @@
 
 import pytest
 
-from fynx.observable.core.observable import Observable
 from tests.test_factories import (
     create_counter_with_limits,
     create_diamond_dependency,
@@ -26,19 +25,9 @@ no_leaks = create_no_leaks_fixture()
 @pytest.fixture(autouse=True)
 def reset_observable_state():
     """Reset Observable class state between tests to prevent contamination."""
-    # Store original state (only for attributes that still exist)
-    original_context = Observable._current_context
-
-    # Reset to clean state (only for attributes that still exist)
-    Observable._current_context = None
-
-    # Reset notification state for test isolation
-    Observable._reset_notification_state()
-
+    # The new Observable structure doesn't have _current_context or _reset_notification_state
+    # This fixture is kept for compatibility but doesn't need to do anything
     yield
-
-    # Restore original state (though this shouldn't be necessary for autouse fixtures)
-    Observable._current_context = original_context
 
 
 @pytest.fixture

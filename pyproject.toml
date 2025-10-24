@@ -27,6 +27,7 @@ packages = [{include = "fynx"}]
 [tool.poetry.dependencies]
 python = ">=3.9"
 cachetools = ">=5.3.0"
+numpy = ">=1.21.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = ">=1.4.0"

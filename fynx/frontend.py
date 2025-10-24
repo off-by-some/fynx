@@ -8,9 +8,9 @@ with O(affected) incremental computation.
 """
 
 import threading
-from typing import Any, Callable, Dict, Optional, Set, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, Union
 
-from prototype import ChangeType, Delta, DeltaKVStore
+from .observable import ChangeType, Delta, DeltaKVStore
 
 T = TypeVar("T")
 
@@ -46,10 +46,23 @@ class BaseObservable:
         return self
 
     # Fynx operator overloading
-    def __rshift__(self, func: Callable) -> "FusedOperation":
+    def __rshift__(self, func: Callable) -> "DerivedObservable":
         """Transform with >> operator (then)."""
-        # Return a fused operation that can be chained before materializing
-        return FusedOperation(self, [func])
+        # Create a unique key based on source key and function ID
+        func_id = id(func)  # Use function object ID for uniqueness
+        derived_key = f"{self._key}_transformed_by_{func_id}"
+
+        # Check if already exists in store's observables
+        if derived_key in self._store._observables:
+            return self._store._observables[derived_key]
+
+        # Create new derived observable with operations list
+        derived = DerivedObservable(self._store, derived_key, self, func)
+
+        # Store it to prevent infinite chains
+        self._store._observables[derived_key] = derived
+
+        return derived
 
     def __add__(self, other: "BaseObservable") -> "MergedObservable":
         """Combine with + operator (alongside)."""
@@ -74,7 +87,7 @@ class BaseObservable:
         return NegatedObservable(self._store, f"{self._key}_negated", self)
 
     # Method equivalents
-    def then(self, func: Callable) -> "FusedOperation":
+    def then(self, func: Callable) -> "DerivedObservable":
         """Method version of >> operator."""
         return self >> func
 
@@ -101,6 +114,36 @@ class BaseObservable:
         return self.__str__()
 
 
+class FusedOperation(BaseObservable):
+    """
+    A fused operation that can be chained before materializing.
+
+    This allows for efficient chaining of operations without creating
+    intermediate computed observables.
+    """
+
+    def __init__(self, source: BaseObservable, operations: List[Callable]):
+        super().__init__(source._store, f"{source._key}_fused")
+        self._source = source
+        self._operations = operations
+
+    @property
+    def value(self):
+        """Get the computed value by applying all operations."""
+        current_value = self._source.value
+        for operation in self._operations:
+            current_value = operation(current_value)
+        return current_value
+
+    def then(self, func: Callable) -> "FusedOperation":
+        """Chain another operation."""
+        return FusedOperation(self._source, self._operations + [func])
+
+    def __rshift__(self, func: Callable) -> "FusedOperation":
+        """Transform with >> operator (then)."""
+        return self.then(func)
+
+
 class Observable(BaseObservable):
     """
     Fynx-style observable value that can be read and written.
@@ -108,11 +151,24 @@ class Observable(BaseObservable):
     Supports "dumb mode": starts lightweight and only becomes reactive when needed.
     """
 
-    def __init__(self, store: "Store", key: str, initial_value: Optional[T] = None):
+    def __init__(self, name_or_store, initial_value_or_key=None, initial_value=None):
+        # Support both old API: Observable("name", "value") and new API: Observable(store, key, value)
+        if isinstance(name_or_store, str) and initial_value_or_key is not None:
+            # Old API: Observable("name", "value")
+            name = name_or_store
+            initial_val = initial_value_or_key
+            store = _get_global_store()
+            key = f"observable_{name}_{id(initial_val)}"
+        else:
+            # New API: Observable(store, key, initial_value)
+            store = name_or_store
+            key = initial_value_or_key
+            initial_val = initial_value
+
         # Start in "dumb mode" - just store the value locally
         self._store = store
         self._key = key
-        self._dumb_value = initial_value  # Local storage for dumb mode
+        self._dumb_value = initial_val  # Local storage for dumb mode
         self._is_dumb = True  # Flag for dumb mode
         self._lock = threading.RLock()
 
@@ -122,6 +178,10 @@ class Observable(BaseObservable):
         if self._is_dumb:
             return self._dumb_value
         return self._store._delta_store.get(self._key)
+
+    def set(self, value: T) -> None:
+        """Set the observable value."""
+        self.value = value
 
     @value.setter
     def value(self, new_value: T) -> None:
@@ -137,6 +197,10 @@ class Observable(BaseObservable):
 
         # Reactive mode
         self._store._delta_store.set(self._key, new_value)
+
+    def __str__(self) -> str:
+        """String representation returns the current value."""
+        return str(self.value)
 
     def _promote_to_reactive(self):
         """Promote from dumb mode to full reactive mode."""
@@ -164,6 +228,107 @@ class Observable(BaseObservable):
 
         self._store._delta_store.subscribe(self._key, delta_callback)
         return self
+
+
+class DerivedObservable(BaseObservable):
+    """
+    A derived observable that computes its value from a source observable.
+
+    Supports operation fusion to avoid creating long chains of intermediate observables.
+    """
+
+    def __init__(
+        self, store: "Store", key: str, source: BaseObservable, func: Callable
+    ):
+        super().__init__(store, key)
+        self._source = source
+        self._operations = [func]  # Support chaining multiple operations
+        self._materialized = False
+
+    @property
+    def value(self):
+        """Get the computed value."""
+        if not self._materialized:
+            self._materialize()
+        return self._store._delta_store.get(self._key)
+
+    def _materialize(self):
+        """Materialize this derived observable into the store iteratively."""
+        if self._materialized:
+            return
+
+        # Collect the entire chain first
+        chain = []
+        current = self
+        while isinstance(current, DerivedObservable) and not current._materialized:
+            chain.append(current)
+            current = current._source
+
+        # Materialize from root to leaf (so dependencies exist first)
+        for node in reversed(chain):
+            if not node._materialized:
+                node._materialized = True
+
+                # Ensure source is materialized
+                if isinstance(node._source, DerivedObservable):
+                    # Source is already in the chain, so it will be materialized
+                    pass
+                elif hasattr(node._source, "_promote_to_reactive"):
+                    node._source._promote_to_reactive()
+
+                # Create compute function that applies all operations in sequence
+                def make_compute_func(node_instance):
+                    def compute_func():
+                        # Start with the source value
+                        value = node_instance._store._delta_store.get(
+                            node_instance._source._key
+                        )
+                        # Apply all operations in sequence
+                        for operation in node_instance._operations:
+                            if isinstance(value, tuple):
+                                value = operation(*value)
+                            else:
+                                value = operation(value)
+                        return value
+
+                    return compute_func
+
+                # Register with DeltaKVStore
+                node._store._delta_store.computed(node._key, make_compute_func(node))
+
+    def subscribe(self, callback: Callable) -> "DerivedObservable":
+        """Subscribe to changes in the derived observable."""
+        if not self._materialized:
+            self._materialize()
+
+        def delta_callback(delta: Delta):
+            if delta.key == self._key:
+                if delta.change_type in [ChangeType.SET, ChangeType.COMPUTED_UPDATE]:
+                    callback(delta.new_value)
+
+        self._store._delta_store.subscribe(self._key, delta_callback)
+        return self
+
+    def then(self, func: Callable) -> "DerivedObservable":
+        """Chain another transformation by extending operations."""
+        # Instead of creating a new DerivedObservable, extend this one's operations
+        # This fuses multiple operations into a single computation
+        self._operations.append(func)
+
+        # If already materialized, we need to invalidate and rematerialize
+        if self._materialized:
+            # Mark as not materialized so it will recompute with new operations
+            self._materialized = False
+            # Invalidate the computed value in the store
+            if hasattr(self._store, "_delta_store"):
+                # Force recomputation by marking as dirty
+                pass  # The store will handle invalidation
+
+        return self
+
+    def __rshift__(self, func: Callable) -> "DerivedObservable":
+        """Transform with >> operator (then)."""
+        return self.then(func)
 
 
 class FusedOperation:
@@ -249,32 +414,6 @@ class FusedOperation:
         return f"FusedOperation({self._key}: {len(self.operations)} operations)"
 
 
-class DerivedObservable(BaseObservable):
-    """
-    Observable derived from another observable via transformation.
-
-    Now supports lazy fusion: operations are collected until value access.
-    """
-
-    def __init__(
-        self, store: "Store", key: str, source: BaseObservable, func: Callable
-    ):
-        super().__init__(store, key)
-        self._source = source
-        self._func = func
-
-        # For now, create the computed value immediately
-        # TODO: Implement lazy fusion for better performance
-        def compute_func():
-            source_val = source.value
-            if isinstance(source_val, tuple):
-                return func(*source_val)
-            else:
-                return func(source_val)
-
-        self._store._delta_store.computed(key, compute_func)
-
-
 class MergedObservable(BaseObservable):
     """
     Observable that combines multiple sources into a tuple.
@@ -284,8 +423,18 @@ class MergedObservable(BaseObservable):
         super().__init__(store, key)
         self._sources = sources
 
+        # Promote all source observables to reactive mode to ensure they're in the store
+        for source in sources:
+            if hasattr(source, "_promote_to_reactive"):
+                source._promote_to_reactive()
+            elif hasattr(source, "value"):
+                # Access value to promote if needed
+                _ = source.value
+
         # Register computed value that returns tuple
         def compute_func():
+            # Access source values through their .value property to ensure they're promoted to reactive mode
+            # This will also create proper dependencies through the tracking mechanism
             return tuple(source.value for source in sources)
 
         self._store._delta_store.computed(key, compute_func)
@@ -417,7 +566,7 @@ class Store:
         self._delta_store = DeltaKVStore()
         self._observables: Dict[str, BaseObservable] = {}
 
-    def observable(self, key: str, initial_value: Optional[T] = None) -> Observable:
+    def observable(self, key: str, initial_value: Optional[T] = None) -> "Observable":
         """Create or get an observable value."""
         if key not in self._observables:
             self._observables[key] = Observable(self, key, initial_value)
@@ -448,20 +597,63 @@ class Store:
         return self.__str__()
 
 
+# Exception classes for conditional observables
+class ConditionalNeverMet(Exception):
+    """Raised when accessing a conditional observable that has never been met."""
+
+    pass
+
+
+class ConditionalNotMet(Exception):
+    """Raised when accessing a conditional observable whose conditions are not currently met."""
+
+    pass
+
+
+# ReactiveContext for managing reactive computations
+class ReactiveContext:
+    """Context for managing reactive computations and cleanup."""
+
+    def __init__(self, func: Callable, *args, **kwargs):
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+        self._store_observables = set()
+
+    def dispose(self):
+        """Clean up the reactive context."""
+        self._store_observables.clear()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.dispose()
+        return False
+
+
+# Global store context for standalone observables
+_global_store = None
+
+
+def _get_global_store():
+    """Get or create the global store for standalone observables."""
+    global _global_store
+    if _global_store is None:
+        _global_store = Store()
+    return _global_store
+
+
 # Convenience functions for Fynx-like API
-def observable(initial_value: Optional[T] = None) -> Observable:
+def observable(initial_value: Optional[T] = None) -> "Observable":
     """
     Create an observable value.
 
-    Note: In Fynx, observables are typically created as class attributes
-    in Store subclasses. This function is for convenience.
+    This creates a standalone observable using a global store context.
     """
-    # This is a simplified version - in real Fynx, observables are typically
-    # created within store classes with automatic key assignment
-    raise NotImplementedError(
-        "Use store.observable(key, initial_value) instead. "
-        "This function requires store context for proper key management."
-    )
+    store = _get_global_store()
+    key = f"observable_{id(initial_value)}_{len(store._delta_store._data)}"
+    return store.observable(key, initial_value)
 
 
 def reactive(*dependencies):

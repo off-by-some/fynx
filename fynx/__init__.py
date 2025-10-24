@@ -1,90 +1,75 @@
 """
-FynX - Python Reactive State Management Library
-===============================================
+FynX - Functional Yielding Observable Networks
 
-FynX is a lightweight, transparent reactive state management library for Python,
-inspired by MobX. It enables reactive programming patterns where state changes
-automatically propagate through your application, eliminating the need for manual
-state synchronization.
-
-Core Concepts
--------------
-
-**Observables**: Values that can be watched for changes. When an observable value
-changes, all dependent computations and reactions automatically update.
-
-**Computed Values**: Derived values that automatically recalculate when their
-dependencies change, with built-in memoization for performance.
-
-**Reactions**: Functions that run automatically when their observed dependencies
-change, enabling side effects like UI updates or API calls.
-
-**Stores**: Classes that group related observables together with convenient
-subscription and state management methods.
-
-Key Features
--------------
-
-- **Transparent Reactivity**: No special syntax needed - just use regular Python objects
-- **Automatic Dependency Tracking**: Observables automatically track what depends on them
-- **Lazy Evaluation**: Computed values only recalculate when needed
-- **Type Safety**: Full type hint support for better IDE experience and static analysis
-- **Memory Efficient**: Automatic cleanup of unused reactive contexts
-- **Composable**: Easy to combine and nest reactive components
-
-Quick Example
--------------
-
-```python
-from fynx import Store, observable, reactive
-
-# Create a reactive store
-class UserStore(Store):
-    name = observable("Alice")
-    age = observable(30)
-
-    # Computed property using the >> operator
-    greeting = (name + age) >> (lambda n, a: f"Hello, {n}! You are {a} years old.")
-
-# React to changes
-@reactive(UserStore.name, UserStore.age)
-def on_user_change(name, age):
-    print(f"User updated: {name}, {age}")
-
-# Changes trigger reactions automatically
-UserStore.name = "Bob"  # Prints: User updated: Bob, 30
-UserStore.age = 31      # Prints: User updated: Bob, 31
-```
-
-For more examples and detailed documentation, see the README.md file.
+A high-performance reactive key-value store that uses delta-based change detection
+and only propagates changes to affected nodes.
 """
 
-__version__ = "0.2.0"
-__author__ = "Cassidy Bridges"
-__email__ = "cassidybridges@gmail.com"
-
-from .observable import (
+# Import core classes from frontend.py (the Observable API)
+from .frontend import (
     ConditionalNeverMet,
     ConditionalNotMet,
     ConditionalObservable,
+    DerivedObservable,
     MergedObservable,
+    NegatedObservable,
     Observable,
+    OrObservable,
     ReactiveContext,
+    Store,
+    observable,
+    reactive,
 )
-from .observable import SubscriptableDescriptor as Subscriptable
-from .reactive import ReactiveFunctionWasCalled, reactive
-from .store import Store, observable
 
+# Import DeltaKVStore from observable.py (the backend implementation)
+from .observable import DeltaKVStore
+
+# Import Store and related classes from store.py (the Store API)
+from .store import (
+    SessionValue,
+)
+from .store import Store as StoreClass
+from .store import (
+    StoreMeta,
+    StoreSnapshot,
+    Subscriptable,
+)
+from .store import SubscriptableDescriptor as StoreSubscriptableDescriptor
+
+
+# Create a simple exception class for reactive functions
+class ReactiveFunctionWasCalled(Exception):
+    """Exception raised when a reactive function is called during testing."""
+
+    pass
+
+
+# Export all the main classes and functions
 __all__ = [
+    # Core observables from frontend.py
     "Observable",
-    "Store",
-    "Subscriptable",
+    "DerivedObservable",
     "MergedObservable",
     "ConditionalObservable",
+    "OrObservable",
+    "NegatedObservable",
+    # Store and related from store.py
+    "Store",
+    "StoreMeta",
+    "StoreSnapshot",
+    "SessionValue",
+    "Subscriptable",
+    "StoreSubscriptableDescriptor",
+    # Reactive system from frontend.py
+    "reactive",
+    "ReactiveContext",
+    # Factory function from frontend.py
+    "observable",
+    # Exception classes from frontend.py
     "ConditionalNeverMet",
     "ConditionalNotMet",
-    "ReactiveContext",
+    # Backend implementation from observable.py
+    "DeltaKVStore",
+    # Exceptions
     "ReactiveFunctionWasCalled",
-    "observable",
-    "reactive",
 ]

@@ -147,6 +147,7 @@ See Also
 - `fynx.watch`: Conditional reactive functions
 """
 
+import time
 from typing import (
     Any,
     Callable,
@@ -158,11 +159,19 @@ from typing import (
     Union,
 )
 
-from .observable import Observable, SubscriptableDescriptor
-from .observable.computed import ComputedObservable
-from .observable.core.abstract.observable import BaseObservable
+from .frontend import BaseObservable, Observable
 
 T = TypeVar("T")
+
+# Create a simple SubscriptableDescriptor for type hints
+from typing import Generic
+
+
+class SubscriptableDescriptor(Generic[T]):
+    """Descriptor for subscriptable observables."""
+
+    pass
+
 
 # Type alias for session state values (used for serialization)
 SessionValue = Union[
@@ -215,11 +224,219 @@ class StoreSnapshot:
         return f"StoreSnapshot({', '.join(fields)})"
 
 
+class Store:
+    """
+    Base class for reactive state containers.
+    Each Store instance has its own DeltaKVStore to avoid lock contention.
+    """
+
+    def __init__(self):
+        from fynx.observable.core.observable import DeltaKVStore
+
+        self._store = DeltaKVStore()
+
+    def observable(self, key: str, initial_value: Optional[T] = None):
+        """Create an observable in this store's DeltaKVStore."""
+        if initial_value is not None:
+            self._store.set(key, initial_value)
+
+        class StoreObservable:
+            def __init__(self, store, key):
+                self._store = store
+                self._key = key
+
+            def set(self, value):
+                self._store.set(self._key, value)
+                return self
+
+            def get(self):
+                return self._store.get(self._key)
+
+            @property
+            def value(self):
+                return self.get()
+
+            def subscribe(self, callback):
+                def delta_callback(delta):
+                    if delta.key == self._key:
+                        callback(delta.new_value)
+
+                return self._store.subscribe(self._key, delta_callback)
+
+            def then(self, func):
+                """Create a computed observable with dependency tracking."""
+                computed_key = f"{self._key}_then_{id(func)}"
+
+                def compute_func():
+                    current_value = self._store.get(self._key)
+                    return func(current_value)
+
+                self._store.computed(computed_key, compute_func)
+                _ = self._store.get(computed_key)  # Force evaluation
+
+                return StoreObservable(self._store, computed_key)
+
+            def __rshift__(self, func):
+                return self.then(func)
+
+            def __str__(self):
+                return f"StoreObservable({self._key}: {self.value})"
+
+            def __repr__(self):
+                return self.__str__()
+
+        return StoreObservable(self._store, key)
+
+
 def observable(initial_value: Optional[T] = None) -> Any:
     """
     Create an observable with an initial value, used as a descriptor in Store classes.
+    Uses direct DeltaKVStore integration for maximum performance.
     """
-    return Observable("standalone", initial_value)
+    # Import here to avoid circular imports
+    from fynx.observable.core.observable import ComputedValue, _global_store
+
+    # Create a direct observable that bypasses BaseObservable overhead
+    key = f"obs_{id(initial_value) if initial_value is not None else time.time()}"
+
+    # Set initial value if provided
+    if initial_value is not None:
+        _global_store.set(key, initial_value)
+
+    # Return a lightweight wrapper that uses the global store directly
+    class FastObservable:
+        def __init__(self, key: str):
+            self._key = key  # Cache the key to avoid regenerating
+            self._store = _global_store
+
+        def set(self, value):
+            self._store.set(self._key, value)
+            return self
+
+        def get(self):
+            return self._store.get(self._key)
+
+        @property
+        def value(self):
+            return self.get()
+
+        def subscribe(self, callback):
+            def delta_callback(delta):
+                if delta.key == self._key:
+                    callback(delta.new_value)
+
+            return self._store.subscribe(self._key, delta_callback)
+
+        def then(self, func):
+            """Create a computed observable with manual dependency tracking."""
+            computed_key = f"computed_{id(self)}_{id(func)}"
+
+            # Create a proper computed value that tracks dependencies
+            def compute_func():
+                # Access the source value to create dependency
+                current_value = self._store.get(self._key)
+                return func(current_value)
+
+            # Use a simpler approach - create the computed value directly
+            # and manually track the dependency
+            self._store._computed[computed_key] = ComputedValue(
+                computed_key, compute_func, self._store
+            )
+            self._store._dep_graph.add_dependency(computed_key, self._key)
+
+            # Force evaluation to ensure dependencies are tracked
+            _ = self._store.get(computed_key)
+
+            # Return a wrapper for the computed value
+            return FastObservable(computed_key)
+
+        def __rshift__(self, func):
+            """Transform with >> operator."""
+            return self.then(func)
+
+        def __add__(self, other):
+            """Combine with + operator."""
+            merged_key = f"merged_{id(self)}_{id(other)}"
+
+            def compute_func():
+                val1 = self._store.get(self._key)
+                val2 = (
+                    other._store.get(other._key)
+                    if hasattr(other, "_store")
+                    else other.value
+                )
+                return val1 + val2
+
+            self._store.computed(merged_key, compute_func)
+            return FastObservable(merged_key)
+
+        def __and__(self, condition):
+            """Filter with & operator (requiring)."""
+            filtered_key = f"filtered_{id(self)}_{id(condition)}"
+
+            def compute_func():
+                val = self._store.get(self._key)
+                cond_val = (
+                    condition._store.get(condition._key)
+                    if hasattr(condition, "_store")
+                    else condition.value
+                )
+                return val if bool(cond_val) else False
+
+            self._store.computed(filtered_key, compute_func)
+            return FastObservable(filtered_key)
+
+        def __or__(self, other):
+            """Logical OR with | operator (either)."""
+            or_key = f"or_{id(self)}_{id(other)}"
+
+            def compute_func():
+                val1 = self._store.get(self._key)
+                val2 = (
+                    other._store.get(other._key)
+                    if hasattr(other, "_store")
+                    else other.value
+                )
+                return bool(val1) or bool(val2)
+
+            self._store.computed(or_key, compute_func)
+            return FastObservable(or_key)
+
+        def __invert__(self):
+            """Negate with ~ operator (negate)."""
+            negated_key = f"negated_{id(self)}"
+
+            def compute_func():
+                val = self._store.get(self._key)
+                return not bool(val)
+
+            self._store.computed(negated_key, compute_func)
+            return FastObservable(negated_key)
+
+        # Method equivalents
+        def alongside(self, other):
+            """Method version of + operator."""
+            return self + other
+
+        def requiring(self, condition):
+            """Method version of & operator."""
+            return self & condition
+
+        def either(self, other):
+            """Method version of | operator."""
+            return self | other
+
+        def negate(self):
+            """Method version of ~ operator."""
+            return ~self
+
+        def __str__(self):
+            return f"FastObservable({self._key}: {self.value})"
+
+        def __repr__(self):
+            return self.__str__()
+
+    return FastObservable(key)
 
 
 # Type alias for subscriptable observables (class variables)

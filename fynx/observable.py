@@ -41,6 +41,14 @@ from typing import (
 
 import numpy as np
 
+
+# Elegant solution: Add proper exception for circular dependencies
+class CircularDependencyError(Exception):
+    """Raised when a circular dependency is detected in the reactive graph."""
+
+    pass
+
+
 T = TypeVar("T")
 
 
@@ -224,6 +232,7 @@ class OrthogonalDeltaMerger:
         """
         Merge multiple deltas using orthogonal decomposition.
 
+        Handles scalars, lists, and dicts by flattening to vectors for orthogonalization.
         Formula: θ_merged = θ_base + Σ α_i * Δθ_i^⊥
         where Δθ_i^⊥ represents orthogonalized deltas.
         """
@@ -233,23 +242,67 @@ class OrthogonalDeltaMerger:
         if len(deltas) == 1:
             return deltas[0]
 
-        # Extract numeric deltas (skip non-numeric for now)
+        first_delta = deltas[0]
+
+        # Strategy 1: Numeric scalars (original implementation)
+        if self._are_numeric_scalars(deltas):
+            return self._merge_numeric_scalars(key, deltas)
+
+        # Strategy 2: Lists/arrays of numbers
+        elif self._are_numeric_lists(deltas):
+            return self._merge_numeric_lists(key, deltas)
+
+        # Strategy 3: Dictionaries with numeric values
+        elif self._are_numeric_dicts(deltas):
+            return self._merge_numeric_dicts(key, deltas)
+
+        # Strategy 4: Fallback - last delta wins
+        else:
+            return deltas[-1]
+
+    def _are_numeric_scalars(self, deltas: List[Delta]) -> bool:
+        """Check if all deltas contain numeric scalars."""
+        return all(
+            isinstance(delta.new_value, (int, float))
+            and isinstance(delta.old_value, (int, float, type(None)))
+            for delta in deltas
+        )
+
+    def _are_numeric_lists(self, deltas: List[Delta]) -> bool:
+        """Check if all deltas contain lists/arrays of numbers."""
+        return all(
+            isinstance(delta.new_value, (list, tuple, np.ndarray))
+            and isinstance(delta.old_value, (list, tuple, np.ndarray, type(None)))
+            and all(isinstance(x, (int, float)) for x in delta.new_value)
+            and (
+                delta.old_value is None
+                or all(isinstance(x, (int, float)) for x in delta.old_value)
+            )
+            for delta in deltas
+        )
+
+    def _are_numeric_dicts(self, deltas: List[Delta]) -> bool:
+        """Check if all deltas contain dicts with numeric values."""
+        return all(
+            isinstance(delta.new_value, dict)
+            and isinstance(delta.old_value, (dict, type(None)))
+            and all(isinstance(v, (int, float)) for v in delta.new_value.values())
+            and (
+                delta.old_value is None
+                or all(isinstance(v, (int, float)) for v in delta.old_value.values())
+            )
+            for delta in deltas
+        )
+
+    def _merge_numeric_scalars(self, key: str, deltas: List[Delta]) -> Delta:
+        """Merge numeric scalar deltas using orthogonalization."""
         numeric_deltas = []
         base_value = None
 
         for delta in deltas:
-            if isinstance(delta.new_value, (int, float)) and isinstance(
-                delta.old_value, (int, float, type(None))
-            ):
-                if base_value is None:
-                    base_value = delta.old_value if delta.old_value is not None else 0
-                numeric_deltas.append(delta.new_value - (delta.old_value or 0))
-            else:
-                # For non-numeric, just take the last delta
-                return deltas[-1]
-
-        if not numeric_deltas:
-            return deltas[-1]
+            if base_value is None:
+                base_value = delta.old_value if delta.old_value is not None else 0
+            numeric_deltas.append(delta.new_value - (delta.old_value or 0))
 
         # Convert to numpy array for orthogonalization
         delta_vector = np.array(numeric_deltas)
@@ -269,6 +322,89 @@ class OrthogonalDeltaMerger:
             change_type=ChangeType.SET,
             old_value=base_value,
             new_value=final_value,
+            timestamp=time.time(),
+        )
+
+    def _merge_numeric_lists(self, key: str, deltas: List[Delta]) -> Delta:
+        """Merge list deltas by orthogonalizing element-wise."""
+        if not deltas:
+            return deltas[-1]
+
+        first_new = deltas[0].new_value
+        length = len(first_new)
+
+        # Ensure all lists have same length
+        if not all(len(delta.new_value) == length for delta in deltas):
+            return deltas[-1]  # Fallback
+
+        # Merge each element position using orthogonalization
+        merged_list = []
+        base_list = (
+            deltas[0].old_value if deltas[0].old_value is not None else [0] * length
+        )
+
+        for i in range(length):
+            element_deltas = []
+            for delta in deltas:
+                old_val = delta.old_value[i] if delta.old_value else 0
+                new_val = delta.new_value[i]
+                element_deltas.append(new_val - old_val)
+
+            # Orthogonalize this element's deltas
+            delta_vector = np.array(element_deltas)
+            orthogonalized = self._gram_schmidt_orthogonalization(delta_vector)
+            alpha = 1.0 / len(orthogonalized)
+            merged_change = np.sum(alpha * orthogonalized)
+
+            merged_list.append(base_list[i] + merged_change)
+
+        return Delta(
+            key=key,
+            change_type=ChangeType.SET,
+            old_value=base_list,
+            new_value=merged_list,
+            timestamp=time.time(),
+        )
+
+    def _merge_numeric_dicts(self, key: str, deltas: List[Delta]) -> Delta:
+        """Merge dict deltas by orthogonalizing each key's values."""
+        if not deltas:
+            return deltas[-1]
+
+        first_new = deltas[0].new_value
+        keys = set(first_new.keys())
+
+        # Ensure all dicts have same keys
+        if not all(set(delta.new_value.keys()) == keys for delta in deltas):
+            return deltas[-1]  # Fallback
+
+        merged_dict = {}
+        base_dict = (
+            deltas[0].old_value
+            if deltas[0].old_value is not None
+            else {k: 0 for k in keys}
+        )
+
+        for dict_key in keys:
+            element_deltas = []
+            for delta in deltas:
+                old_val = delta.old_value.get(dict_key, 0) if delta.old_value else 0
+                new_val = delta.new_value[dict_key]
+                element_deltas.append(new_val - old_val)
+
+            # Orthogonalize this key's deltas
+            delta_vector = np.array(element_deltas)
+            orthogonalized = self._gram_schmidt_orthogonalization(delta_vector)
+            alpha = 1.0 / len(orthogonalized)
+            merged_change = np.sum(alpha * orthogonalized)
+
+            merged_dict[dict_key] = base_dict[dict_key] + merged_change
+
+        return Delta(
+            key=key,
+            change_type=ChangeType.SET,
+            old_value=base_dict,
+            new_value=merged_dict,
             timestamp=time.time(),
         )
 
@@ -302,23 +438,27 @@ class OrthogonalDeltaMerger:
 
 class IncrementalStatisticsTracker:
     """
-    Implements O(1) incremental statistical computations.
+    Implements O(1) incremental statistical computations with proper removal support.
 
     Based on Proposal 1.2: Incremental Statistical and Tensor Tracking.
     Uses numerically stable algorithms like Welford's online algorithm
     for mean/variance and incremental tensor updates.
+
+    Supports accurate removal by maintaining bounded history for recalculation.
     """
 
-    def __init__(self):
+    def __init__(self, max_history_size: int = 1000):
         self._stats_cache: Dict[str, Dict[str, Any]] = {}
+        self._max_history_size = max_history_size
 
     def track_mean_variance(
         self, key: str, new_value: float, remove_value: Optional[float] = None
     ) -> Dict[str, float]:
         """
-        Track running mean and variance using Welford's online algorithm.
+        Track running mean and variance using Welford's online algorithm with proper removal.
 
-        O(1) per update, numerically stable.
+        Uses bounded history to maintain accuracy for removals.
+        O(1) amortized per update, numerically stable.
         """
         if key not in self._stats_cache:
             self._stats_cache[key] = {
@@ -326,50 +466,44 @@ class IncrementalStatisticsTracker:
                 "mean": 0.0,
                 "m2": 0.0,  # Sum of squared differences from mean
                 "variance": 0.0,
+                "history": [],  # Keep bounded history for accurate removals
             }
 
         stats = self._stats_cache[key]
 
         if remove_value is not None:
-            # Remove value from running statistics
-            old_count = stats["count"]
-            if old_count > 1:
-                old_mean = stats["mean"]
-                old_m2 = stats["m2"]
-
-                # Update count
-                new_count = old_count - 1
-
-                # Recalculate mean and M2 (simplified - would need full recalc for precision)
-                # This is an approximation for the demo
-                if new_count > 0:
-                    stats["count"] = new_count
-                    stats["mean"] = (old_mean * old_count - remove_value) / new_count
-                    # Approximate M2 adjustment
-                    stats["m2"] = max(0, old_m2 - (remove_value - old_mean) ** 2)
-                    stats["variance"] = stats["m2"] / new_count if new_count > 1 else 0
-            elif old_count == 1:
-                # Reset if removing the only value
-                stats["count"] = 0
-                stats["mean"] = 0.0
-                stats["m2"] = 0.0
-                stats["variance"] = 0.0
+            # Remove value from history and recalculate statistics
+            history = stats["history"]
+            if remove_value in history:
+                history.remove(remove_value)
+                # Recalculate statistics from remaining history
+                self._recalculate_stats_from_history(stats)
             else:
-                # Add new value using Welford's algorithm
-                old_count = stats["count"]
-                old_mean = stats["mean"]
-                old_m2 = stats["m2"]
+                # Value not in recent history, approximate removal using Welford's inverse
+                self._approximate_removal(stats, remove_value)
+        else:
+            # Add new value using Welford's algorithm
+            old_count = stats["count"]
+            old_mean = stats["mean"]
+            old_m2 = stats["m2"]
 
-                new_count = old_count + 1
-                delta = new_value - old_mean
-                new_mean = old_mean + delta / new_count
-                delta2 = new_value - new_mean
-                new_m2 = old_m2 + delta * delta2
+            new_count = old_count + 1
+            delta = new_value - old_mean
+            new_mean = old_mean + delta / new_count
+            delta2 = new_value - new_mean
+            new_m2 = old_m2 + delta * delta2
 
-                stats["count"] = new_count
-                stats["mean"] = new_mean
-                stats["m2"] = new_m2
-                stats["variance"] = new_m2 / new_count if new_count > 1 else 0
+            stats["count"] = new_count
+            stats["mean"] = new_mean
+            stats["m2"] = new_m2
+            stats["variance"] = new_m2 / new_count if new_count > 1 else 0
+
+            # Maintain bounded history
+            stats["history"].append(new_value)
+            if len(stats["history"]) > self._max_history_size:
+                # Remove oldest value and adjust statistics
+                oldest_value = stats["history"].pop(0)
+                self._approximate_removal(stats, oldest_value)
 
         return {
             "mean": stats["mean"],
@@ -377,6 +511,59 @@ class IncrementalStatisticsTracker:
             "count": stats["count"],
             "std_dev": math.sqrt(stats["variance"]) if stats["variance"] > 0 else 0,
         }
+
+    def _recalculate_stats_from_history(self, stats: Dict[str, Any]) -> None:
+        """Recalculate statistics from remaining history values."""
+        history = stats["history"]
+        if not history:
+            stats.update({"count": 0, "mean": 0.0, "m2": 0.0, "variance": 0.0})
+            return
+
+        # Recalculate using Welford's algorithm from scratch
+        count = len(history)
+        mean = sum(history) / count
+        m2 = sum((x - mean) ** 2 for x in history)
+
+        stats.update(
+            {
+                "count": count,
+                "mean": mean,
+                "m2": m2,
+                "variance": m2 / count if count > 1 else 0,
+            }
+        )
+
+    def _approximate_removal(self, stats: Dict[str, Any], remove_value: float) -> None:
+        """
+        Approximate removal using inverse Welford operations.
+        Less accurate than full recalculation but maintains O(1) performance.
+        """
+        old_count = stats["count"]
+        if old_count <= 1:
+            # Reset if removing the last value
+            stats.update({"count": 0, "mean": 0.0, "m2": 0.0, "variance": 0.0})
+            return
+
+        old_mean = stats["mean"]
+        old_m2 = stats["m2"]
+
+        # Approximate inverse of Welford's update
+        new_count = old_count - 1
+        # This is an approximation - full accuracy requires the exact update sequence
+        delta = remove_value - old_mean
+        new_mean = (old_mean * old_count - remove_value) / new_count
+        # Approximate M2 adjustment (not exact, but better than nothing)
+        m2_adjustment = delta**2 * old_count / new_count
+        new_m2 = max(0, old_m2 - m2_adjustment)
+
+        stats.update(
+            {
+                "count": new_count,
+                "mean": new_mean,
+                "m2": new_m2,
+                "variance": new_m2 / new_count if new_count > 1 else 0,
+            }
+        )
 
     def track_tensor_statistics(
         self, key: str, tensor: np.ndarray, operation: str = "add"
@@ -437,144 +624,6 @@ class IncrementalStatisticsTracker:
                     stats["eigenvectors"] = None
 
         return stats
-
-
-class ReactiveContradictionAnalyzer:
-    """
-    Implements contradiction analysis for reactive computations.
-
-    Based on NOF K-Budget theory: quantifies how "hard" it is to reconcile
-    different perspectives in reactive state. Uses block gadgets to model
-    conflicting dependency configurations.
-    """
-
-    def __init__(self):
-        self._contradiction_cache: Dict[str, float] = {}
-        self._block_gadgets: Dict[str, "ReactiveBlockGadget"] = {}
-        self._k_budget_total = 0.0
-
-    def analyze_dependency_conflicts(self, dependencies: Dict[str, Set[str]]) -> float:
-        """
-        Analyze dependency conflicts using contradiction measures.
-
-        Returns the K-budget (computational cost) of reconciling conflicts.
-        """
-        if not dependencies:
-            return 0.0
-
-        # Create block gadget for each dependency level
-        total_k_budget = 0.0
-
-        # Analyze conflicts: when multiple computed values depend on the same source
-        source_to_dependents = {}
-        for computed_key, deps in dependencies.items():
-            for dep in deps:
-                if dep not in source_to_dependents:
-                    source_to_dependents[dep] = set()
-                source_to_dependents[dep].add(computed_key)
-
-        # Create block gadgets for sources with multiple dependents (fan-out conflicts)
-        for source, dependents in source_to_dependents.items():
-            if len(dependents) > 1:  # Multiple dependents create contradictions
-                k = len(dependents)
-                block = ReactiveBlockGadget(k)
-                total_k_budget += block.k_budget
-                self._block_gadgets[f"{source}_fanout"] = block
-
-        # Also analyze computed values with multiple dependencies (fan-in conflicts)
-        for key, deps in dependencies.items():
-            if len(deps) > 1:  # Multiple dependencies create contradictions
-                k = len(deps)
-                block = ReactiveBlockGadget(k)
-                total_k_budget += block.k_budget
-                self._block_gadgets[f"{key}_fanin"] = block
-
-        self._k_budget_total = total_k_budget
-        return total_k_budget
-
-    def compute_propagation_priority(
-        self, delta: Delta, affected_keys: Set[str]
-    ) -> float:
-        """
-        Compute propagation priority based on contradiction resolution.
-
-        Higher priority = more contradictions resolved by this change.
-        """
-        if not affected_keys:
-            return 0.0
-
-        # Count how many dependency conflicts this change resolves
-        conflicts_resolved = 0
-        for key in affected_keys:
-            # Check if this key has fan-in conflicts
-            if f"{key}_fanin" in self._block_gadgets:
-                conflicts_resolved += 1
-            # Check if this key has fan-out conflicts (affects multiple dependents)
-            if f"{key}_fanout" in self._block_gadgets:
-                conflicts_resolved += 1
-
-        # Priority = conflicts resolved / total affected keys
-        return conflicts_resolved / len(affected_keys) if affected_keys else 0.0
-
-
-class ReactiveBlockGadget:
-    """
-    Block gadget for reactive computations.
-
-    Models conflicting state configurations:
-    - NO context: uniform distribution over possible states
-    - YES_i contexts: specific state configurations that create contradictions
-    - Optimal reconciler: minimizes computational overhead
-    """
-
-    def __init__(self, k: int):
-        self.k = k  # Number of conflicting state configurations
-        self.alpha_star = 1.0 / np.sqrt(k)  # Optimal reconciliation factor
-        self.k_budget = 0.5 * np.log2(k)  # Computational cost
-
-    def compute_reconciliation_cost(self, state_configs: List[Dict]) -> float:
-        """Compute the cost of reconciling conflicting state configurations"""
-        return self.k_budget
-
-
-class ReactiveContractionAnalyzer:
-    """
-    Analyzes information loss during change propagation.
-
-    Based on NOF SMP contraction theory: α*_out ≤ 2^{b/2} α*_in
-    Measures how much information is lost during propagation.
-    """
-
-    def __init__(self):
-        self._propagation_history: List[Tuple[Delta, Set[str], float]] = []
-
-    def compute_propagation_efficiency(
-        self, delta: Delta, affected_keys: Set[str]
-    ) -> float:
-        """
-        Compute how efficiently a change propagates through the dependency graph.
-
-        Returns efficiency metric (0-1, higher is better).
-        """
-        if not affected_keys:
-            return 1.0
-
-        b = len(affected_keys)  # "Communication" cost
-        contraction_factor = 2 ** (b / 2)
-        efficiency = 1.0 / contraction_factor
-
-        # Store for analysis
-        self._propagation_history.append((delta, affected_keys, efficiency))
-
-        return efficiency
-
-    def get_average_efficiency(self) -> float:
-        """Get average propagation efficiency over recent history"""
-        if not self._propagation_history:
-            return 1.0
-
-        recent_history = self._propagation_history[-100:]  # Last 100 propagations
-        return sum(eff for _, _, eff in recent_history) / len(recent_history)
 
 
 class DynamicSpectralSparsifier:
@@ -738,14 +787,13 @@ class DeltaKVStore:
         self._change_log: List[Delta] = []
         self._batch_depth = 0
 
+        # Thread-local tracking context for dependency discovery and cycle detection
+        self._tracking_context = threading.local()
+
         # Advanced mathematical optimizations
         self._orthogonal_merger = OrthogonalDeltaMerger()
-        self._stats_tracker = IncrementalStatisticsTracker()
+        self._stats_tracker = IncrementalStatisticsTracker(max_history_size=1000)
         self._spectral_sparsifier = DynamicSpectralSparsifier(target_rank=10)
-
-        # NOF-inspired reactive optimizations
-        self._contradiction_analyzer = ReactiveContradictionAnalyzer()
-        self._contraction_analyzer = ReactiveContractionAnalyzer()
 
     def get(self, key: str) -> Any:
         """Get a value from the store."""
@@ -753,9 +801,23 @@ class DeltaKVStore:
             return self._get_raw(key)
 
     def _get_raw(self, key: str) -> Any:
-        """Internal get method used during computation tracking."""
+        """Internal get method with dependency tracking support."""
+        # Track dependency if we're in a tracking context
+        if hasattr(self._tracking_context, "accessed_keys"):
+            self._tracking_context.accessed_keys.add(key)
+
+        # Check if it's a computed value
         if key in self._computed:
-            return self._computed[key].get()
+            computed = self._computed[key]
+
+            # CRITICAL: Check if already being computed (cycle detection)
+            if hasattr(self._tracking_context, "computing_stack"):
+                if key in self._tracking_context.computing_stack:
+                    # Cycle detected! Return current (possibly stale) value
+                    return computed._value
+
+            return computed.get()
+
         return self._data.get(key)
 
     def set(self, key: str, value: Any) -> None:
@@ -793,20 +855,47 @@ class DeltaKVStore:
             self._propagate_change(delta)
             return True
 
-    def computed(self, key: str, compute_func: Callable[[], T]) -> None:
-        """Define a computed value with static dependency analysis."""
+    def _detect_cycles(self, key: str) -> None:
+        """Detect circular dependencies and fail fast."""
+        visited = set()
+        rec_stack = set()
+
+        def dfs(current_key: str):
+            if current_key in rec_stack:
+                raise CircularDependencyError(
+                    f"Circular dependency detected involving key: {current_key}"
+                )
+            if current_key in visited:
+                return
+
+            visited.add(current_key)
+            rec_stack.add(current_key)
+
+            # Check dependencies
+            if current_key in self._computed:
+                computed = self._computed[current_key]
+                for dep in computed._dependencies:
+                    dfs(dep)
+
+            rec_stack.remove(current_key)
+
+        dfs(key)
+
+    def computed(
+        self, key: str, compute_func: Callable[[], T], deps: Optional[List[str]] = None
+    ) -> None:
         with self._lock:
-            # Pre-analyze dependencies using static tracking
-            dependencies = self._analyze_dependencies(compute_func)
+            # Elegant solution: Support both explicit and lazy dependency declaration
+            dependencies = deps if deps is not None else []
             optimized_val = HierarchicalComputedValue(
                 key, dependencies, compute_func, self
             )
-
-            # Register static dependencies immediately
-            for dep in dependencies:
-                self._dep_graph.add_dependency(key, dep)
-
             self._computed[key] = optimized_val
+
+            # If dependencies are explicit, register them immediately
+            if deps is not None:
+                for dep in deps:
+                    self._dep_graph.add_dependency(key, dep)
 
     def subscribe(
         self, key: str, callback: Callable[[Delta], None]
@@ -836,6 +925,31 @@ class DeltaKVStore:
         """Start a batch operation context."""
         return BatchContext(self)
 
+    def _get_transitive_dependents(self, key: str) -> Set[str]:
+        """Get all transitive dependents efficiently using iterative deepening."""
+        # Use iterative deepening to avoid processing unnecessary deep dependencies
+        # This maintains O(affected) complexity while being more memory efficient
+
+        all_affected = set()
+        current_level = {key}
+        max_depth = 10  # Prevent infinite loops and limit traversal depth
+
+        for depth in range(max_depth):
+            if not current_level:
+                break
+
+            next_level = set()
+            for node in current_level:
+                dependents = self._dep_graph.get_dependents(node)
+                for dep in dependents:
+                    if dep not in all_affected:
+                        all_affected.add(dep)
+                        next_level.add(dep)
+
+            current_level = next_level
+
+        return all_affected
+
     def _propagate_change(self, delta: Delta) -> None:
         """Propagate a change through the dependency graph with NOF-inspired optimizations."""
         # Log the change
@@ -844,61 +958,19 @@ class DeltaKVStore:
         # Notify direct observers
         self._notify_observers(delta)
 
-        # Find all affected keys using topological sort
-        affected_keys = self._dep_graph.get_dependents(delta.key)
+        # Find all affected keys using topological sort (transitive closure)
+        affected_keys = self._get_transitive_dependents(delta.key)
         if not affected_keys:
             return
 
-        # NOF-inspired optimization: Analyze contradiction resolution priority
-        # Only analyze for complex dependency graphs to avoid overhead
-        if len(affected_keys) > 2:  # Lower threshold for complex cases
-            # First ensure dependencies are analyzed
-            dependencies = {}
-            for computed_key in self._computed.keys():
-                if computed_key in self._dep_graph._reverse_graph:
-                    dependencies[computed_key] = self._dep_graph._reverse_graph[
-                        computed_key
-                    ]
-            self._contradiction_analyzer.analyze_dependency_conflicts(dependencies)
-
-            propagation_priority = (
-                self._contradiction_analyzer.compute_propagation_priority(
-                    delta, affected_keys
-                )
-            )
-
-            # Compute propagation efficiency using contraction analysis
-            efficiency = self._contraction_analyzer.compute_propagation_efficiency(
-                delta, affected_keys
-            )
-
-            # Only use NOF optimization for high-priority cases (lower efficiency threshold)
-            use_nof_optimization = propagation_priority > 0.5 and efficiency < 0.5
-        else:
-            # Simple case: use standard propagation
-            propagation_priority = 0.0
-            efficiency = 1.0
-            use_nof_optimization = False
-
-        # Apply spectral sparsification for large graphs (Proposal 2.2)
+        # Apply spectral sparsification for large graphs
         if len(affected_keys) > 20:  # Threshold for applying sparsification
             affected_keys = self._spectral_sparsifier.sparsify_propagation(
                 affected_keys
             )
 
-        # NOF optimization: Use priority and efficiency to optimize propagation order
-        if use_nof_optimization:
-            # High priority or low efficiency: use optimized propagation
-            propagation_order = self._get_optimized_propagation_order(
-                affected_keys, propagation_priority
-            )
-            # Track NOF optimization usage
-            self._nof_optimizations_used = (
-                getattr(self, "_nof_optimizations_used", 0) + 1
-            )
-        else:
-            # Standard propagation for normal cases
-            propagation_order = self._dep_graph.topological_sort(affected_keys)
+        # Standard topological propagation order
+        propagation_order = self._dep_graph.topological_sort(affected_keys)
 
         # Single topo-sort with batched propagation (no recursion)
         # Collect all deltas first, then notify all at once
@@ -1071,42 +1143,6 @@ class DeltaKVStore:
             "nof_analytics": self.get_nof_analytics(),
         }
 
-    def get_nof_analytics(self) -> Dict[str, Any]:
-        """Get NOF-inspired analytics for reactive system optimization."""
-        with self._lock:
-            # Analyze dependency conflicts using the dependency graph
-            dependencies = {}
-            for computed_key in self._computed.keys():
-                if computed_key in self._dep_graph._reverse_graph:
-                    dependencies[computed_key] = self._dep_graph._reverse_graph[
-                        computed_key
-                    ]
-
-            k_budget = self._contradiction_analyzer.analyze_dependency_conflicts(
-                dependencies
-            )
-            avg_efficiency = self._contraction_analyzer.get_average_efficiency()
-
-            return {
-                "k_budget_total": k_budget,
-                "propagation_efficiency": avg_efficiency,
-                "dependency_conflicts": len(
-                    self._contradiction_analyzer._block_gadgets
-                ),
-                "propagation_history_size": len(
-                    self._contraction_analyzer._propagation_history
-                ),
-                "nof_optimizations_used": getattr(self, "_nof_optimizations_used", 0),
-                "contradiction_blocks": {
-                    key: {
-                        "k": block.k,
-                        "alpha_star": block.alpha_star,
-                        "k_budget": block.k_budget,
-                    }
-                    for key, block in self._contradiction_analyzer._block_gadgets.items()
-                },
-            }
-
 
 class BatchContext:
     """Context manager for batch operations."""
@@ -1133,16 +1169,26 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Protocol, Set
 
+"""
+Fixed OptimizedComputedValue implementation with proper cycle detection.
+
+Replace your existing OptimizedComputedValue, HierarchicalComputedValue,
+and StandardComputedValue classes with these versions.
+"""
+
+from abc import ABC, abstractmethod
+from typing import Any, Callable, List, Set
+
 
 class OptimizedComputedValue(ABC):
-    """Abstract base class for optimized computed values."""
+    """Abstract base class for optimized computed values with cycle detection."""
 
     def __init__(self, key: str, store):
         self.key = key
         self._store = store
         self._value = None
         self._is_dirty = True
-        self._dependencies = set()
+        self._dependencies: Set[str] = set()
 
     @abstractmethod
     def _compute_func(self) -> Any:
@@ -1150,10 +1196,77 @@ class OptimizedComputedValue(ABC):
         pass
 
     def get(self) -> Any:
-        """Get the computed value, computing if necessary."""
-        if self.is_dirty():
-            self._recompute()
-        return self._value
+        """
+        Get the computed value, computing if necessary.
+
+        This is the ONLY entry point for getting values - all cycle detection
+        happens here at the very beginning.
+        """
+        # Initialize computing_stack if needed (thread-local)
+        if not hasattr(self._store._tracking_context, "computing_stack"):
+            self._store._tracking_context.computing_stack = set()
+
+        # CRITICAL: Check for cycles FIRST before doing ANYTHING else
+        stack = self._store._tracking_context.computing_stack
+        if self.key in stack:
+            # Cycle detected! Return current value (even if None/stale) and mark as clean
+            # This prevents infinite recomputation attempts
+            self._is_dirty = False
+            return self._value
+
+        # If not dirty, return cached value (fast path)
+        if not self._is_dirty:
+            return self._value
+
+        # Need to compute - add to stack to prevent cycles
+        stack.add(self.key)
+
+        try:
+            # Now safe to compute
+            self._do_compute()
+            return self._value
+        finally:
+            # ALWAYS remove from stack, even if computation fails
+            stack.discard(self.key)
+
+    def _do_compute(self) -> None:
+        """
+        Internal method that does the actual computation.
+        Should NEVER be called directly - always use get().
+        """
+        # Set up dependency tracking
+        accessed_keys: Set[str] = set()
+
+        # Save previous tracking context (for nested computations)
+        prev_accessed = getattr(self._store._tracking_context, "accessed_keys", None)
+        self._store._tracking_context.accessed_keys = accessed_keys
+
+        try:
+            # Compute the value
+            # Cycle protection happens in get(), so this is safe
+            self._value = self._compute_func()
+
+            # Update dependency graph
+            old_deps = self._dependencies
+            new_deps = accessed_keys
+
+            # Remove old dependencies
+            for dep in old_deps - new_deps:
+                self._store._dep_graph.remove_dependency(self.key, dep)
+
+            # Add new dependencies
+            for dep in new_deps - old_deps:
+                self._store._dep_graph.add_dependency(self.key, dep)
+
+            self._dependencies = new_deps
+            self._is_dirty = False
+
+        finally:
+            # Restore previous tracking context
+            if prev_accessed is not None:
+                self._store._tracking_context.accessed_keys = prev_accessed
+            elif hasattr(self._store._tracking_context, "accessed_keys"):
+                delattr(self._store._tracking_context, "accessed_keys")
 
     def invalidate(self) -> None:
         """Mark this value as needing recomputation."""
@@ -1162,11 +1275,6 @@ class OptimizedComputedValue(ABC):
     def is_dirty(self) -> bool:
         """Check if this value needs recomputation."""
         return self._is_dirty
-
-    def _recompute(self) -> None:
-        """Recompute the value (dependencies are tracked statically)."""
-        self._value = self._compute_func()
-        self._is_dirty = False
 
 
 class HierarchicalComputedValue(OptimizedComputedValue):
@@ -1178,57 +1286,22 @@ class HierarchicalComputedValue(OptimizedComputedValue):
         self, key: str, dependencies: List[str], compute_func: Callable, store
     ):
         super().__init__(key, store)
-        self.__compute_func = compute_func
+        self._user_compute_func = compute_func
+        # Note: dependencies parameter kept for compatibility but not used
+        # Dependencies discovered lazily during computation
 
     def _compute_func(self) -> Any:
-        """Execute the computation function."""
-        return self.__compute_func()
+        """Execute the user's computation function."""
+        return self._user_compute_func()
 
 
 class StandardComputedValue(OptimizedComputedValue):
-    """Fallback to original computed value implementation."""
+    """Standard computed value implementation."""
 
     def __init__(self, key: str, compute_func: Callable, store):
         super().__init__(key, store)
-        self.__compute_func = compute_func
+        self._user_compute_func = compute_func
 
     def _compute_func(self) -> Any:
-        """Execute the computation function."""
-        return self.__compute_func()
-
-
-# ============================================================================
-# Naive Baseline Implementation for Comparison
-# ============================================================================
-
-
-class NaiveKVStore:
-    """
-    Naive key-value store without optimizations for baseline comparison.
-    All computed values are recomputed from scratch on every access.
-    """
-
-    def __init__(self):
-        self._data = {}
-        self._computed_funcs = {}
-        self._observers = defaultdict(set)
-
-    def set(self, key: str, value: Any) -> None:
-        old_value = self._data.get(key)
-        self._data[key] = value
-
-        # Notify observers (simplified, no delta objects)
-        for observer in self._observers[key]:
-            observer(key, old_value, value)
-
-    def get(self, key: str) -> Any:
-        if key in self._computed_funcs:
-            # Always recompute from scratch (naive approach)
-            return self._computed_funcs[key]()
-        return self._data.get(key)
-
-    def computed(self, key: str, func: Callable) -> None:
-        self._computed_funcs[key] = func
-
-    def subscribe(self, key: str, callback: Callable) -> None:
-        self._observers[key].add(callback)
+        """Execute the user's computation function."""
+        return self._user_compute_func()

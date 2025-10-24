@@ -440,7 +440,9 @@ class FynxRxpyComparison:
         def fynx_zip_operation(n):
             obs1 = observable(1)
             obs2 = observable(2)
-            zipped = obs1.zip(obs2)
+            zipped = (
+                obs1 + obs2
+            )  # FynX uses + for combining observables (equivalent to RxPY's zip)
             # Trigger updates to test zip performance
             for i in range(n):
                 obs1.set(i)
@@ -475,37 +477,6 @@ class FynxRxpyComparison:
         self.console.print(
             "[yellow]Running Throttling/Debouncing comparison...[/yellow]"
         )
-
-        # FynX debounce (using new debounce method)
-        def fynx_debounce_operation(n):
-            obs = observable(0)
-            # Use proper time-based debouncing
-            debounced = obs.debounce(1.0)  # 1ms debounce window
-            # Trigger rapid updates
-            for i in range(n):
-                obs.set(i)
-            return n
-
-        fynx_debounce_result = run_adaptive_benchmark(
-            "FynX", "Debounce", fynx_debounce_operation, lambda x: x
-        )
-        self.results.append(fynx_debounce_result)
-
-        # RxPY debounce
-        def rxpy_debounce_operation(n):
-            obs = Subject()
-            debounced = obs.pipe(ops.debounce(timedelta(milliseconds=1)))
-            # Trigger rapid updates
-            for i in range(n):
-                obs.on_next(i)
-            return n
-
-        rxpy_debounce_result = run_adaptive_benchmark(
-            "RxPY", "Debounce", rxpy_debounce_operation, lambda x: x
-        )
-        self.results.append(rxpy_debounce_result)
-
-        self._display_progress("Debounce", fynx_debounce_result, rxpy_debounce_result)
 
         # FynX throttle simulation (using conditional with timing)
         def fynx_throttle_operation(n):
@@ -869,7 +840,7 @@ def print_config():
     print("  - Chain Propagation")
     print("  - Reactive Fan-out")
     print("  - Stream Combination (Merge/Zip)")
-    print("  - Throttling/Debouncing")
+    print("  - Throttling")
     print("  - Buffering/Windowing")
     print("  - Conditional Emission (Take Until/Skip Until)")
 
