@@ -10,7 +10,7 @@ with O(affected) incremental computation.
 import threading
 from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, Union
 
-from .observable import ChangeType, Delta, DeltaKVStore
+from .delta_kv_store import ChangeType, Delta, DeltaKVStore
 
 T = TypeVar("T")
 

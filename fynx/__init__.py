@@ -5,6 +5,9 @@ A high-performance reactive key-value store that uses delta-based change detecti
 and only propagates changes to affected nodes.
 """
 
+# Import DeltaKVStore from observable.py (the backend implementation)
+from .delta_kv_store import DeltaKVStore
+
 # Import core classes from frontend.py (the Observable API)
 from .frontend import (
     ConditionalNeverMet,
@@ -20,9 +23,6 @@ from .frontend import (
     observable,
     reactive,
 )
-
-# Import DeltaKVStore from observable.py (the backend implementation)
-from .observable import DeltaKVStore
 
 # Import Store and related classes from store.py (the Store API)
 from .store import (
