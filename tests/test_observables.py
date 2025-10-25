@@ -543,21 +543,21 @@ class TestObservableReactiveGraphs:
         def track_total(value):
             total_notifications.append(f"Total: ${value}")
 
-        total.subscribe(track_total)
+        total.subscribe(track_total, call_immediately=True)
 
         # Act
         base_price.set(150)
 
         # Assert - Total should update automatically
         assert total.value == 300
-        assert total_notifications == ["Total: $300"]
+        assert total_notifications == ["Total: $200", "Total: $300"]
 
         # Act
         quantity.set(3)
 
         # Assert - Total should update automatically again
         assert total.value == 450
-        assert total_notifications == ["Total: $300", "Total: $450"]
+        assert total_notifications == ["Total: $200", "Total: $300", "Total: $450"]
 
     def test_observable_reactive_graph_maintains_relationships(self):
         """Observable reactive graph should maintain relationships over time."""

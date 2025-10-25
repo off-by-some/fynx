@@ -21,9 +21,12 @@ Change Propagation:
 """
 
 import threading
-from typing import Any, Callable, Generic, List, Optional, Set, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Set, TypeVar
 
 from .delta_kv_store import ChangeType, Delta, DeltaKVStore
+
+if TYPE_CHECKING:
+    from .store import Store
 
 T = TypeVar("T")
 
@@ -128,17 +131,31 @@ class Observable:
         if self._dependents_count >= 2 and not self._is_tracked:
             self._track_in_store()
 
-    def subscribe(self, callback: Callable[[Any], None]) -> Callable[[], None]:
+    def subscribe(
+        self, callback: Callable[[Any], None], call_immediately: bool = False
+    ) -> Callable[[], None]:
         """Subscribe - promotes to tracked for change propagation."""
         # First subscription: go tracked for proper change propagation
         if not self._is_tracked:
             self._track_in_store()
 
         def on_delta(delta: Delta):
-            if delta.key == self._key:
+            if delta.key == self._key and delta.new_value is not None:
                 callback(delta.new_value)
 
-        return self._store._kv.subscribe(self._key, on_delta)
+        unsubscribe = self._store._kv.subscribe(self._key, on_delta)
+
+        # Call immediately if requested and value is not None and can be computed
+        if call_immediately:
+            try:
+                value = self.value
+                if value is not None:
+                    callback(value)
+            except ConditionNeverMet:
+                # Don't call immediately if conditions have never been met
+                pass
+
+        return unsubscribe
 
     # ========================================================================
     # Operators
@@ -154,20 +171,18 @@ class Observable:
         all_obs = (self,) + others  # Use tuple for hashability
         return self._store._get_or_create_stream(all_obs)
 
-    def requiring(self, condition: "Observable") -> "SmartComputed":
-        """Filter by condition: obs if condition else None"""
+    def requiring(self, condition: "Observable") -> "ConditionalObservable":
+        """Filter by condition: only emit when conditions are met"""
         self._register_dependent()
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
         elif callable(condition):
-            return SmartComputed(
-                self._store, [self], lambda val: val if condition(val) else None
+            # For callable conditions, create a wrapper observable that tracks the condition
+            condition_obs = SmartComputed(
+                self._store, [self], lambda val: condition(val)
             )
-        return SmartComputed(
-            self._store,
-            [self, condition],
-            lambda val, cond: val if bool(cond) else None,
-        )
+            return ConditionalObservable(self._store, self, condition_obs)
+        return ConditionalObservable(self._store, self, condition)
 
     def either(self, other: "Observable") -> "SmartComputed":
         """Logical OR: bool(a) or bool(b)"""
@@ -241,7 +256,9 @@ class StreamMerge:
         """Stream merges are read-only."""
         pass  # No-op for API compatibility
 
-    def subscribe(self, callback: Callable[[tuple], None]) -> Callable[[], None]:
+    def subscribe(
+        self, callback: Callable[[tuple], None], call_immediately: bool = True
+    ) -> Callable[[], None]:
         """Subscribe to tuple updates. Lazy: sources only subscribed on first subscriber."""
         # Add callback to set
         self._callbacks.add(callback)
@@ -251,8 +268,9 @@ class StreamMerge:
             self._setup_source_subscriptions()
             self._is_subscribed = True
 
-        # Immediately call with current value (standard reactive behavior)
-        callback(self._cached_tuple)
+        # Immediately call with current value if requested
+        if call_immediately:
+            callback(self._cached_tuple)
 
         # Return unsubscribe function
         def unsubscribe():
@@ -349,7 +367,7 @@ class StreamMerge:
 
         return store._get_or_create_stream(all_obs)
 
-    def requiring(self, condition: "Observable") -> "SmartComputed":
+    def requiring(self, condition: "Observable") -> "ConditionalObservable":
         """Filter: only emit when condition is truthy."""
         store = self._sources[0]._store
 
@@ -361,12 +379,17 @@ class StreamMerge:
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
 
-        # Create computed that filters based on condition
-        return SmartComputed(
-            store,
-            list(self._sources) + [condition],
-            lambda *vals: vals[:-1] if bool(vals[-1]) else None,
+        # Create a computed that evaluates the condition on the tuple
+        def condition_fn(*vals):
+            return bool(vals[-1])  # Last value is the condition
+
+        # Create computed for the condition evaluation
+        condition_computed = SmartComputed(
+            store, list(self._sources) + [condition], condition_fn
         )
+
+        # Create conditional observable that filters the tuple
+        return ConditionalObservable(store, self, condition_computed)
 
     # Operator overloads
     __rshift__ = then
@@ -411,6 +434,8 @@ class SmartComputed:
         "_materialized_key",
         "_dependents_count",
         "_is_subscribed",
+        "_cached_value",
+        "_is_dirty",
     )
 
     def __init__(self, store: "Store", sources: List[Observable], compute_fn: Callable):
@@ -420,14 +445,17 @@ class SmartComputed:
         self._materialized_key = None
         self._dependents_count = 0
         self._is_subscribed = False
+        self._cached_value = None
+        self._is_dirty = True
 
     @property
     def value(self) -> Any:
-        """Fast path: compute directly if virtual."""
+        """Get computed value."""
         if self._materialized_key:
+            # Materialized: use DeltaKVStore caching
             return self._store._kv.get(self._materialized_key)
 
-        # Direct computation - fast for linear chains
+        # Virtual: recompute every time (no caching for virtual SmartComputed)
         vals = [src.value for src in self._sources]
         if len(vals) == 1:
             return self._fused_fn(vals[0])
@@ -437,10 +465,15 @@ class SmartComputed:
         """Computed values are read-only."""
         pass  # No-op for API compatibility
 
-    def subscribe(self, callback: Callable[[Any], None]) -> Callable[[], None]:
+    def subscribe(
+        self, callback: Callable[[Any], None], call_immediately: bool = False
+    ) -> Callable[[], None]:
         """Subscription forces materialization."""
         self._is_subscribed = True
-        return self._materialize_full_chain().subscribe(callback)
+        materialized = self._materialize_full_chain()
+
+        # The materialized observable will handle calling immediately
+        return materialized.subscribe(callback, call_immediately=call_immediately)
 
     def _register_dependent(self):
         """Called when another computed depends on this one."""
@@ -468,7 +501,13 @@ class SmartComputed:
         sources = self._sources
 
         def compute():
-            vals = [src.value for src in sources]
+            vals = []
+            for src in sources:
+                try:
+                    vals.append(src.value)
+                except ConditionNeverMet:
+                    # For conditionals that have never met, treat as False/None
+                    vals.append(False)
             if len(vals) == 1:
                 return compute_fn(vals[0])
             return compute_fn(*vals)
@@ -481,11 +520,17 @@ class SmartComputed:
                 if not src._materialized_key:
                     src._materialize_as_node()
                 dep_keys.append(src._materialized_key)
-            else:
+            elif hasattr(src, "_is_tracked") and hasattr(src, "_track_in_store"):
                 # Source is observable - track it if not already
                 if not src._is_tracked:
                     src._track_in_store()
                 dep_keys.append(src._key)
+            elif hasattr(src, "_key"):
+                # Source has a key but is not tracked (e.g., ConditionalObservable)
+                dep_keys.append(src._key)
+            else:
+                # Source doesn't have tracking - this shouldn't happen
+                raise ValueError(f"Cannot track dependency: {src}")
 
         # Register with DeltaKVStore
         self._store._kv.computed(self._materialized_key, compute, deps=dep_keys)
@@ -538,25 +583,19 @@ class SmartComputed:
         store = self._store
         return store._get_or_create_stream(all_obs)
 
-    def requiring(self, condition: "Observable") -> "SmartComputed":
+    def requiring(self, condition: "Observable") -> "ConditionalObservable":
         """Filter by condition."""
         self._register_dependent()
 
         if callable(condition) and not hasattr(condition, "_register_dependent"):
             materialized = self._materialize_as_node()
-            return SmartComputed(
-                self._store, [materialized], lambda val: val if condition(val) else None
-            )
+            return ConditionalObservable(self._store, materialized, condition)
 
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
 
         materialized = self._materialize_as_node()
-        return SmartComputed(
-            self._store,
-            [materialized, condition],
-            lambda val, cond: val if bool(cond) else None,
-        )
+        return ConditionalObservable(self._store, materialized, condition)
 
     def either(self, other: "Observable") -> "SmartComputed":
         """Logical OR with other observable."""
@@ -707,10 +746,10 @@ class SubscriptableDescriptor(Generic[T]):
         if self._original_observable is not None:
             self._original_observable.set(value)
 
-    def subscribe(self, callback):
+    def subscribe(self, callback, call_immediately=False):
         """Subscribe to changes."""
         if self._original_observable is not None:
-            return self._original_observable.subscribe(callback)
+            return self._original_observable.subscribe(callback, call_immediately)
 
     def __str__(self):
         """String representation returns the value's string."""
@@ -818,6 +857,239 @@ class SubscriptableDescriptor(Generic[T]):
 
 
 # ============================================================================
+# ConditionNotMet - Exception for unmet conditions
+# ============================================================================
+
+
+class ConditionNotMet(Exception):
+    """Raised when accessing a conditional observable with unmet conditions."""
+
+    pass
+
+
+class ConditionNeverMet(Exception):
+    """Raised when accessing a conditional observable that has never had conditions met."""
+
+    pass
+
+
+# ============================================================================
+# ConditionalObservable - Only emits when conditions are met
+# ============================================================================
+
+
+class ConditionalObservable:
+    """
+    Conditional observable with proper pullback semantics.
+
+    States:
+    - NEVER_MET: Conditions have never been satisfied (no pullback exists yet)
+    - MET: Conditions currently satisfied (pullback exists, has value)
+    - UNMET: Conditions were met but are now unsatisfied (pullback exists, no current value)
+    """
+
+    __slots__ = (
+        "_store",
+        "_key",
+        "_source",
+        "_condition",
+        "_has_ever_been_met",
+        "_condition_currently_met",
+        "_cached_value",
+        "_subscribers",
+        "_is_tracked",
+    )
+
+    def __init__(self, store, source, condition):
+        self._store = store
+        self._key = store._gen_key("conditional")
+        self._source = source
+        self._condition = condition
+        self._has_ever_been_met = False
+        self._condition_currently_met = False
+        self._cached_value = None
+        self._subscribers = []
+        self._is_tracked = (
+            False  # ConditionalObservables are not tracked in DeltaKVStore
+        )
+
+        # Start in NEVER_MET state - pullback doesn't exist until first change
+        # Don't evaluate conditions initially
+
+        # Subscribe to changes
+        self._setup_subscriptions()
+
+    def _register_dependent(self):
+        """Called when another computed depends on this conditional."""
+        # When a computed depends on us, we need to materialize in DeltaKVStore
+        self._track_in_store()
+
+    def _track_in_store(self):
+        """Materialize this conditional in DeltaKVStore for dependency tracking."""
+        if self._is_tracked:
+            return
+
+        self._is_tracked = True
+        # Set initial value in store - None since conditions never met
+        self._store._kv.set(self._key, None)
+
+    def _setup_subscriptions(self):
+        """Set up subscriptions to source and condition changes."""
+        # Subscribe to source changes
+        self._source.subscribe(self._on_source_change, call_immediately=False)
+
+        # Subscribe to condition changes if condition is an observable
+        # But only if it's not a computed that depends on the source
+        if (
+            hasattr(self._condition, "subscribe")
+            and not self._is_condition_dependent_on_source()
+        ):
+            self._condition.subscribe(self._on_condition_change, call_immediately=False)
+
+    def _is_condition_dependent_on_source(self):
+        """Check if the condition depends on the source (to avoid double subscriptions)."""
+        if hasattr(self._condition, "_sources"):
+            return self._source in self._condition._sources
+        return False
+
+    def _on_source_change(self, new_value):
+        """Handle source value changes."""
+        # Evaluate condition with the NEW value
+        condition_met = self._evaluate_condition_with_value(new_value)
+
+        if condition_met:
+            if not self._has_ever_been_met:
+                # First time conditions are met - transition to MET state (create pullback)
+                self._has_ever_been_met = True
+                self._condition_currently_met = True
+                self._cached_value = new_value
+                self._notify_subscribers(new_value)
+            elif not self._condition_currently_met:
+                # Conditions just became met again - transition from UNMET to MET
+                self._condition_currently_met = True
+                self._cached_value = new_value
+                self._notify_subscribers(new_value)
+            elif new_value != self._cached_value:
+                # Conditions still met, but value changed
+                self._cached_value = new_value
+                self._notify_subscribers(new_value)
+        else:
+            # Conditions not met - transition to UNMET state
+            if self._condition_currently_met:
+                self._condition_currently_met = False
+            # Note: We don't emit anything when conditions become unmet
+
+    def _on_condition_change(self, new_condition_value):
+        """Handle condition changes."""
+        # Evaluate condition with current source value
+        condition_met = self._evaluate_condition()
+
+        if condition_met:
+            if not self._has_ever_been_met:
+                # First time conditions are met - create pullback
+                self._has_ever_been_met = True
+                self._condition_currently_met = True
+                self._cached_value = self._source.value
+                self._notify_subscribers(self._source.value)
+            elif not self._condition_currently_met:
+                # Conditions just became met again - transition from UNMET to MET
+                self._condition_currently_met = True
+                self._cached_value = self._source.value
+                self._notify_subscribers(self._source.value)
+        else:
+            # Conditions not met - transition to UNMET state
+            if self._condition_currently_met:
+                self._condition_currently_met = False
+            # Note: We don't emit anything when conditions become unmet
+
+    def _evaluate_condition(self):
+        """Evaluate the current condition with current source value."""
+        return self._evaluate_condition_with_value(self._source.value)
+
+    def _evaluate_condition_with_value(self, value):
+        """Evaluate the condition with a specific value."""
+        if callable(self._condition):
+            return bool(self._condition(value))
+        elif hasattr(self._condition, "value"):
+            return bool(self._condition.value)
+        else:
+            return bool(self._condition)
+
+    def _notify_subscribers(self, value):
+        """Notify all subscribers with the value."""
+        # Update DeltaKVStore if we're tracked
+        if self._is_tracked:
+            self._store._kv.set(self._key, value)
+
+        # Notify direct subscribers
+        for subscriber in self._subscribers:
+            subscriber(value)
+
+    @property
+    def value(self):
+        """Get current value based on state."""
+        if self._is_tracked:
+            stored_value = self._store._kv.get(self._key)
+            if stored_value is None and not self._has_ever_been_met:
+                raise ConditionNeverMet(
+                    "Conditional observable has never had conditions met"
+                )
+            return stored_value
+
+        if not self._has_ever_been_met:
+            raise ConditionNeverMet(
+                "Conditional observable has never had conditions met"
+            )
+        elif self._condition_currently_met:
+            return self._source.value
+        else:
+            # UNMET state - return cached last valid value
+            return self._cached_value
+
+    def subscribe(self, callback, call_immediately: bool = False):
+        """Subscribe to conditional emissions."""
+        self._subscribers.append(callback)
+
+        # Call immediately ONLY if conditions are currently met AND requested
+        if call_immediately and self._condition_currently_met:
+            callback(self._cached_value)
+
+    def unsubscribe(self, callback):
+        """Unsubscribe from conditional emissions."""
+        if callback in self._subscribers:
+            self._subscribers.remove(callback)
+
+    def then(self, transform):
+        """Apply transformation to conditional observable."""
+        # Register as dependent
+        self._register_dependent()
+        return SmartComputed(self._store, [self], lambda val: transform(val))
+
+    def requiring(self, condition):
+        """Chain conditional with another condition."""
+        # For chaining conditionals, create a combined condition
+        if hasattr(condition, "value"):
+            # condition is an observable - combine with AND
+            def combined(src_val=None):
+                return self._evaluate_condition() and bool(condition.value)
+
+            return ConditionalObservable(self._store, self._source, combined)
+        else:
+            # condition is a callable
+            def combined(src_val):
+                return self._evaluate_condition() and condition(src_val)
+
+            return ConditionalObservable(self._store, self._source, combined)
+
+    __and__ = requiring
+    __rshift__ = then
+
+    def set(self, value):
+        """Conditional observables are read-only."""
+        raise AttributeError("Conditional observables are read-only")
+
+
+# ============================================================================
 # Transaction support
 # ============================================================================
 
@@ -827,14 +1099,45 @@ def transaction():
     return get_global_store().batch()
 
 
-def reactive(*dependencies):
+def reactive(*dependencies, autorun: bool = True):
     def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
-            for dep in dependencies:
-                if hasattr(dep, "subscribe"):
-                    dep.subscribe(lambda _: func(*args, **kwargs))
-            return func
+        # Reactive functions call immediately by default, unless autorun=False or conditional not satisfied
 
+        # Subscribe for future changes
+        unsubscribers = []
+        for dep in dependencies:
+            if hasattr(dep, "subscribe"):
+                # Handle SubscriptableDescriptor wrappers
+                actual_dep = (
+                    dep._original_observable
+                    if hasattr(dep, "_original_observable")
+                    else dep
+                )
+                # Call immediately unless autorun=False, or if conditional not satisfied
+                call_now = autorun
+                if isinstance(actual_dep, ConditionalObservable):
+                    try:
+                        actual_dep.value  # Check if conditional has value
+                    except ConditionNeverMet:
+                        call_now = False  # Don't call if conditional never met
+                unsubscribers.append(
+                    dep.subscribe(lambda value: func(value), call_immediately=call_now)
+                )
+
+        # Return wrapper that prevents manual calls
+        def unsubscribe():
+            for unsub in unsubscribers:
+                unsub()
+            wrapper._unsubscribed = True
+
+        def wrapper(*args, **kwargs):
+            if not hasattr(wrapper, "_unsubscribed") or not wrapper._unsubscribed:
+                raise RuntimeError(
+                    "Reactive functions cannot be called manually. They are called automatically when dependencies change."
+                )
+            return func(*args, **kwargs)
+
+        wrapper.unsubscribe = unsubscribe
         return wrapper
 
     return decorator

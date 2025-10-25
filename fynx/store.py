@@ -158,7 +158,13 @@ from typing import (
     Union,
 )
 
-from .observable import Observable, SmartComputed, SubscriptableDescriptor
+from .observable import (
+    ConditionNeverMet,
+    ConditionNotMet,
+    Observable,
+    SmartComputed,
+    SubscriptableDescriptor,
+)
 
 T = TypeVar("T")
 
@@ -264,7 +270,11 @@ class StoreMeta(type):
             if isinstance(attr_value, (Observable, SmartComputed)):
                 observable_attrs.append(attr_name)
                 # Wrap all observables (including computed ones) in descriptors
-                initial_value = attr_value.value
+                try:
+                    initial_value = attr_value.value
+                except (ConditionNeverMet, ConditionNotMet):
+                    # For conditionals that haven't met conditions, use None
+                    initial_value = None
                 new_namespace[attr_name] = SubscriptableDescriptor(
                     initial_value=initial_value, original_observable=attr_value
                 )
@@ -363,19 +373,24 @@ class Store(metaclass=StoreMeta):
                 cls._observables[attr_name].set(value)
 
     @classmethod
-    def subscribe(cls, func: Callable[[StoreSnapshot], None]) -> None:
+    def subscribe(
+        cls, func: Callable[[StoreSnapshot], None], call_immediately: bool = True
+    ) -> None:
         """Subscribe a function to react to all observable changes in the store."""
         snapshot = StoreSnapshot(cls, cls._observable_attrs)
 
-        def store_reaction():
+        def store_reaction(value=None):
             snapshot._take_snapshot()
             func(snapshot)
 
-        context = Observable._create_subscription_context(store_reaction, func, None)
         # Subscribe to all observables (including computed ones)
-        context._store_observables = list(cls._observables.values())
-        for observable in context._store_observables:
-            observable.add_observer(context.run)
+        for observable in cls._observables.values():
+            observable.subscribe(store_reaction, call_immediately=False)
+
+        # Call immediately with initial state if requested
+        if call_immediately:
+            snapshot._take_snapshot()
+            func(snapshot)
 
     @classmethod
     def unsubscribe(cls, func: Callable) -> None:
