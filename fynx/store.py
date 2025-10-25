@@ -261,7 +261,7 @@ class StoreMeta(type):
 
         # Process directly defined observables
         for attr_name, attr_value in namespace.items():
-            if isinstance(attr_value, Observable):
+            if isinstance(attr_value, (Observable, SmartComputed)):
                 observable_attrs.append(attr_name)
                 # Wrap all observables (including computed ones) in descriptors
                 initial_value = attr_value.value

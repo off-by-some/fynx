@@ -1,30 +1,20 @@
 """
-DeltaKVStore - Hyper-Efficient Delta-Based Key-Value Store with Subscriptions
-=============================================================================
+DeltaKVStore - Reactive Key-Value Store
 
-A high-performance reactive key-value store that uses delta-based change detection
-and only propagates changes to affected nodes, based on principles from Self-Adjusting
-Computation (SAC) and Differential Dataflow (DD).
+A key-value store with delta-based change propagation and automatic dependency tracking.
 
-Key Features:
-- Delta-based change detection (O(affected) complexity)
-- Automatic dependency tracking with DAG
-- Topological change propagation
-- Lazy evaluation for computed values
-- Hyper-efficient data structures
-- Subscription system for key changes
+Core Concepts:
+- Delta: Represents a change (key, old_value, new_value, timestamp)
+- Dependency Graph: Directed acyclic graph tracking key relationships
+- Topological Propagation: Changes propagate in dependency order
+- Lazy Evaluation: Computed values recalculated only when accessed
+- Cycle Detection: Prevents infinite loops in dependency graphs
 
-Mathematical Foundation:
-- Self-Adjusting Computation (SAC): Dynamic dependency graphs with trace stability
-- Differential Dataflow (DD): Delta collections <Data, Time, Delta>
-- O(affected) complexity bounds for optimal incremental computation
-"""
-
-"""
-DeltaKVStore - Core Reactive Key-Value Store
-============================================
-
-The core DeltaKVStore implementation with dependency tracking and change propagation.
+Change Propagation Algorithm:
+1. When a key changes, identify all dependent keys using graph traversal
+2. Topologically sort dependents to ensure correct update order
+3. Invalidate and recompute affected computed values
+4. Notify subscribers of all changes
 """
 
 import math
@@ -83,12 +73,7 @@ class Delta:
 
 
 class DeltaPool:
-    """
-    Object pool for Delta objects to reduce memory allocation pressure.
-
-    Reuses Delta instances to avoid frequent allocation/deallocation
-    during high-frequency change propagation.
-    """
+    """Object pool for Delta instances to reduce allocation overhead during frequent updates."""
 
     _pool: List[Delta] = []
     _lock = threading.Lock()
@@ -128,8 +113,12 @@ class DeltaPool:
 
 class DependencyGraph:
     """
-    Directed Acyclic Graph for tracking dependencies between keys.
-    Uses adjacency lists for O(1) lookups and efficient topological sorting.
+    Directed acyclic graph tracking key dependencies.
+
+    Graph Structure:
+    - Forward edges: key → dependents (what depends on this key)
+    - Reverse edges: key → dependencies (what this key depends on)
+    - Indegrees: count of dependencies for topological sorting
     """
 
     def __init__(self):
@@ -163,8 +152,10 @@ class DependencyGraph:
 
     def topological_sort(self, affected_keys: Set[str]) -> List[str]:
         """
-        Perform topological sort on the subgraph of affected keys.
-        Returns keys in the order they should be processed (dependencies first).
+        Kahn's algorithm for topological sorting of affected keys.
+
+        Process nodes with indegree 0 first, reducing indegrees of neighbors.
+        Returns keys in dependency order (dependencies before dependents).
         """
         if not affected_keys:
             return []
@@ -198,10 +189,7 @@ class DependencyGraph:
 
 
 class ComputedValue:
-    """
-    A computed value that depends on other keys in the store.
-    Uses lazy evaluation and automatic dependency tracking.
-    """
+    """Lazy-evaluated computed value with automatic dependency tracking."""
 
     def __init__(self, key: str, compute_func: Callable[[], T], store: "DeltaKVStore"):
         self.key = key
@@ -285,7 +273,7 @@ if TYPE_CHECKING:
 
 
 class OptimizedComputedValue(ABC):
-    """Abstract base class for optimized computed values with cycle detection and error propagation."""
+    """Abstract base class for computed values with cycle detection and error handling."""
 
     def __init__(self, key: str, store: "DeltaKVStore"):
         self.key = key
@@ -301,12 +289,7 @@ class OptimizedComputedValue(ABC):
         pass
 
     def get(self) -> Any:
-        """
-        Get the computed value, computing if necessary.
-
-        This is the ONLY entry point for getting values - all cycle detection
-        happens here at the very beginning.
-        """
+        """Get computed value, computing if necessary. Entry point for cycle detection."""
         # Initialize computing_stack if needed (thread-local)
         if not hasattr(self._store._tracking_context, "computing_stack"):
             self._store._tracking_context.computing_stack = set()
@@ -401,10 +384,7 @@ class OptimizedComputedValue(ABC):
 
 
 class HierarchicalComputedValue(OptimizedComputedValue):
-    """
-    Uses hierarchical dependency tracking for efficient change propagation.
-    Supports both explicit dependencies and lazy discovery.
-    """
+    """Computed value with explicit dependency tracking for efficiency."""
 
     def __init__(
         self,
@@ -444,7 +424,7 @@ class HierarchicalComputedValue(OptimizedComputedValue):
 
 
 class StandardComputedValue(OptimizedComputedValue):
-    """Standard computed value implementation."""
+    """Standard computed value with lazy dependency discovery."""
 
     def __init__(self, key: str, compute_func: Callable, store: "DeltaKVStore"):
         super().__init__(key, store)
@@ -457,15 +437,17 @@ class StandardComputedValue(OptimizedComputedValue):
 
 class DeltaKVStore:
     """
-    Hyper-efficient key-value store with delta-based change detection and subscriptions.
+    Key-value store with delta-based change propagation.
 
-    Key Features:
-    - O(affected) complexity for change propagation
-    - Automatic dependency tracking
-    - Lazy evaluation for computed values
-    - Delta-based change notifications
-    - Thread-safe operations
-    - Mathematical optimizations for fan-in scenarios
+    Core Operations:
+    - set/get: Basic key-value operations
+    - computed: Define derived values with automatic dependency tracking
+    - subscribe: Register callbacks for change notifications
+
+    Change Propagation:
+    - O(affected) complexity using dependency graph traversal
+    - Topological sorting ensures correct update order
+    - Thread-safe with proper locking
     """
 
     def __init__(self):
@@ -603,48 +585,39 @@ class DeltaKVStore:
         return BatchContext(self)
 
     def _get_transitive_dependents(self, key: str) -> Set[str]:
-        """Get all transitive dependents efficiently using iterative deepening."""
-        # Use iterative deepening to avoid processing unnecessary deep dependencies
-        # This maintains O(affected) complexity while being more memory efficient
-
+        """Get all keys that transitively depend on the given key using BFS."""
         all_affected = set()
         current_level = {key}
-        max_depth = 10  # Prevent infinite loops and limit traversal depth
+        max_depth = 10  # Prevent infinite recursion
 
-        for depth in range(max_depth):
+        for _ in range(max_depth):
             if not current_level:
                 break
-
             next_level = set()
             for node in current_level:
-                dependents = self._dep_graph.get_dependents(node)
-                for dep in dependents:
+                for dep in self._dep_graph.get_dependents(node):
                     if dep not in all_affected:
                         all_affected.add(dep)
                         next_level.add(dep)
-
             current_level = next_level
 
         return all_affected
 
     def _propagate_change(self, delta: Delta) -> None:
-        """Propagate a change through the dependency graph with advanced optimizations."""
+        """Propagate a change through the dependency graph."""
         # Log the change
         self._change_log.append(delta)
 
         # Notify direct observers
         self._notify_observers(delta)
 
-        # Find all affected keys using topological sort (transitive closure)
+        # Find all transitively dependent keys
         affected_keys = self._get_transitive_dependents(delta.key)
         if not affected_keys:
             return
 
-        # Standard topological propagation order
+        # Process in topological order
         propagation_order = self._dep_graph.topological_sort(affected_keys)
-
-        # Single topo-sort with batched propagation (no recursion)
-        # Collect all deltas first, then notify all at once
         deltas_to_notify = [delta]
 
         for key in propagation_order:
@@ -729,11 +702,7 @@ class DeltaKVStore:
             return list(self._data.keys()) + list(self._computed.keys())
 
     def computed_stats(self, key: str, data_key: str) -> None:
-        """
-        Define a computed value that computes basic statistics for a data stream.
-
-        Provides count, mean, variance, and standard deviation calculations.
-        """
+        """Define computed value for basic statistics (count, mean, variance, std_dev)."""
 
         def stats_computation():
             data = self.get(data_key)
@@ -760,11 +729,7 @@ class DeltaKVStore:
         self.computed(key, stats_computation)
 
     def computed_tensor_stats(self, key: str, tensor_key: str) -> None:
-        """
-        Define a computed value that computes basic tensor statistics.
-
-        Provides basic statistical analysis for numpy arrays.
-        """
+        """Define computed value for numpy array statistics (count, mean, std, shape)."""
 
         def tensor_stats_computation():
             tensor = self.get(tensor_key)

@@ -1,28 +1,23 @@
 """
-Optimal Fynx API Layer - Smart DeltaKVStore Usage
-=================================================
+Reactive Computation System
 
-Design Principles:
-1. Use DeltaKVStore ONLY when it provides value:
-   - Multiple dependents (fan-out)
-   - Need for change tracking
-   - Complex dependency graphs
+This module implements a reactive computation system based on delta-based change propagation
+and adaptive materialization strategies.
 
-2. Stay virtual when:
-   - Single-use computations (no fan-out)
-   - Simple linear chains
-   - Temporary values
+Key Concepts:
+- Observable: A value that can change over time and notify dependents
+- StreamMerge: Combines multiple observable streams into a single tuple stream
+- SmartComputed: Computed values with intelligent materialization
 
-3. Smart materialization heuristics:
-   - Materialize on first subscribe
-   - Materialize when used as dependency by 2+ computeds
-   - Keep linear chains virtual until branch point
+Materialization Strategy:
+- Virtual: Computed values stay as functions until needed
+- Tracked: Observable registered with DeltaKVStore for change propagation
+- Materialized: Computed value stored in DeltaKVStore when fan-out detected
 
-Performance Goals:
-- Observable creation: 200k+ ops/sec (current: 176k)
-- Individual updates: 200k+ ops/sec (current: 216k)
-- Chain propagation: 40k+ ops/sec (current: 8.8k) ← KEY TARGET
-- Stream ops: 700k+ ops/sec (current: 718k) ✓
+Change Propagation:
+- Delta-based: Only changed values trigger updates (O(affected) complexity)
+- Topological: Updates propagate in dependency order
+- Lazy: Computations only run when values are accessed
 """
 
 import threading
@@ -40,17 +35,18 @@ T = TypeVar("T")
 
 class Observable:
     """
-    Adaptive observable that materializes based on usage patterns.
+    Observable value with adaptive materialization.
 
-    States:
-    1. Virtual: In-memory value only (80 bytes)
-    2. Tracked: DeltaKVStore entry for dependency tracking (400 bytes)
+    An observable represents a value that can change over time. It maintains a dependency
+    graph and propagates changes to all dependent computations.
 
-    Transitions:
-    - Virtual → Tracked when:
-      a) First subscription
-      b) Used by 2+ dependents (fan-out detected)
-      c) Part of complex dependency graph
+    Materialization States:
+    - Virtual: Value stored in memory, no change tracking overhead
+    - Tracked: Registered with DeltaKVStore for efficient change propagation
+
+    Transition Rules:
+    - Virtual → Tracked on first subscription (enables O(affected) updates)
+    - Virtual → Tracked when dependency count ≥ 2 (fan-out optimization)
     """
 
     __slots__ = (
@@ -149,28 +145,21 @@ class Observable:
     # ========================================================================
 
     def then(self, transform: Callable[[T], Any]) -> "SmartComputed":
-        """Transform: obs >> f"""
+        """Apply transformation: obs >> f → f(obs)"""
         self._register_dependent()
         return SmartComputed(self._store, [self], lambda v: transform(v))
 
     def alongside(self, *others: "Observable") -> "StreamMerge":
-        """
-        Combine: obs1 + obs2
-
-        Returns cached StreamMerge for minimal allocation.
-        """
+        """Combine streams: (obs₁, obs₂, ..., obsₙ)"""
         all_obs = (self,) + others  # Use tuple for hashability
         return self._store._get_or_create_stream(all_obs)
 
     def requiring(self, condition: "Observable") -> "SmartComputed":
-        """Filter: obs & condition"""
+        """Filter by condition: obs if condition else None"""
         self._register_dependent()
-        # Check if condition is actually an observable
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
         elif callable(condition):
-            # It's a predicate function, not an observable
-            # Create a computed that applies the predicate
             return SmartComputed(
                 self._store, [self], lambda val: val if condition(val) else None
             )
@@ -181,7 +170,7 @@ class Observable:
         )
 
     def either(self, other: "Observable") -> "SmartComputed":
-        """OR: obs1 | obs2"""
+        """Logical OR: bool(a) or bool(b)"""
         self._register_dependent()
         other._register_dependent()
         return SmartComputed(
@@ -189,7 +178,7 @@ class Observable:
         )
 
     def negate(self) -> "SmartComputed":
-        """NOT: ~obs"""
+        """Logical NOT: not bool(obs)"""
         self._register_dependent()
         return SmartComputed(self._store, [self], lambda x: not bool(x))
 
@@ -211,15 +200,15 @@ class Observable:
 
 class StreamMerge:
     """
-    Event-driven stream merge with zero-allocation cached values.
+    Merges multiple observable streams into a single tuple stream.
 
-    Performance characteristics:
-    - O(1) value access (cached tuple)
-    - O(1) per source update (single index update + tuple recreation)
-    - Lazy subscription setup (only when needed)
-    - Zero allocation on repeated .value access
+    Given observables A₁, A₂, ..., Aₙ, produces stream (A₁, A₂, ..., Aₙ).
 
-    Memory: ~200 bytes + 8*n bytes for n sources (vs 80 bytes per Observable)
+    Key Properties:
+    - Cached tuple: O(1) access to current values
+    - Incremental updates: Only changed indices updated on source changes
+    - Lazy subscription: Sources only subscribed to when StreamMerge is subscribed
+    - Memory efficient: Single tuple allocation per update cycle
     """
 
     __slots__ = (
@@ -245,12 +234,7 @@ class StreamMerge:
 
     @property
     def value(self) -> tuple:
-        """
-        Return cached tuple - zero allocation.
-
-        This is the fast path: just return the cached tuple.
-        No tuple creation, no source access, just a single attribute lookup.
-        """
+        """Return current combined values as tuple."""
         return self._cached_tuple
 
     def set(self, new_value: Any) -> None:
@@ -258,14 +242,7 @@ class StreamMerge:
         pass  # No-op for API compatibility
 
     def subscribe(self, callback: Callable[[tuple], None]) -> Callable[[], None]:
-        """
-        Subscribe to stream updates.
-
-        Lazy subscription model:
-        - First subscriber triggers source subscriptions
-        - Subsequent subscribers just add to callback set
-        - Callbacks fire when ANY source updates
-        """
+        """Subscribe to tuple updates. Lazy: sources only subscribed on first subscriber."""
         # Add callback to set
         self._callbacks.add(callback)
 
@@ -411,10 +388,14 @@ class StreamMerge:
 
 class SmartComputed:
     """
-    Computed observable with optimal DeltaKVStore usage.
+    Computed value with intelligent materialization.
 
-    Key Optimization: Linear chains stay virtual and fused.
-    Only materialize at branch points and subscriptions.
+    Represents f(A₁, A₂, ..., Aₙ) where each Aᵢ is an observable.
+
+    Materialization Strategy:
+    - Linear chains: f₁(f₂(...fₖ(x)...)) stays as composed function
+    - Branch points: Materialize intermediate results when multiple dependents
+    - Subscriptions: Force materialization for change propagation
 
     Example:
         a >> f1 >> f2 >> f3  (linear, stays virtual)
@@ -529,12 +510,7 @@ class SmartComputed:
     # ========================================================================
 
     def then(self, transform: Callable) -> "SmartComputed":
-        """
-        Extend the chain with operation fusion.
-
-        Key insight: If this computed has no other dependents,
-        fuse the operation instead of creating a new node.
-        """
+        """Apply transformation with function composition optimization."""
         self._register_dependent()
 
         # If we're already materialized OR have multiple dependents,
@@ -557,28 +533,21 @@ class SmartComputed:
         return SmartComputed(self._store, self._sources, fused)
 
     def alongside(self, *others: "Observable") -> "StreamMerge":
-        """
-        Combine with other observables.
-
-        Returns cached StreamMerge for optimal stream performance.
-        """
+        """Combine with other observables into tuple stream."""
         all_obs = (self,) + others
         store = self._store
         return store._get_or_create_stream(all_obs)
 
     def requiring(self, condition: "Observable") -> "SmartComputed":
-        """Add conditional filter."""
+        """Filter by condition."""
         self._register_dependent()
 
-        # Check if condition is callable (predicate function)
         if callable(condition) and not hasattr(condition, "_register_dependent"):
-            # It's a predicate function
             materialized = self._materialize_as_node()
             return SmartComputed(
                 self._store, [materialized], lambda val: val if condition(val) else None
             )
 
-        # It's an observable
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
 
@@ -590,7 +559,7 @@ class SmartComputed:
         )
 
     def either(self, other: "Observable") -> "SmartComputed":
-        """Logical OR."""
+        """Logical OR with other observable."""
         self._register_dependent()
         if hasattr(other, "_register_dependent"):
             other._register_dependent()
@@ -601,10 +570,9 @@ class SmartComputed:
         )
 
     def negate(self) -> "SmartComputed":
-        """Boolean negation with fusion."""
+        """Logical NOT with function fusion when possible."""
         self._register_dependent()
 
-        # Fuse if possible
         if not self._materialized_key and self._dependents_count == 1:
             old_fn = self._fused_fn
 
@@ -702,10 +670,10 @@ def observable(initial_value: Any = None) -> Observable:
 
 class SubscriptableDescriptor(Generic[T]):
     """
-    Descriptor for subscriptable observables used in Store classes.
+    Descriptor that makes Store attributes behave like their underlying values.
 
-    This descriptor wraps Observable instances and provides type-safe access
-    for Store class attributes.
+    For Store classes, provides clean syntax while maintaining observable functionality.
+    Returns the descriptor itself for class access, allowing both value access and method calls.
     """
 
     def __init__(
@@ -717,13 +685,10 @@ class SubscriptableDescriptor(Generic[T]):
         self._original_observable = original_observable
 
     def __get__(self, instance, owner):
-        """Get the observable value for class access."""
+        """Get the descriptor for class access (allows both value access and method calls)."""
         if instance is None:
-            # Class access - return the original observable or create a new one
-            if self._original_observable is not None:
-                return self._original_observable
-            # Create a new observable if none exists
-            return Observable("standalone", self._initial_value)
+            # Class access - return the descriptor itself so methods like subscribe() work
+            return self
         return self
 
     def __set__(self, instance, value):
@@ -741,6 +706,115 @@ class SubscriptableDescriptor(Generic[T]):
         """Set the value."""
         if self._original_observable is not None:
             self._original_observable.set(value)
+
+    def subscribe(self, callback):
+        """Subscribe to changes."""
+        if self._original_observable is not None:
+            return self._original_observable.subscribe(callback)
+
+    def __str__(self):
+        """String representation returns the value's string."""
+        return str(self.value)
+
+    def __repr__(self):
+        """Representation returns the value's representation."""
+        return repr(self.value)
+
+    def __eq__(self, other):
+        """Equality compares with the value."""
+        return self.value == other
+
+    def __hash__(self):
+        """Hash of the value."""
+        return hash(self.value)
+
+    def __bool__(self):
+        """Boolean value of the value."""
+        return bool(self.value)
+
+    def __len__(self):
+        """Length of the value."""
+        return len(self.value)
+
+    def __getitem__(self, key):
+        """Get item from the value."""
+        return self.value[key]
+
+    def __iter__(self):
+        """Iterate over the value."""
+        return iter(self.value)
+
+    def keys(self):
+        """Dict keys if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.keys()
+        raise TypeError(f"'{type(self).__name__}' object has no keys")
+
+    def values(self):
+        """Dict values if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.values()
+        raise TypeError(f"'{type(self).__name__}' object has no values")
+
+    def items(self):
+        """Dict items if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.items()
+        raise TypeError(f"'{type(self).__name__}' object has no items")
+
+    def __rshift__(self, func):
+        """Support >> operator for computed values."""
+        if self._original_observable is not None:
+            return self._original_observable >> func
+        # For standalone descriptors, create an observable and transform it
+        obs = Observable("standalone", self._initial_value)
+        return obs >> func
+
+    def __add__(self, other):
+        """Support + operator - try merging first, fall back to value addition."""
+        if self._original_observable is not None:
+            # If other is also a SubscriptableDescriptor or Observable, merge
+            if hasattr(other, "_original_observable") or isinstance(other, Observable):
+                other_obs = (
+                    other._original_observable
+                    if hasattr(other, "_original_observable")
+                    else other
+                )
+                return self._original_observable + other_obs
+            else:
+                # Not merging observables, do value addition
+                return self.value + other
+        # For standalone descriptors
+        obs = Observable("standalone", self._initial_value)
+        return obs + other
+
+    def __sub__(self, other):
+        """Support - operator for value subtraction."""
+        return self.value - other
+
+    def __lt__(self, other):
+        """Support < comparison."""
+        return self.value < other
+
+    def __le__(self, other):
+        """Support <= comparison."""
+        return self.value <= other
+
+    def __gt__(self, other):
+        """Support > comparison."""
+        return self.value > other
+
+    def __ge__(self, other):
+        """Support >= comparison."""
+        return self.value >= other
+
+    def __abs__(self):
+        """Support abs() function."""
+        return abs(self.value)
+
+    def __float__(self):
+        """Support float() conversion."""
+        return float(self.value)
 
 
 # ============================================================================
