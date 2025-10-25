@@ -37,7 +37,10 @@ T = TypeVar("T")
 
 
 class NullEvent:
-    """Sentinel value indicating a conditional observable has no current value."""
+    """
+    Sentinel value indicating a conditional observable has never been active.
+    Used to distinguish "no value yet" from "False/0/None" within a conditional observable.
+    """
 
     _instance = None
 
