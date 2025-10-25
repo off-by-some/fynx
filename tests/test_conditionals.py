@@ -283,9 +283,9 @@ class TestCombiningOperators:
             "can_submit_Hello"
         ]  # No emission when permission removed
 
-        # Add admin permission - no emission (condition already met)
+        # Add admin permission - emits when condition becomes met again
         is_admin.set(True)
-        assert notifications == ["can_submit_Hello"]  # No additional emission
+        assert notifications == ["can_submit_Hello", "can_submit_Hello"]
 
     def test_negation_with_filtering(self):
         """Combine ~ with & for 'everything except' patterns."""

@@ -21,14 +21,40 @@ Change Propagation:
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Generic, List, Optional, Set, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, List, TypeVar
 
-from .delta_kv_store import ChangeType, Delta, DeltaKVStore
+from .delta_kv_store import Delta, DeltaKVStore
 
 if TYPE_CHECKING:
     from .store import Store
 
 T = TypeVar("T")
+
+
+# ============================================================================
+# Sentinel Types
+# ============================================================================
+
+
+class NullEvent:
+    """Sentinel value indicating a conditional observable has no current value."""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __repr__(self):
+        return "NullEvent"
+
+    def __bool__(self):
+        return False
+
+
+# Singleton instance
+NULL_EVENT = NullEvent()
 
 
 # ============================================================================
@@ -42,7 +68,7 @@ def _get_dependency_keys(sources: List["Observable"], store) -> List[str]:
     for src in sources:
         # Check by class name to avoid forward reference issues
         class_name = src.__class__.__name__
-        if class_name == "SmartComputed":
+        if class_name in ("SmartComputed", "ConditionalObservable"):
             # Source is computed - ensure it's materialized for dependency tracking
             if not src._materialized_key:
                 src._materialize_as_node()
@@ -74,8 +100,8 @@ def _collect_source_values(sources: List["Observable"]) -> List[Any]:
             val = src.value
             vals.append(val)
         except ConditionNeverMet:
-            # For conditionals that have never met, treat as False/None
-            vals.append(False)
+            # For conditionals that have never met, treat as None
+            vals.append(None)
     return vals
 
 
@@ -965,187 +991,83 @@ class ConditionNeverMet(Exception):
 # ============================================================================
 
 
-class ConditionalObservable(ObservableBase, ValueOperable):
+class ConditionalObservable(SmartComputed):
     """
-    Conditional observable with proper pullback semantics.
+    Conditional observable implemented as a SmartComputed with special emission semantics.
 
-    States:
-    - NEVER_MET: Conditions have never been satisfied (no pullback exists yet)
-    - MET: Conditions currently satisfied (pullback exists, has value)
-    - UNMET: Conditions were met but are now unsatisfied (pullback exists, no current value)
+    Computes: source_value if condition_met else NullEvent
+    But only emits on transitions (inactive->active) and value changes when active.
     """
-
-    __slots__ = (
-        "_store",
-        "_key",
-        "_source",
-        "_condition",
-        "_has_ever_been_met",
-        "_condition_currently_met",
-        "_cached_value",
-        "_subscribers",
-        "_is_tracked",
-    )
 
     def __init__(self, store, source, condition):
-        ObservableBase.__init__(self, store)
-        ValueOperable.__init__(self)
-        self._key = store._gen_key("conditional")
-        self._source = source
-        self._condition = condition
-        self._has_ever_been_met = False
-        self._condition_currently_met = False
+        # Build the compute function
+        def compute_conditional(src_val, cond_val):
+            # Return source value if condition met, else NullEvent as sentinel
+            return src_val if cond_val else NULL_EVENT
+
+        # For callable conditions, we need to compute the condition
+        if callable(condition):
+            # Create condition computed from source
+            condition_computed = SmartComputed(
+                store, [source], lambda val: condition(val)
+            )
+            super().__init__(store, [source, condition_computed], compute_conditional)
+        else:
+            # Condition is an observable
+            super().__init__(store, [source, condition], compute_conditional)
+
+        # Initialize conditional state attributes
+        self._is_active = False
         self._cached_value = None
-        self._subscribers = []
-        self._is_tracked = (
-            False  # ConditionalObservables are not tracked in DeltaKVStore
-        )
+        self._has_ever_been_active = False
 
-        # Start in NEVER_MET state - pullback doesn't exist until first change
-        # Don't evaluate conditions initially
-
-        # Subscribe to changes
-        self._setup_subscriptions()
-
-    def _register_dependent(self):
-        """Called when another computed depends on this conditional."""
-        # When a computed depends on us, we need to materialize in DeltaKVStore
-        self._track_in_store()
-
-    def _track_in_store(self):
-        """Materialize this conditional in DeltaKVStore for dependency tracking."""
-        if self._is_tracked:
-            return
-
-        self._is_tracked = True
-        # Set initial value in store - None since conditions never met
-        self._store._kv.set(self._key, None)
-
-    def _setup_subscriptions(self):
-        """Set up subscriptions to source and condition changes."""
-        # Subscribe to source changes
-        self._source.subscribe(self._on_source_change, call_immediately=False)
-
-        # Subscribe to condition changes if condition is an observable
-        # But only if it's not a computed that depends on the source
-        if (
-            hasattr(self._condition, "subscribe")
-            and not self._is_condition_dependent_on_source()
-        ):
-            self._condition.subscribe(self._on_condition_change, call_immediately=False)
-
-    def _is_condition_dependent_on_source(self):
-        """Check if the condition depends on the source (to avoid double subscriptions)."""
-        if hasattr(self._condition, "_sources"):
-            return self._source in self._condition._sources
-        return False
-
-    def _on_source_change(self, new_value):
-        """Handle source value changes."""
-        # Evaluate condition with the NEW value
-        condition_met = self._evaluate_condition_with_value(new_value)
-
-        if condition_met:
-            if not self._has_ever_been_met:
-                # First time conditions are met - transition to MET state (create pullback)
-                self._has_ever_been_met = True
-                self._condition_currently_met = True
-                self._cached_value = new_value
-                self._notify_subscribers(new_value)
-            elif not self._condition_currently_met:
-                # Conditions just became met again - transition from UNMET to MET
-                self._condition_currently_met = True
-                self._cached_value = new_value
-                self._notify_subscribers(new_value)
-            elif new_value != self._cached_value:
-                # Conditions still met, but value changed
-                self._cached_value = new_value
-                self._notify_subscribers(new_value)
-        else:
-            # Conditions not met - transition to UNMET state
-            if self._condition_currently_met:
-                self._condition_currently_met = False
-            # Note: We don't emit anything when conditions become unmet
-
-    def _on_condition_change(self, new_condition_value):
-        """Handle condition changes."""
-        # Evaluate condition with current source value
-        condition_met = self._evaluate_condition()
-
-        if condition_met:
-            if not self._has_ever_been_met:
-                # First time conditions are met - create pullback
-                self._has_ever_been_met = True
-                self._condition_currently_met = True
-                self._cached_value = self._source.value
-                self._notify_subscribers(self._source.value)
-            elif not self._condition_currently_met:
-                # Conditions just became met again - transition from UNMET to MET
-                self._condition_currently_met = True
-                self._cached_value = self._source.value
-                self._notify_subscribers(self._source.value)
-        else:
-            # Conditions not met - transition to UNMET state
-            if self._condition_currently_met:
-                self._condition_currently_met = False
-            # Note: We don't emit anything when conditions become unmet
-
-    def _evaluate_condition(self):
-        """Evaluate the current condition with current source value."""
-        return self._evaluate_condition_with_value(self._source.value)
-
-    def _evaluate_condition_with_value(self, value):
-        """Evaluate the condition with a specific value."""
-        if callable(self._condition):
-            return bool(self._condition(value))
-        elif hasattr(self._condition, "value"):
-            return bool(self._condition.value)
-        else:
-            return bool(self._condition)
-
-    def _notify_subscribers(self, value):
-        """Notify all subscribers with the value."""
-        # Update DeltaKVStore if we're tracked
-        if self._is_tracked:
-            self._store._kv.set(self._key, value)
-
-        # Notify direct subscribers
-        for subscriber in self._subscribers:
-            subscriber(value)
+        # Track conditional state for special emission logic
+        try:
+            computed_val = super().value  # Call parent value to avoid recursion
+            self._is_active = computed_val is not NULL_EVENT
+            self._cached_value = self._sources[0].value if self._is_active else None
+            self._has_ever_been_active = self._is_active
+        except ConditionNeverMet:
+            # If sources have never been active, start as inactive
+            pass
 
     @property
     def value(self):
-        """Get current value based on state."""
-        if self._is_tracked:
-            stored_value = self._store._kv.get(self._key)
-            if stored_value is None and not self._has_ever_been_met:
-                raise ConditionNeverMet(
-                    "Conditional observable has never had conditions met"
-                )
-            return stored_value
-
-        if not self._has_ever_been_met:
-            raise ConditionNeverMet(
-                "Conditional observable has never had conditions met"
-            )
-        elif self._condition_currently_met:
-            return self._source.value
-        else:
-            # UNMET state - return cached last valid value
+        """Get current value with conditional semantics."""
+        computed_value = super().value
+        if computed_value is NULL_EVENT:
+            if not self._has_ever_been_active:
+                raise ConditionNeverMet("Conditional has never been active")
             return self._cached_value
+        return computed_value
 
     def subscribe(self, callback, call_immediately: bool = False):
-        """Subscribe to conditional emissions."""
-        self._subscribers.append(callback)
+        """Subscribe with conditional emission semantics."""
+        # Instead of using SmartComputed's subscribe, we override to add special logic
+        self._is_subscribed = True
+        materialized = self._materialize_full_chain()
 
-        # Call immediately ONLY if conditions are currently met AND requested
-        if call_immediately and self._condition_currently_met:
-            callback(self._cached_value)
+        def conditional_callback(computed_value):
+            # SmartComputed gives us the computed value (source if condition met, else NullEvent)
+            if computed_value is not NULL_EVENT:
+                # Condition is met - this could be a transition or value change
+                was_active = self._is_active
+                self._is_active = True
+                if not was_active:
+                    self._has_ever_been_active = True
+                    self._cached_value = computed_value
+                    callback(computed_value)
+                elif computed_value != self._cached_value:
+                    # Value changed while active
+                    self._cached_value = computed_value
+                    callback(computed_value)
+                # Else: condition still met, value unchanged - no emission
+            else:
+                # Condition not met - just update state
+                self._is_active = False
 
-    def unsubscribe(self, callback):
-        """Unsubscribe from conditional emissions."""
-        if callback in self._subscribers:
-            self._subscribers.remove(callback)
+        # Subscribe to the SmartComputed's emissions, but filter them through conditional logic
+        return materialized.subscribe(conditional_callback, call_immediately=False)
 
     def then(self, transform):
         """Apply transformation to conditional observable."""
@@ -1155,19 +1077,17 @@ class ConditionalObservable(ObservableBase, ValueOperable):
 
     def requiring(self, condition):
         """Chain conditional with another condition."""
-        # For chaining conditionals, create a combined condition
-        if hasattr(condition, "value"):
-            # condition is an observable - combine with AND
-            def combined(src_val=None):
-                return self._evaluate_condition() and bool(condition.value)
-
-            return ConditionalObservable(self._store, self._source, combined)
+        # For chaining conditionals: conditional1 & condition2
+        # Creates a new conditional where source=conditional1 and condition=condition2
+        if callable(condition):
+            # condition is a callable - create computed condition
+            condition_computed = SmartComputed(
+                self._store, [self], lambda val: condition(val)
+            )
+            return ConditionalObservable(self._store, self, condition_computed)
         else:
-            # condition is a callable
-            def combined(src_val):
-                return self._evaluate_condition() and condition(src_val)
-
-            return ConditionalObservable(self._store, self._source, combined)
+            # condition is an observable
+            return ConditionalObservable(self._store, self, condition)
 
     __and__ = requiring
     __rshift__ = then
@@ -1201,13 +1121,20 @@ def reactive(*dependencies, autorun: bool = True):
                     if hasattr(dep, "_original_observable")
                     else dep
                 )
-                # Call immediately unless autorun=False, or if conditional not satisfied
+                # Call immediately for computed observables, and for conditional observables
                 call_now = autorun
-                if isinstance(actual_dep, ConditionalObservable):
+                if (
+                    isinstance(actual_dep, ConditionalObservable)
+                    and not actual_dep._has_ever_been_active
+                ):
+                    # For conditionals that have never been active, call immediately with False
                     try:
-                        actual_dep.value  # Check if conditional has value
+                        value = actual_dep.value
+                        func(value)
                     except ConditionNeverMet:
-                        call_now = False  # Don't call if conditional never met
+                        func(
+                            False
+                        )  # Conditionals that have never met are considered False
                 unsubscribers.append(
                     dep.subscribe(lambda value: func(value), call_immediately=call_now)
                 )

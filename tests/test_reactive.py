@@ -108,22 +108,23 @@ class TestConditionalReactions:
         def sync_data(sync_value):
             notifications.append(f"sync_{sync_value}")
 
-        # Initial state - conditional starts unmet, no initial call
-        assert notifications == []
+        # Initial state - conditional starts unmet, calls immediately with False
+        assert notifications == ["sync_False"]
 
         # Set logged in but no data - still unmet
         is_logged_in.set(True)
-        assert notifications == []
+        assert notifications == ["sync_False"]  # No additional emission
 
         # Set data - now condition becomes met
         has_data.set(True)
         assert notifications == [
-            "sync_True"
+            "sync_False",
+            "sync_True",
         ]  # Receives is_logged_in.value when condition becomes met
 
         # Remove data - no emission when condition becomes unmet
         has_data.set(False)
-        assert notifications == ["sync_True"]
+        assert notifications == ["sync_False", "sync_True"]  # No additional emission
 
     def test_conditional_reactions_with_or_operator(self):
         """@reactive works with | operator for OR conditions."""
@@ -425,7 +426,7 @@ class TestRealWorldExamples:
             lambda pwd, confirm: pwd == confirm and pwd != ""
         )
 
-        form_valid = (email_valid & password_valid & passwords_match) >> (lambda x: x)
+        form_valid = email_valid & password_valid & passwords_match
 
         # Reactive UI updates
         email_notifications = []
@@ -472,7 +473,10 @@ class TestRealWorldExamples:
         # Set matching confirm password
         FormStore.confirm_password = "secure123"
         assert match_notifications == ["match_✗", "match_✓"]
-        assert form_notifications == ["submit_disabled"]  # Form becomes valid
+        assert form_notifications == [
+            "submit_disabled",
+            "submit_enabled",
+        ]  # Form becomes valid
 
     def test_cart_total_reactions(self):
         """Cart total calculation with reactive UI updates."""
@@ -674,7 +678,7 @@ class TestStorePatterns:
             has_items = items >> (lambda i: len(i) > 0)
             has_address = shipping_address >> (lambda a: a is not None)
             has_payment = payment_method >> (lambda p: p is not None)
-            can_checkout = (has_address & has_payment) >> (lambda x: x)
+            can_checkout = has_address & has_payment
             tax = subtotal >> (lambda s: s * 0.08)
             total = (subtotal + tax) >> (lambda s, t: s + t)
 
@@ -693,7 +697,9 @@ class TestStorePatterns:
             total_notifications.append(f"display_${total_amount:.2f}")
 
         # Initial state - computed observables call immediately with current values
-        assert checkout_notifications == ["checkout_disabled"]  # can_checkout is False
+        assert checkout_notifications == [
+            "checkout_disabled"
+        ]  # can_checkout has never been active
         assert total_notifications == ["display_$0.00"]  # total is 0
 
         # Add items - total updates
