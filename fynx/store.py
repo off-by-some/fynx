@@ -159,7 +159,7 @@ from typing import (
     Union,
 )
 
-from .frontend import BaseObservable, Observable
+from .observable import BaseObservable, Observable
 
 T = TypeVar("T")
 

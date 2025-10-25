@@ -27,6 +27,7 @@ DeltaKVStore - Core Reactive Key-Value Store
 The core DeltaKVStore implementation with dependency tracking and change propagation.
 """
 
+import math
 import threading
 import time
 from collections import defaultdict, deque
@@ -465,23 +466,18 @@ class DeltaKVStore:
         """Set a value in the store."""
         with self._lock:
             old_value = self._data.get(key)
-            if old_value == value:
-                return  # No change
+            # Handle numpy arrays and other objects that don't support direct comparison
+            try:
+                if old_value == value:
+                    return  # No change
+            except (ValueError, TypeError):
+                # For objects that don't support comparison (like numpy arrays),
+                # always treat as a change
+                pass
 
         self._data[key] = value
         delta = Delta(key, ChangeType.SET, old_value, value, None)
         self._propagate_change(delta)
-
-        # Update spectral sparsifier conservatively (only for large graphs and infrequently)
-        total_deps = len(self._dep_graph._graph)
-        if (
-            total_deps > 100 and total_deps % 200 == 0
-        ):  # Only for large graphs, very infrequently
-            try:
-                self._spectral_sparsifier.update_dependency_matrix(self._dep_graph)
-            except (np.linalg.LinAlgError, ValueError):
-                # Skip spectral update if matrix is singular or too large
-                pass
 
     def delete(self, key: str) -> bool:
         """Delete a key from the store."""

@@ -24,8 +24,7 @@ from rich.text import Text
 from rx import operators as ops
 from rx.subject import Subject
 
-from fynx.frontend import Observable, Store, reactive
-from fynx.observable import DeltaKVStore
+from fynx.observable import DeltaKVStore, Observable, Store, reactive
 
 console = Console()
 

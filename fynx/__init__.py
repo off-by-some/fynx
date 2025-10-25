@@ -9,7 +9,7 @@ and only propagates changes to affected nodes.
 from .delta_kv_store import DeltaKVStore
 
 # Import core classes from frontend.py (the Observable API)
-from .frontend import (
+from .observable import (
     ConditionalNeverMet,
     ConditionalNotMet,
     ConditionalObservable,
