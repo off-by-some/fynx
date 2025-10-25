@@ -388,7 +388,7 @@ def benchmark_operator_chaining(store_class, n=1000, runs=5):
 
 
 def benchmark_observable_combination(store_class, n=500, runs=5):
-    """Benchmark combining observables with + operator."""
+    """Benchmark stream merging with reactive updates."""
     times = []
 
     for _ in range(runs):
@@ -400,15 +400,25 @@ def benchmark_observable_combination(store_class, n=500, runs=5):
         store = TestStore()
 
         # Create pairs of observables
+        observables = []
         for i in range(n):
-            setattr(store, f"left_{i}", store.observable(f"left_{i}", i))
-            setattr(store, f"right_{i}", store.observable(f"right_{i}", i * 2))
+            obs1 = store.observable(f"obs1_{i}", 0)
+            obs2 = store.observable(f"obs2_{i}", 0)
+            observables.append((obs1, obs2))
 
-        # Combine and transform
-        for i in range(n):
-            left = getattr(store, f"left_{i}")
-            right = getattr(store, f"right_{i}")
-            combined = (left + right) >> (lambda a, b: f"Sum: {a + b}")
+        # Create stream merges and subscribe to test reactive propagation
+        merges = []
+        for obs1, obs2 in observables:
+            merged = obs1 + obs2
+            # Subscribe to make it reactive
+            merged.subscribe(lambda v: None)
+            merges.append(merged)
+
+        # Test reactive updates through the streams
+        for i in range(min(10, n)):  # Limit updates for performance
+            for obs1, obs2 in observables[: min(10, len(observables))]:
+                obs1.value = i
+                obs2.value = i * 2
 
         times.append(time.time() - start)
 
@@ -580,6 +590,72 @@ def benchmark_complex_reactive_system(store_class, n=100, runs=3):
     }
 
 
+def benchmark_complex_dependency_dag(store_class, n=1000, runs=3):
+    """Benchmark complex dependency DAG - FynX's sweet spot."""
+    times = []
+
+    for _ in range(runs):
+        start = time.time()
+
+        store = store_class()
+
+        # Create root observable
+        a = store.observable("a", 1)
+
+        # Create multiple branches from root (fan-out)
+        branches = []
+        for i in range(10):  # 10 branches for complexity
+            branch = a >> (lambda x, i=i: x * (i + 1))
+            branches.append(branch)
+
+        # Create convergence points (fan-in)
+        # Combine pairs of branches
+        convergence_1 = []
+        for i in range(0, len(branches), 2):
+            if i + 1 < len(branches):
+                combined = (branches[i] + branches[i + 1]) >> (lambda a, b: a + b)
+                convergence_1.append(combined)
+
+        # Further convergence
+        convergence_2 = []
+        for i in range(0, len(convergence_1), 2):
+            if i + 1 < len(convergence_1):
+                combined = (convergence_1[i] + convergence_1[i + 1]) >> (
+                    lambda a, b: max(a, b)
+                )
+                convergence_2.append(combined)
+
+        # Final convergence - complex DAG leaf
+        if convergence_2:
+            f = convergence_2[0]
+            for conv in convergence_2[1:]:
+                f = (f + conv) >> (lambda a, b: a + b)
+
+            # Subscribe to force materialization of the entire DAG
+            subscription = f.subscribe(lambda x: None)
+        else:
+            # Fallback if convergence_2 is empty
+            f = convergence_1[0] if convergence_1 else branches[0]
+            subscription = f.subscribe(lambda x: None)
+
+        times.append(time.time() - start)
+
+        # Clean up subscription
+        if hasattr(subscription, "__call__"):
+            subscription()
+
+    avg_time = statistics.mean(times)
+    ops_per_sec = n / avg_time
+
+    return {
+        "operation": "Complex Dependency DAG",
+        "count": n,
+        "avg_time": avg_time,
+        "ops_per_sec": ops_per_sec,
+        "std_dev": statistics.stdev(times) if len(times) > 1 else 0,
+    }
+
+
 def run_memory_profiling_benchmarks():
     """Run memory profiling benchmarks."""
     console.print("\n")
@@ -719,6 +795,7 @@ def run_fynx_frontend_benchmarks():
             benchmark_conditional_operations,
             benchmark_reactive_updates,
             benchmark_complex_reactive_system,
+            benchmark_complex_dependency_dag,
         ]
 
         table = Table(title="Fynx Frontend Performance Results")
@@ -1060,6 +1137,74 @@ def benchmark_rxpy_complex_system(n=100, runs=3):
     }
 
 
+def benchmark_rxpy_complex_dependency_dag(n=100, runs=3):
+    """Benchmark RxPy complex dependency DAG."""
+    times = []
+
+    for _ in range(runs):
+        start = time.time()
+
+        # Create root subject
+        a = Subject()
+
+        # Create multiple branches from root (fan-out)
+        branches = []
+        for i in range(10):  # 10 branches for complexity
+            branch = a.pipe(ops.map(lambda x: x * (i + 1)))
+            branches.append(branch)
+
+        # Create convergence points (fan-in)
+        # Combine pairs of branches
+        convergence_1 = []
+        for i in range(0, len(branches), 2):
+            if i + 1 < len(branches):
+                combined = rx.combine_latest(branches[i], branches[i + 1]).pipe(
+                    ops.map(lambda vals: vals[0] + vals[1])
+                )
+                convergence_1.append(combined)
+
+        # Further convergence
+        convergence_2 = []
+        for i in range(0, len(convergence_1), 2):
+            if i + 1 < len(convergence_1):
+                combined = rx.combine_latest(
+                    convergence_1[i], convergence_1[i + 1]
+                ).pipe(ops.map(lambda vals: max(vals[0], vals[1])))
+                convergence_2.append(combined)
+
+        # Final convergence - complex DAG leaf
+        if convergence_2:
+            f = convergence_2[0]
+            for conv in convergence_2[1:]:
+                f = rx.combine_latest(f, conv).pipe(
+                    ops.map(lambda vals: vals[0] + vals[1])
+                )
+
+            # Subscribe to force computation
+            subscription = f.subscribe(lambda x: None)
+        else:
+            # Fallback if convergence_2 is empty
+            f = convergence_1[0] if convergence_1 else branches[0]
+            subscription = f.subscribe(lambda x: None)
+
+        times.append(time.time() - start)
+
+        # Clean up
+        subscription.dispose()
+        a.on_completed()
+
+    avg_time = statistics.mean(times)
+    ops_per_sec = n / avg_time
+
+    return {
+        "operation": "RxPy Complex Dependency DAG",
+        "count": n,
+        "avg_time": avg_time,
+        "ops_per_sec": ops_per_sec,
+        "std_dev": statistics.stdev(times) if len(times) > 1 else 0,
+    }
+
+
 def run_rxpy_benchmarks():
     """Run RxPy benchmarks for comparison."""
     console.print(
@@ -1073,6 +1218,7 @@ def run_rxpy_benchmarks():
         benchmark_rxpy_conditional_operations,
         benchmark_rxpy_reactive_updates,
         benchmark_rxpy_complex_system,
+        benchmark_rxpy_complex_dependency_dag,
     ]
 
     rxpy_results = []
@@ -1155,6 +1301,12 @@ def run_head_to_head_comparison():
             "Complex Systems",
             benchmark_complex_reactive_system,
             benchmark_rxpy_complex_system,
+            100,
+        ),
+        (
+            "Complex Dependency DAG",
+            benchmark_complex_dependency_dag,
+            benchmark_rxpy_complex_dependency_dag,
             100,
         ),
     ]

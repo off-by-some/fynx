@@ -8,33 +8,24 @@ and only propagates changes to affected nodes.
 # Import DeltaKVStore from observable.py (the backend implementation)
 from .delta_kv_store import DeltaKVStore
 
-# Import core classes from frontend.py (the Observable API)
-from .observable import (
-    ConditionalNeverMet,
-    ConditionalNotMet,
-    ConditionalObservable,
-    DerivedObservable,
-    MergedObservable,
-    NegatedObservable,
-    Observable,
-    OrObservable,
-    ReactiveContext,
-    Store,
-    observable,
-    reactive,
-)
+# Import core classes from observable.py (the Observable API)
+from .observable import Observable, observable, reactive, transaction
+
+# Import Store classes from store.py
+from .store import Store, StoreMeta
+from .store import observable as store_observable
 
 # Import Store and related classes from store.py (the Store API)
-from .store import (
-    SessionValue,
-)
-from .store import Store as StoreClass
-from .store import (
-    StoreMeta,
-    StoreSnapshot,
-    Subscriptable,
-)
-from .store import SubscriptableDescriptor as StoreSubscriptableDescriptor
+# from .store import (
+#     SessionValue,
+# )
+# from .store import Store as StoreClass
+# from .store import (
+#     StoreMeta,
+#     StoreSnapshot,
+#     Subscriptable,
+# )
+# from .store import SubscriptableDescriptor as StoreSubscriptableDescriptor
 
 
 # Create a simple exception class for reactive functions
@@ -46,26 +37,24 @@ class ReactiveFunctionWasCalled(Exception):
 
 # Export all the main classes and functions
 __all__ = [
-    # Core observables from frontend.py
+    # Core observables from observable.py
     "Observable",
     "DerivedObservable",
     "MergedObservable",
     "ConditionalObservable",
     "OrObservable",
     "NegatedObservable",
-    # Store and related from store.py
+    # Store classes from store.py
     "Store",
     "StoreMeta",
-    "StoreSnapshot",
-    "SessionValue",
-    "Subscriptable",
-    "StoreSubscriptableDescriptor",
-    # Reactive system from frontend.py
+    # Reactive system from observable.py
     "reactive",
     "ReactiveContext",
-    # Factory function from frontend.py
-    "observable",
-    # Exception classes from frontend.py
+    # Factory functions
+    "observable",  # Global observable function
+    "store_observable",  # Store-specific observable descriptor
+    "transaction",
+    # Exception classes from observable.py
     "ConditionalNeverMet",
     "ConditionalNotMet",
     # Backend implementation from observable.py

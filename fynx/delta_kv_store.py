@@ -82,6 +82,50 @@ class Delta:
             self.timestamp = time.time()
 
 
+class DeltaPool:
+    """
+    Object pool for Delta objects to reduce memory allocation pressure.
+
+    Reuses Delta instances to avoid frequent allocation/deallocation
+    during high-frequency change propagation.
+    """
+
+    _pool: List[Delta] = []
+    _lock = threading.Lock()
+    _max_pool_size = 1000  # Prevent unbounded growth
+
+    @classmethod
+    def acquire(
+        cls,
+        key: str,
+        change_type: ChangeType,
+        old_value: Any,
+        new_value: Any,
+        timestamp: Optional[float] = None,
+    ) -> Delta:
+        """Get a Delta from the pool or create new one."""
+        with cls._lock:
+            if cls._pool:
+                delta = cls._pool.pop()
+                # Reuse the existing instance
+                delta.key = key
+                delta.change_type = change_type
+                delta.old_value = old_value
+                delta.new_value = new_value
+                delta.timestamp = timestamp if timestamp is not None else time.time()
+                return delta
+
+        # Pool empty, create new instance
+        return Delta(key, change_type, old_value, new_value, timestamp)
+
+    @classmethod
+    def release(cls, delta: Delta) -> None:
+        """Return a Delta to the pool for reuse."""
+        with cls._lock:
+            if len(cls._pool) < cls._max_pool_size:
+                cls._pool.append(delta)
+
+
 class DependencyGraph:
     """
     Directed Acyclic Graph for tracking dependencies between keys.
@@ -476,7 +520,7 @@ class DeltaKVStore:
                 pass
 
         self._data[key] = value
-        delta = Delta(key, ChangeType.SET, old_value, value, None)
+        delta = DeltaPool.acquire(key, ChangeType.SET, old_value, value, None)
         self._propagate_change(delta)
 
     def delete(self, key: str) -> bool:
@@ -488,7 +532,7 @@ class DeltaKVStore:
             old_value = self._data[key]
             del self._data[key]
 
-            delta = Delta(key, ChangeType.DELETE, old_value, None, None)
+            delta = DeltaPool.acquire(key, ChangeType.DELETE, old_value, None, None)
             self._propagate_change(delta)
             return True
 
@@ -612,7 +656,7 @@ class DeltaKVStore:
                 new_val = computed_val.get()  # This will recompute if dirty
 
                 if old_val != new_val:
-                    computed_delta = Delta(
+                    computed_delta = DeltaPool.acquire(
                         key, ChangeType.COMPUTED_UPDATE, old_val, new_val, None
                     )
                     deltas_to_notify.append(computed_delta)
@@ -620,6 +664,10 @@ class DeltaKVStore:
         # Notify all deltas at once (no recursive propagation)
         for d in deltas_to_notify:
             self._notify_observers(d)
+
+        # Return all deltas to pool after notification
+        for d in deltas_to_notify:
+            DeltaPool.release(d)
 
     def _get_optimized_propagation_order(self, affected_keys: Set[str]) -> List[str]:
         """
