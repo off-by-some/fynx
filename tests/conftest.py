@@ -4,7 +4,13 @@ Shared pytest fixtures and configuration for FynX tests.
 
 import pytest
 
-from fynx import Store
+from fynx import Store, _reset_global_store
+
+
+@pytest.fixture(autouse=True)
+def reset_global_store():
+    """Reset the global store before each test to prevent state leakage."""
+    _reset_global_store()
 
 
 @pytest.fixture

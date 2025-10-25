@@ -26,7 +26,7 @@ Performance Goals:
 """
 
 import threading
-from typing import Any, Callable, List, Optional, Set, TypeVar
+from typing import Any, Callable, Generic, List, Optional, Set, TypeVar
 
 from .delta_kv_store import ChangeType, Delta, DeltaKVStore
 
@@ -682,11 +682,70 @@ def get_global_store():
     return _global_store
 
 
+def _reset_global_store():
+    """Reset the global store for testing purposes."""
+    global _global_store
+    _global_store = None
+
+
 def observable(initial_value: Any = None) -> Observable:
     store = get_global_store()
     store._key_counter += 1
     key = f"obs${store._key_counter}"
     return store.observable(key, initial_value)
+
+
+# ============================================================================
+# SubscriptableDescriptor - Type-safe Observable Descriptors
+# ============================================================================
+
+
+class SubscriptableDescriptor(Generic[T]):
+    """
+    Descriptor for subscriptable observables used in Store classes.
+
+    This descriptor wraps Observable instances and provides type-safe access
+    for Store class attributes.
+    """
+
+    def __init__(
+        self,
+        initial_value: Optional[T] = None,
+        original_observable: Optional[Any] = None,
+    ):
+        self._initial_value = initial_value
+        self._original_observable = original_observable
+
+    def __get__(self, instance, owner):
+        """Get the observable value for class access."""
+        if instance is None:
+            # Class access - return the original observable or create a new one
+            if self._original_observable is not None:
+                return self._original_observable
+            # Create a new observable if none exists
+            return Observable("standalone", self._initial_value)
+        return self
+
+    def __set__(self, instance, value):
+        """Setting on instances is not supported."""
+        raise AttributeError("can't set attribute on instance")
+
+    @property
+    def value(self):
+        """Get the current value."""
+        if self._original_observable is not None:
+            return self._original_observable.value
+        return self._initial_value
+
+    def set(self, value):
+        """Set the value."""
+        if self._original_observable is not None:
+            self._original_observable.set(value)
+
+
+# ============================================================================
+# Transaction support
+# ============================================================================
 
 
 def transaction():

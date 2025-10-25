@@ -111,7 +111,8 @@ class TestObservableValueWriting:
         # Assert
         assert notifications == [5]
 
-    def test_observable_set_method_notifies_multiple_subscribers(self):
+    @pytest.mark.parametrize("iteration", range(50))
+    def test_observable_set_method_notifies_multiple_subscribers(self, iteration):
         """Observable set method should notify all subscribers in subscription order."""
         # Arrange
         counter = observable(0)
@@ -133,10 +134,8 @@ class TestObservableValueWriting:
         # Act
         counter.set(5)
 
-        # Assert - Order may vary due to set iteration
-        expected = {"Count: 5", "Double: 10", "Square: 25"}
-        assert set(notifications) == expected
-        assert len(notifications) == 3
+        # Assert - Subscribers run in subscription order
+        assert notifications == ["Count: 5", "Double: 10", "Square: 25"]
 
 
 class TestObservableSubscriptions:
@@ -307,7 +306,7 @@ class TestObservableCircularDependencyDetection:
         with pytest.raises(RuntimeError, match="Circular dependency detected"):
             counter.set(5)
 
-        # Safe subscriber should have been called before the error
+        # Safe subscribers are called before circular dependency is detected
         assert notifications == ["Safe: 5"]
 
 

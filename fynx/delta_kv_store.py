@@ -472,7 +472,7 @@ class DeltaKVStore:
         self._data: Dict[str, Any] = {}
         self._computed: Dict[str, HierarchicalComputedValue] = {}
         self._dep_graph = DependencyGraph()
-        self._observers: Dict[str, Set[Callable[[Delta], None]]] = defaultdict(set)
+        self._observers: Dict[str, List[Callable[[Delta], None]]] = defaultdict(list)
         self._global_observers: Set[Callable[[Delta], None]] = set()
         self._lock = threading.RLock()
         self._change_log: List[Delta] = []
@@ -578,12 +578,13 @@ class DeltaKVStore:
     ) -> Callable[[], None]:
         """Subscribe to changes on a specific key."""
         with self._lock:
-            self._observers[key].add(callback)
+            self._observers[key].append(callback)
 
             # Return unsubscribe function
             def unsubscribe():
                 with self._lock:
-                    self._observers[key].discard(callback)
+                    if callback in self._observers[key]:
+                        self._observers[key].remove(callback)
 
             return unsubscribe
 

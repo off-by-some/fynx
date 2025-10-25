@@ -9,10 +9,26 @@ and only propagates changes to affected nodes.
 from .delta_kv_store import DeltaKVStore
 
 # Import core classes from observable.py (the Observable API)
-from .observable import Observable, observable, reactive, transaction
+from .observable import (
+    Observable,
+    _reset_global_store,
+)
+from .observable import observable as global_observable
+from .observable import (
+    reactive,
+    transaction,
+)
+
+# Backward compatibility alias
+observable = global_observable
 
 # Import Store classes from store.py
-from .store import Store, StoreMeta
+from .store import (
+    Store,
+    StoreMeta,
+    StoreSnapshot,
+    Subscriptable,
+)
 from .store import observable as store_observable
 
 # Import Store and related classes from store.py (the Store API)
@@ -47,18 +63,23 @@ __all__ = [
     # Store classes from store.py
     "Store",
     "StoreMeta",
+    "StoreSnapshot",
+    "Subscriptable",
     # Reactive system from observable.py
     "reactive",
     "ReactiveContext",
     # Factory functions
-    "observable",  # Global observable function
-    "store_observable",  # Store-specific observable descriptor
+    "observable",  # Global observable function (backward compatibility)
+    "global_observable",  # Global observable function from observable.py
+    "store_observable",  # Store-specific observable function from store.py
     "transaction",
     # Exception classes from observable.py
     "ConditionalNeverMet",
     "ConditionalNotMet",
     # Backend implementation from observable.py
     "DeltaKVStore",
+    # Testing utilities (internal use)
+    "_reset_global_store",
     # Exceptions
     "ReactiveFunctionWasCalled",
 ]
