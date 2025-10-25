@@ -151,6 +151,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Generic,
     List,
     Optional,
     Type,
@@ -163,10 +164,159 @@ from .observable import (
     ConditionNotMet,
     Observable,
     SmartComputed,
-    SubscriptableDescriptor,
 )
 
 T = TypeVar("T")
+
+
+class SubscriptableDescriptor(Generic[T]):
+    """
+    Descriptor that makes Store attributes behave like their underlying values.
+
+    For Store classes, provides clean syntax while maintaining observable functionality.
+    Returns the descriptor itself for class access, allowing both value access and method calls.
+    """
+
+    def __init__(
+        self,
+        initial_value: Optional[T] = None,
+        original_observable: Optional[Any] = None,
+    ):
+        self._initial_value = initial_value
+        self._original_observable = original_observable
+
+    def __get__(self, instance, owner):
+        """Get the descriptor for class access (allows both value access and method calls)."""
+        if instance is None:
+            # Class access - return the descriptor itself so methods like subscribe() work
+            return self
+        return self
+
+    def __set__(self, instance, value):
+        """Setting on instances is not supported."""
+        raise AttributeError("can't set attribute on instance")
+
+    @property
+    def value(self):
+        """Get the current value."""
+        if self._original_observable is not None:
+            return self._original_observable.value
+        return self._initial_value
+
+    def set(self, value):
+        """Set the value."""
+        if self._original_observable is not None:
+            self._original_observable.set(value)
+
+    def subscribe(self, callback, call_immediately=False):
+        """Subscribe to changes."""
+        if self._original_observable is not None:
+            return self._original_observable.subscribe(callback, call_immediately)
+
+    def __str__(self):
+        """String representation returns the value's string."""
+        return str(self.value)
+
+    def __repr__(self):
+        """Representation returns the value's representation."""
+        return repr(self.value)
+
+    def __eq__(self, other):
+        """Equality compares with the value."""
+        return self.value == other
+
+    def __hash__(self):
+        """Hash of the value."""
+        return hash(self.value)
+
+    def __bool__(self):
+        """Boolean value of the value."""
+        return bool(self.value)
+
+    def __len__(self):
+        """Length of the value."""
+        return len(self.value)
+
+    def __getitem__(self, key):
+        """Get item from the value."""
+        return self.value[key]
+
+    def __iter__(self):
+        """Iterate over the value."""
+        return iter(self.value)
+
+    def keys(self):
+        """Dict keys if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.keys()
+        raise TypeError(f"'{type(self).__name__}' object has no keys")
+
+    def values(self):
+        """Dict values if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.values()
+        raise TypeError(f"'{type(self).__name__}' object has no values")
+
+    def items(self):
+        """Dict items if value is a dict."""
+        if isinstance(self.value, dict):
+            return self.value.items()
+        raise TypeError(f"'{type(self).__name__}' object has no items")
+
+    def __rshift__(self, func):
+        """Support >> operator for computed values."""
+        if self._original_observable is not None:
+            return self._original_observable >> func
+        # For standalone descriptors, create an observable and transform it
+        obs = Observable("standalone", self._initial_value)
+        return obs >> func
+
+    def __add__(self, other):
+        """Support + operator - try merging first, fall back to value addition."""
+        if self._original_observable is not None:
+            # If other is also a SubscriptableDescriptor or Observable, merge
+            if hasattr(other, "_original_observable") or isinstance(other, Observable):
+                other_obs = (
+                    other._original_observable
+                    if hasattr(other, "_original_observable")
+                    else other
+                )
+                return self._original_observable + other_obs
+            else:
+                # Not merging observables, do value addition
+                return self.value + other
+        # For standalone descriptors
+        obs = Observable("standalone", self._initial_value)
+        return obs + other
+
+    def __sub__(self, other):
+        """Support - operator for value subtraction."""
+        return self.value - other
+
+    def __lt__(self, other):
+        """Support < comparison."""
+        return self.value < other
+
+    def __le__(self, other):
+        """Support <= comparison."""
+        return self.value <= other
+
+    def __gt__(self, other):
+        """Support > comparison."""
+        return self.value > other
+
+    def __ge__(self, other):
+        """Support >= comparison."""
+        return self.value >= other
+
+    def __abs__(self):
+        """Support abs() function."""
+        return abs(self.value)
+
+    def __float__(self):
+        """Support float() conversion."""
+        return float(self.value)
+
 
 # Type alias for session state values (used for serialization)
 SessionValue = Union[
