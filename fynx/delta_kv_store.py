@@ -467,6 +467,17 @@ class DeltaKVStore:
         # Thread-local tracking context for dependency discovery and cycle detection
         self._tracking_context = threading.local()
 
+        # Import lazily to avoid circular dependency
+        self._node_factory = None
+
+    def _get_node_factory(self):
+        """Get or create the node factory lazily."""
+        if self._node_factory is None:
+            from .delta_nodes import NodeFactory
+
+            self._node_factory = NodeFactory(self)
+        return self._node_factory
+
     def get(self, key: str) -> Any:
         """Get a value from the store."""
         with self._lock:

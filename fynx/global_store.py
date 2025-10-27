@@ -50,14 +50,24 @@ class GlobalStore:
         """
 
         # Use tuple of source identifiers as cache key
+        # Optimized: use try/except EAFP instead of hasattr (faster in happy path)
         def get_source_id(src):
-            if hasattr(src, "_key"):
+            # Fast path: try _key first (most common)
+            try:
                 return src._key
-            elif hasattr(src, "_materialized_key") and src._materialized_key:
-                return src._materialized_key
-            else:
-                # For virtual ComputedObservable, use id-based key
-                return f"virtual_{id(src)}"
+            except AttributeError:
+                pass
+
+            # Second try: _materialized_key
+            try:
+                key = src._materialized_key
+                if key:
+                    return key
+            except AttributeError:
+                pass
+
+            # Fallback: id-based key for virtual computeds
+            return f"virtual_{id(src)}"
 
         cache_key = tuple(get_source_id(src) for src in sources)
         if cache_key not in self._stream_cache:
@@ -65,10 +75,9 @@ class GlobalStore:
 
             # Register sources as dependents before creating stream
             for source in sources:
-                try:
-                    source._register_dependent()
-                except AttributeError:
-                    pass
+                # Optimized: direct attribute access, not try/except here
+                # Only Observable and computed observables have this, and we know they do
+                source._register_dependent()
 
             self._stream_cache[cache_key] = StreamObservable(self, list(sources))
         return self._stream_cache[cache_key]

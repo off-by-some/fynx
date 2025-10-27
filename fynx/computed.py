@@ -151,14 +151,12 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
 
         Raises ConditionNeverMet if dependency is an inactive conditional.
         """
-        if self.is_materialized:
+        # Optimized: inline materialized check to avoid property overhead
+        if self._materialized_key is not None:
             val = self._store._kv.get(self._materialized_key)
         else:
-            # Use cached value if available (for ComputedObservable optimization)
-            if hasattr(self, "_cached_value") and self._cached_value is not None:
-                val = self._cached_value
-            else:
-                val = self._compute_virtual_value()
+            # Compute value - Node caching if available, otherwise direct computation
+            val = self._compute_virtual_value()
 
         # NULL_EVENT indicates dependency on inactive conditionals
         if val is NULL_EVENT:
@@ -544,7 +542,7 @@ class ComputedObservable(ComputedBase):
         4. Fusion applies when chaining transforms (obs >> f1 >> f2)
     """
 
-    __slots__ = ("_fused_fn", "_cached_value")
+    __slots__ = ("_fused_fn",)
 
     def __init__(
         self,
@@ -555,22 +553,17 @@ class ComputedObservable(ComputedBase):
     ):
         super().__init__(store, sources)
         self._fused_fn = compute_fn  # Just store the function directly
-        self._cached_value = None  # Cache to avoid recomputation
 
         if not _skip_source_registration:
             for source in sources:
-                # Fast path: just increment counter for regular observables
-                if hasattr(source, "_dependents_count"):
-                    source._dependents_count += 1
-                elif hasattr(source, "_register_dependent"):
-                    # ComputedBase path - check for direct dependents support
-                    if hasattr(source, "_direct_dependents"):
-                        source._register_dependent(self)
-                    else:
-                        source._register_dependent()
-
-        # Don't populate cache during init - use lazy evaluation on first access
-        # This matches the expected behavior in tests and avoids unnecessary computation
+                # Optimized: EAFP for dependency registration
+                try:
+                    # Try direct dependents path first (fastest)
+                    source._direct_dependents
+                    source._register_dependent(self)
+                except AttributeError:
+                    # Fallback: standard registration
+                    source._register_dependent()
 
     def _compute_virtual_value(self) -> Any:
         """
@@ -581,8 +574,12 @@ class ComputedObservable(ComputedBase):
 
         Handles both single and multi-argument functions correctly.
         """
-        vals = [src.value for src in self._sources]
-        return self._fused_fn(*vals) if len(vals) > 1 else self._fused_fn(vals[0])
+        if len(self._sources) == 1:
+            return self._fused_fn(self._sources[0].value)
+        elif len(self._sources) == 2:
+            return self._fused_fn(self._sources[0].value, self._sources[1].value)
+
+        return self._fused_fn(*[src.value for src in self._sources])
 
     # ========================================================================
     # OperatorMixin Implementation - FUSION MAGIC HERE
@@ -742,6 +739,28 @@ class ComputedObservable(ComputedBase):
         self._register_dependent()
         return super().negate()
 
+    def subscribe(self, callback, call_immediately=False):
+        """Subscribe - must materialize to track changes."""
+        # Track all sources to ensure change propagation
+        for source in self._sources:
+            try:
+                source._track_in_store()
+            except AttributeError:
+                pass
+
+        # Materialize to enable store-based change propagation
+        materialized = self._materialize_as_node()
+
+        # Filter NULL_EVENT for conditional observables that may return it
+        from .observable import NULL_EVENT
+
+        def filtered_callback(value):
+            if value is not NULL_EVENT:
+                callback(value)
+
+        # Subscribe to the materialized observable with filtering
+        return materialized.subscribe(filtered_callback, call_immediately)
+
     def __repr__(self) -> str:
         state = "materialized" if self.is_materialized else "virtual"
         return f"ComputedObservable({state}, deps={self._dependents_count}, sources={len(self._sources)})"
@@ -765,8 +784,16 @@ class ConditionalObservable(ComputedObservable):
     )
 
     def __init__(self, store, source, condition):
-        # If condition is already an observable, include it as a source
-        if hasattr(condition, "_register_dependent"):
+        # Determine if condition is observable or callable using EAFP
+        condition_is_observable = False
+        try:
+            # Test if condition has the interface of an observable
+            callable(condition._register_dependent)
+            condition_is_observable = True
+        except AttributeError:
+            pass
+
+        if condition_is_observable:
             # Condition is an observable - create conditional compute function
             compute_fn = lambda src_val, cond_val: src_val if cond_val else NULL_EVENT
             super().__init__(
@@ -782,17 +809,19 @@ class ConditionalObservable(ComputedObservable):
         # Conditional state
         self._last_emitted_value = None
         self._has_ever_been_active = False
+        self._dependencies_registered = False  # Initialize flag
 
     def _ensure_registered(self):
         """Lazily register dependencies when first accessed."""
-        if not hasattr(self, "_dependencies_registered"):
-            for source in self._sources:
-                if hasattr(source, "_register_dependent"):
-                    if hasattr(source, "_direct_dependents"):
-                        source._register_dependent(self)
-                    else:
-                        source._register_dependent()
-            self._dependencies_registered = True
+        # Fast path: check flag, no try/except needed
+        if self._dependencies_registered:
+            return
+
+        # Register all source dependencies
+        for source in self._sources:
+            source._register_dependent()
+
+        self._dependencies_registered = True
 
     @property
     def value(self):
@@ -800,14 +829,12 @@ class ConditionalObservable(ComputedObservable):
         # Register dependencies lazily on first access
         self._ensure_registered()
 
-        # Compute value using parent's implementation
-        if self.is_materialized:
+        # Optimized: inline materialized check
+        if self._materialized_key is not None:
             val = self._store._kv.get(self._materialized_key)
         else:
-            if hasattr(self, "_cached_value") and self._cached_value is not None:
-                val = self._cached_value
-            else:
-                val = self._compute_virtual_value()
+            # Compute value using parent's method
+            val = self._compute_virtual_value()
 
         # Handle NULL_EVENT - condition not met
         if val is NULL_EVENT:
@@ -834,8 +861,18 @@ class ConditionalObservable(ComputedObservable):
     __rshift__ = then
 
     def subscribe(self, callback, call_immediately=False):
-        """Subscribe - lazily registers dependencies."""
+        """Subscribe - lazily registers dependencies and ensures sources are tracked."""
         self._ensure_registered()
+
+        # Track all sources to ensure change propagation works
+        for source in self._sources:
+            try:
+                source._track_in_store()
+            except AttributeError:
+                pass
+
+        # Delegate to parent's subscribe which handles materialization
+        # Observable.subscribe (via materialized) already filters NULL_EVENT
         return super().subscribe(callback, call_immediately)
 
     def set(self, value):

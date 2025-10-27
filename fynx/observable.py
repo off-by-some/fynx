@@ -36,34 +36,10 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 
 
-# ============================================================================
 # Sentinel Types
 # ============================================================================
-
-
-class NullEvent:
-    """
-    Sentinel value indicating a conditional observable has never been active.
-    Used to distinguish "no value yet" from "False/0/None" within a conditional observable.
-    """
-
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __repr__(self):
-        return "NullEvent"
-
-    def __bool__(self):
-        return False
-
-
-# Singleton instance
-NULL_EVENT = NullEvent()
-
+# Import NULL_EVENT from computed to ensure singleton consistency
+from .computed import NULL_EVENT
 
 # ============================================================================
 # Utility Functions
@@ -182,9 +158,7 @@ class ValueOperable:
     def requiring(self, condition):
         """Filter by condition: only emit when conditions are met"""
         self._register_dependent()
-        if hasattr(condition, "_register_dependent"):
-            condition._register_dependent()
-        # Pass callable conditions directly - ConditionalObservable handles them efficiently
+        # ConditionalObservable handles both callables and observables
         return ConditionalObservable(self._store, self, condition)
 
     def either(self, other):
@@ -232,27 +206,23 @@ class ObservableBase(ObservableInterface):
 
 class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
     """
-    Observable value with adaptive materialization.
+    Observable value with optimal performance for untracked state.
 
-    An observable represents a value that can change over time. It maintains a dependency
-    graph and propagates changes to all dependent computations.
+    Theoretical optimal path for untracked:
+    - Read:  O(1) - direct attribute access
+    - Write: O(1) - direct assignment
 
-    Materialization States:
-    - Virtual: Value stored in memory, no change tracking overhead
-    - Tracked: Registered with DeltaKVStore for efficient change propagation
-
-    Transition Rules:
-    - Virtual → Tracked on first subscription (enables O(affected) updates)
-    - Virtual → Tracked when dependency count ≥ 2 (fan-out optimization)
+    When tracked, delegates to node for store integration.
     """
 
     __slots__ = (
         "_store",
         "_key",
         "_value",
-        "_is_tracked",
+        "_node",
         "_subscribers",
         "_notifying",
+        "_is_tracked",
     )
 
     def __init__(self, store: "Store", key: str, initial_value: Any = None):
@@ -261,51 +231,76 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
         ValueOperable.__init__(self)
         Materializable.__init__(self)
         self._key = key
-        self._value = initial_value
-        self._subscribers = None
-        self._notifying = False  # Track if we're currently notifying subscribers
+        self._value = initial_value  # Optimal: direct storage
+        self._subscribers = []
+        self._notifying = False
+        self._is_tracked = False
+        self._node = None  # Lazy: create only when tracked
 
     @property
     def value(self) -> Any:
-        if self._is_tracked:
-            return self._store._kv.get(self._key)
-        return self._value
+        """Get the current value - optimized for untracked path."""
+        if not self._is_tracked:
+            return self._value
+        return self._store._kv.get(self._key)
 
     @value.setter
     def value(self, new_value: Any) -> None:
-        # Check for circular dependency - don't allow setting while notifying subscribers
-        if self._notifying:
-            raise RuntimeError("Circular dependency detected")
-
-        if self._is_tracked:
-            self._notifying = True
-            try:
-                self._store._kv.set(self._key, new_value)
-            finally:
-                self._notifying = False
+        if not self._is_tracked:
+            # Untracked: optimized for Window benchmark pattern
+            # Check identity first for O(1) common case
+            if self._value is new_value:
+                # Same reference: if mutable type, allow in-place mutations to propagate
+                if isinstance(self._value, (list, dict, set)):
+                    # Update to trigger reactivity even though value unchanged
+                    self._value = new_value
+                    if self._subscribers:
+                        self._notify_legacy_subscribers(new_value)
+                # For immutable, skip update (no change possible)
+            else:
+                # Different reference: update
+                self._value = new_value
+                if self._subscribers:
+                    self._notify_legacy_subscribers(new_value)
         else:
-            old = self._value
-            self._value = new_value
-            if self._subscribers:
-                self._notifying = True
-                try:
-                    for cb in self._subscribers:
-                        cb(new_value)
-                finally:
-                    self._notifying = False
+            # Tracked: use store for change propagation
+            if self._notifying:
+                raise RuntimeError("Circular dependency detected")
+            self._notifying = True
+            self._store._kv.set(self._key, new_value)
+            self._notifying = False
+
+    def _notify_legacy_subscribers(self, value: Any) -> None:
+        """Notify legacy subscribers with proper notifying flag management."""
+        self._notifying = True
+        try:
+            for cb in self._subscribers:
+                cb(value)
+        finally:
+            self._notifying = False
 
     def set(self, new_value: Any) -> None:
-        """Alias for value setter."""
+        """Set the value - aliases value setter."""
         self.value = new_value
 
     def _track_in_store(self):
-        """Upgrade to tracked mode in DeltaKVStore."""
+        """Transition to tracked mode for change propagation."""
         if self._is_tracked:
             return
 
         self._is_tracked = True
+        # Register current value with store
         self._store._kv.set(self._key, self._value)
 
+        # Create node for dependency tracking
+        factory = self._store._kv._get_node_factory()
+        self._node = factory.create_source(self._key, self._value)
+        self._node.mark_tracked()
+
+        # Invalidate stream cache
+        self._store._stream_cache.clear() if self._store._stream_cache else None
+
+        # Migrate legacy subscribers
         if self._subscribers:
             for cb in self._subscribers:
                 self._store._kv.subscribe(
@@ -313,25 +308,17 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
                 )
             self._subscribers = None
 
-        # Invalidate stream cache that might reference this observable
-        # since it changed from virtual to tracked
-        self._store._stream_cache.clear()
-
     def _register_dependent(self):
         """Called when a computed depends on this observable."""
         Materializable._register_dependent(self)
-
-        # Fan-out detected: materialize for efficient propagation
-        if self._should_materialize_for_fanout() and not self._is_tracked:
-            self._track_in_store()
+        # DO NOT track automatically - only track when subscription or propagation needed
+        # This keeps untracked observables fast for common cases
 
     def subscribe(
         self, callback: Callable[[Any], None], call_immediately: bool = False
     ) -> Callable[[], None]:
-        """Subscribe - promotes to tracked for change propagation."""
-        # First subscription: go tracked for proper change propagation
-        if not self._is_tracked:
-            self._track_in_store()
+        """Subscribe to value changes."""
+        self._track_in_store()
 
         def on_delta(delta: Delta):
             if (
@@ -339,25 +326,32 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
                 and delta.new_value is not None
                 and delta.new_value is not NULL_EVENT
             ):
-                callback(delta.new_value)
+                self._notifying = True
+                try:
+                    callback(delta.new_value)
+                finally:
+                    self._notifying = False
 
         unsubscribe = self._store._kv.subscribe(self._key, on_delta)
 
-        # Call immediately if requested and value is not None and can be computed
+        # Call immediately if requested
         if call_immediately:
             try:
                 value = self.value
                 if value is not None and value is not NULL_EVENT:
-                    callback(value)
+                    self._notifying = True
+                    try:
+                        callback(value)
+                    finally:
+                        self._notifying = False
             except ConditionNeverMet:
-                # Don't call immediately if conditions have never been met
                 pass
 
         return unsubscribe
 
     def __repr__(self) -> str:
         state = "tracked" if self._is_tracked else "virtual"
-        return f"Observable({self._key}={self.value}, {state}, deps={self._dependents_count})"
+        return f"Observable({self._key}={self.value}, {state})"
 
 
 # ============================================================================
@@ -379,6 +373,8 @@ class GlobalStore:
         self._observables = {}
         self._key_counter = 0
         self._stream_cache = {}  # Cache StreamMerge instances
+        # Initialize node factory
+        self._node_factory = self._kv._get_node_factory()
 
     def _get_or_create_stream(self, sources: tuple) -> "StreamMerge":
         """Get cached StreamMerge or create new one."""

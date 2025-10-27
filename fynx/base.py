@@ -373,9 +373,7 @@ class TupleOperable:
     def requiring(self, condition):
         """Filter by condition: only emit when conditions are met"""
         self._register_dependent()
-        if hasattr(condition, "_register_dependent"):
-            condition._register_dependent()
-        # Pass callable conditions directly - ConditionalObservable handles them efficiently
+        # ConditionalObservable handles both callables and observables
         from .computed import ConditionalObservable
 
         return ConditionalObservable(self._store, self, condition)
