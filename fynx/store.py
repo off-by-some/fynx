@@ -159,12 +159,8 @@ from typing import (
     Union,
 )
 
-from .observable import (
-    ConditionNeverMet,
-    ConditionNotMet,
-    Observable,
-    SmartComputed,
-)
+from .computed import ComputedObservable, ConditionNeverMet, ConditionNotMet
+from .observable import Observable
 
 T = TypeVar("T")
 
@@ -417,7 +413,7 @@ class StoreMeta(type):
 
         # Process directly defined observables
         for attr_name, attr_value in namespace.items():
-            if isinstance(attr_value, (Observable, SmartComputed)):
+            if isinstance(attr_value, (Observable, ComputedObservable)):
                 observable_attrs.append(attr_name)
                 # Wrap all observables (including computed ones) in descriptors
                 try:
@@ -507,7 +503,7 @@ class Store(metaclass=StoreMeta):
         return [
             attr
             for attr in cls._observable_attrs
-            if not isinstance(cls._observables[attr], SmartComputed)
+            if not isinstance(cls._observables[attr], ComputedObservable)
         ]
 
     @classmethod

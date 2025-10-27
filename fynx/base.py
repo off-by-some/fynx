@@ -24,10 +24,41 @@ Performance Optimization:
 """
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Callable, List, Protocol
 
 if TYPE_CHECKING:
+    from .computed import ComputedObservable, ConditionalObservable
     from .store import Store
+
+
+def _get_dependency_keys(sources: List["Observable"], store) -> List[str]:
+    """Extract dependency keys from sources, ensuring they're tracked/materialized."""
+    dep_keys = []
+    for src in sources:
+        # Check by class name to avoid forward reference issues
+        class_name = src.__class__.__name__
+        if class_name in ("ComputedObservable", "ConditionalObservable"):
+            # Source is computed - ensure it's materialized for dependency tracking
+            if not src._materialized_key:
+                src._materialize_as_node()
+            dep_keys.append(src._materialized_key)
+        elif class_name == "StreamMerge":
+            # StreamMerge - ensure it's tracked for dependency tracking
+            if not src._is_tracked:
+                src._track_in_store()
+            dep_keys.append(src._key)
+        elif hasattr(src, "_is_tracked") and hasattr(src, "_track_in_store"):
+            # Source is observable - track it if not already
+            if not src._is_tracked:
+                src._track_in_store()
+            dep_keys.append(src._key)
+        elif hasattr(src, "_key"):
+            # Source has a key but is not tracked (e.g., ConditionalObservable)
+            dep_keys.append(src._key)
+        else:
+            # Source doesn't have tracking - this shouldn't happen
+            raise ValueError(f"Cannot track dependency: {src}")
+    return dep_keys
 
 
 # ============================================================================
@@ -330,9 +361,9 @@ class TupleOperable:
             return transform(*flattened)
 
         # Lazy import to avoid circular dependency
-        from .observable import SmartComputed
+        from .computed import ComputedObservable
 
-        return SmartComputed(self._store, [self], compute_func)
+        return ComputedObservable(self._store, [self], compute_func)
 
     def alongside(self, *others):
         """Combine streams: (obs₁, obs₂, ..., obsₙ)"""
@@ -344,15 +375,8 @@ class TupleOperable:
         self._register_dependent()
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
-        elif callable(condition):
-            # For callable conditions, create a wrapper observable that tracks the condition
-            from .observable import ConditionalObservable, SmartComputed
-
-            condition_obs = SmartComputed(
-                self._store, [self], lambda val: condition(val)
-            )
-            return ConditionalObservable(self._store, self, condition_obs)
-        from .observable import ConditionalObservable
+        # Pass callable conditions directly - ConditionalObservable handles them efficiently
+        from .computed import ConditionalObservable
 
         return ConditionalObservable(self._store, self, condition)
 
@@ -360,18 +384,20 @@ class TupleOperable:
         """Logical OR: bool(a) or bool(b)"""
         self._register_dependent()
         other._register_dependent()
-        from .observable import SmartComputed
 
-        return SmartComputed(
+        from .computed import ComputedObservable
+
+        return ComputedObservable(
             self._store, [self, other], lambda a, b: bool(a) or bool(b)
         )
 
     def negate(self):
         """Logical NOT: not bool(obs)"""
         self._register_dependent()
-        from .observable import SmartComputed
 
-        return SmartComputed(self._store, [self], lambda x: not bool(x))
+        from .computed import ComputedObservable
+
+        return ComputedObservable(self._store, [self], lambda x: not bool(x))
 
     # Operator overloads
     __rshift__ = then

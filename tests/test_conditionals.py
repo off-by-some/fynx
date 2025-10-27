@@ -521,7 +521,7 @@ class TestPerformanceBenefits:
         )
 
         # Short data - no expensive operations (condition never met)
-        from fynx.observable import ConditionNeverMet
+        from fynx.computed import ConditionNeverMet
 
         with pytest.raises(ConditionNeverMet):
             _ = final_result.value  # Should raise exception

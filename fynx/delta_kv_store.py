@@ -404,7 +404,11 @@ class HierarchicalComputedValue(OptimizedComputedValue):
 
     def _compute_func(self) -> Any:
         """Execute the user's computation function."""
-        return self._user_compute_func()
+        result = self._user_compute_func()
+        # If result is None, don't change the stored value
+        if result is None:
+            return self._value
+        return result
 
     def _do_compute(self) -> None:
         """
@@ -588,11 +592,8 @@ class DeltaKVStore:
         """Get all keys that transitively depend on the given key using BFS."""
         all_affected = set()
         current_level = {key}
-        max_depth = 10  # Prevent infinite recursion
 
-        for _ in range(max_depth):
-            if not current_level:
-                break
+        while current_level:
             next_level = set()
             for node in current_level:
                 for dep in self._dep_graph.get_dependents(node):

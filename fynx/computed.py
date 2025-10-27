@@ -30,16 +30,12 @@ from .base import (
     Subscribable,
     Trackable,
     TupleOperable,
+    _get_dependency_keys,
     _try_register_dependent,
 )
 
 if TYPE_CHECKING:
-    from .observable import (
-        ConditionalObservable,
-        Observable,
-        SmartComputed,
-        StreamObservable,
-    )
+    from .observable import Observable
     from .store import Store
 
 
@@ -66,36 +62,6 @@ def _flatten_nested_values(*vals):
         else:
             result.append(v)
     return result
-
-
-def _get_dependency_keys(sources: List["Observable"], store) -> List[str]:
-    """Extract dependency keys from sources, ensuring they're tracked/materialized."""
-    dep_keys = []
-    for src in sources:
-        # Check by class name to avoid forward reference issues
-        class_name = src.__class__.__name__
-        if class_name in ("SmartComputed", "ConditionalObservable"):
-            # Source is computed - ensure it's materialized for dependency tracking
-            if not src._materialized_key:
-                src._materialize_as_node()
-            dep_keys.append(src._materialized_key)
-        elif class_name == "StreamMerge":
-            # StreamMerge - ensure it's tracked for dependency tracking
-            if not src._is_tracked:
-                src._track_in_store()
-            dep_keys.append(src._key)
-        elif hasattr(src, "_is_tracked") and hasattr(src, "_track_in_store"):
-            # Source is observable - track it if not already
-            if not src._is_tracked:
-                src._track_in_store()
-            dep_keys.append(src._key)
-        elif hasattr(src, "_key"):
-            # Source has a key but is not tracked (e.g., ConditionalObservable)
-            dep_keys.append(src._key)
-        else:
-            # Source doesn't have tracking - this shouldn't happen
-            raise ValueError(f"Cannot track dependency: {src}")
-    return dep_keys
 
 
 class NullEvent:
@@ -218,7 +184,15 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
         """Subscribe - forces materialization."""
         self._is_subscribed = True
         materialized = self._materialize_as_node()
-        return materialized.subscribe(callback, call_immediately=call_immediately)
+
+        # Filter out None/NullEvent values
+        def filtered_callback(value):
+            if value is not None and value is not NULL_EVENT:
+                callback(value)
+
+        return materialized.subscribe(
+            filtered_callback, call_immediately=call_immediately
+        )
 
     def _register_dependent(self, dependent=None):
         """
@@ -256,11 +230,9 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
         """Create computed - override for fusion."""
         return ComputedObservable(self._store, sources, fn)
 
-    def _make_stream(self, sources: list) -> "StreamObservable":
+    def _make_stream(self, sources: list) -> "StreamMerge":
         """Create stream observable."""
-        from .observable import StreamObservable
-
-        return StreamObservable(self._store, sources)
+        return StreamMerge(self._store, sources)
 
     def _make_conditional(
         self, source: "BaseObservable", condition
@@ -282,8 +254,6 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
         Returns an Observable wrapping the materialized store entry.
         The Observable is marked as tracked and registered in the store.
         """
-        from .observable import Observable, _get_dependency_keys
-
         if self.is_materialized:
             obs = self._store._observables.get(self._materialized_key)
             if obs:
@@ -301,6 +271,8 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
 
         dep_keys = _get_dependency_keys(self._sources, self._store)
         self._store._kv.computed(self._materialized_key, compute, deps=dep_keys)
+
+        from .observable import Observable
 
         obs = Observable(self._store, self._materialized_key)
         obs._is_tracked = True
@@ -464,11 +436,11 @@ class StreamMerge(ComputedBase, Trackable, TupleOperable, Subscribable):
     # Custom Operators for StreamMerge
     # ========================================================================
 
-    def then(self, transform: Callable) -> "SmartComputed":
+    def then(self, transform: Callable) -> "ComputedObservable":
         """
         Transform the merged stream.
 
-        Creates a SmartComputed that depends on all sources.
+        Creates a ComputedObservable that depends on all sources.
         The transform receives the tuple of values.
         """
         store = self._sources[0]._store
@@ -494,10 +466,7 @@ class StreamMerge(ComputedBase, Trackable, TupleOperable, Subscribable):
                 flattened.extend(flatten_values(v))
             return transform(*flattened)
 
-        # Lazy import to avoid circular dependency
-        from .observable import SmartComputed
-
-        return SmartComputed(
+        return ComputedObservable(
             store,
             list(self._sources),
             compute_func,
@@ -535,11 +504,8 @@ class StreamMerge(ComputedBase, Trackable, TupleOperable, Subscribable):
         def condition_fn(*vals):
             return bool(vals[-1])  # Last value is the condition
 
-        # Lazy imports to avoid circular dependency
-        from .observable import ConditionalObservable, SmartComputed
-
         # Create computed for the condition evaluation
-        condition_computed = SmartComputed(
+        condition_computed = ComputedObservable(
             store, list(self._sources) + [condition], condition_fn
         )
 
@@ -594,8 +560,12 @@ class ComputedObservable(ComputedBase):
         if not _skip_source_registration:
             for source in sources:
                 if hasattr(source, "_register_dependent"):
-                    # This will handle adding to direct_dependents
-                    source._register_dependent(self)
+                    # Pass self only if source can handle dependent tracking (computed observables)
+                    # Regular observables just need to know they have dependents
+                    if hasattr(source, "_direct_dependents"):  # ComputedBase has this
+                        source._register_dependent(self)
+                    else:
+                        source._register_dependent()
 
         # Don't populate cache during init - use lazy evaluation on first access
         # This matches the expected behavior in tests and avoids unnecessary computation
@@ -756,146 +726,72 @@ class ConditionalObservable(ComputedObservable):
     """
     Conditional observable emitting values only when condition is satisfied.
 
-    Extends ComputedObservable to add conditional emission logic:
-        - Activates when condition becomes true (or is initially true)
-        - Returns cached value when condition becomes false
-        - Raises ConditionNeverMet when accessed if never been active
-
-    State Management:
-        - _is_active: whether condition is currently satisfied
-        - _has_ever_been_active: whether condition was ever true
-        - _cached_value: last value emitted before condition became false
-
-    Inherits fusion optimization from ComputedObservable.
+    Wraps ComputedObservable with conditional logic, maintaining caching benefits.
     """
 
     __slots__ = (
-        "_is_active",
         "_last_emitted_value",
         "_has_ever_been_active",
-        "_condition_fn",
-        "_last_source_val",
-        "_last_computed_val",
     )
 
     def __init__(self, store, source, condition):
-        # Optimize simple callable conditions by evaluating inline
-        if callable(condition):
-            # Store condition function directly - evaluate on-demand instead of creating ComputedObservable
-            self._condition_fn = condition
-            # Create a computed that evaluates the condition on source value
-            compute_fn = lambda src_val: src_val if condition(src_val) else NULL_EVENT
-            # Initialize with just the source
-            super().__init__(store, [source], compute_fn)
-        else:
-            # Condition is already an observable
-            condition_obs = condition
-            # Conditional compute: source if condition else NULL_EVENT
+        # If condition is already an observable, include it as a source
+        if hasattr(condition, "_register_dependent"):
+            # Condition is an observable - create conditional compute function
             compute_fn = lambda src_val, cond_val: src_val if cond_val else NULL_EVENT
-            # Initialize as ComputedObservable
-            super().__init__(store, [source, condition_obs], compute_fn)
-            self._condition_fn = None
+            super().__init__(
+                store, [source, condition], compute_fn, _skip_source_registration=True
+            )
+        else:
+            # Callable condition - evaluate on source value
+            compute_fn = lambda src_val: src_val if condition(src_val) else NULL_EVENT
+            super().__init__(
+                store, [source], compute_fn, _skip_source_registration=True
+            )
 
         # Conditional state
-        self._is_active = False
         self._last_emitted_value = None
         self._has_ever_been_active = False
-        # Cache for fast path when source hasn't changed
-        self._last_source_val = None
-        self._last_computed_val = None
 
-        # Initialize state - handle case where condition has never been met
-        try:
-            val = super().value
-            if val is not NULL_EVENT:
-                self._is_active = True
-                self._has_ever_been_active = True
-                self._last_emitted_value = val
-        except ConditionNeverMet:
-            # Condition has never been met - this is normal during initialization
-            pass
+    def _ensure_registered(self):
+        """Lazily register dependencies when first accessed."""
+        if not hasattr(self, "_dependencies_registered"):
+            for source in self._sources:
+                if hasattr(source, "_register_dependent"):
+                    if hasattr(source, "_direct_dependents"):
+                        source._register_dependent(self)
+                    else:
+                        source._register_dependent()
+            self._dependencies_registered = True
 
     @property
     def value(self):
         """Get value - handles NULL_EVENT with proper caching."""
-        # Fast path: Check if source value changed using identity
-        if self._last_source_val is not None and len(self._sources) == 1:
-            current_source_val = self._sources[0].value
-            # If source value identity hasn't changed, return cached result
-            if current_source_val is self._last_source_val:
-                cached = self._last_computed_val
-                if cached is NULL_EVENT:
-                    if not self._has_ever_been_active:
-                        raise ConditionNeverMet("Conditional never active")
-                    return self._last_emitted_value
-                return cached
+        # Register dependencies lazily on first access
+        self._ensure_registered()
 
-        # Compute new value
+        # Compute value using parent's implementation
         if self.is_materialized:
             val = self._store._kv.get(self._materialized_key)
         else:
-            if self._cached_value is not None:
+            if hasattr(self, "_cached_value") and self._cached_value is not None:
                 val = self._cached_value
             else:
                 val = self._compute_virtual_value()
 
-        # Cache the source value and computed result for next time
-        if len(self._sources) == 1:
-            self._last_source_val = self._sources[0].value
-            self._last_computed_val = val
-
+        # Handle NULL_EVENT - condition not met
         if val is NULL_EVENT:
             if not self._has_ever_been_active:
                 raise ConditionNeverMet("Conditional never active")
             return self._last_emitted_value
 
+        # Condition met - update cache and return
+        self._has_ever_been_active = True
         self._last_emitted_value = val
         return val
 
-    def _on_source_changed(self):
-        """Clear cache when source changes."""
-        super()._on_source_changed()
-        # Invalidate our cache
-        self._last_source_val = None
-        self._last_computed_val = None
-        self._last_emitted_value = None
-
-    def subscribe(self, callback, call_immediately: bool = False):
-        """Subscribe with conditional emission logic."""
-        self._is_subscribed = True
-        materialized = self._materialize_as_node()
-
-        # Wrap callback with conditional logic
-        def conditional_callback(val):
-            if val is not NULL_EVENT:
-                # Condition met
-                was_active = self._is_active
-                self._is_active = True
-
-                if not was_active:
-                    # Transition to active
-                    self._has_ever_been_active = True
-                    self._last_emitted_value = val
-                    callback(val)
-                elif val != self._last_emitted_value:
-                    # Value changed while active
-                    self._last_emitted_value = val
-                    callback(val)
-                # Else: no change, no emission
-            else:
-                # Condition not met - update state but don't emit
-                self._is_active = False
-
-        # Subscribe to the materialized observable with our conditional callback
-        # We need to bypass the NULL_EVENT filtering for state management
-        def delta_callback(delta):
-            if delta.key == materialized._key:
-                conditional_callback(delta.new_value)
-
-        return materialized._store._kv.subscribe(materialized._key, delta_callback)
-
     def then(self, transform):
-        """Transform - registers dependency."""
+        """Transform - creates a new ComputedObservable."""
         _try_register_dependent(self)
         return ComputedObservable(self._store, [self], lambda val: transform(val))
 
@@ -906,6 +802,11 @@ class ConditionalObservable(ComputedObservable):
 
     __and__ = requiring
     __rshift__ = then
+
+    def subscribe(self, callback, call_immediately=False):
+        """Subscribe - lazily registers dependencies."""
+        self._ensure_registered()
+        return super().subscribe(callback, call_immediately)
 
     def set(self, value):
         """Read-only."""

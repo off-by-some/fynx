@@ -6,7 +6,6 @@ and adaptive materialization strategies.
 
 Key Concepts:
 - Observable: A value that can change over time and notify dependents
-- SmartComputed: Computed values with intelligent materialization
 
 Materialization Strategy:
 - Virtual: Computed values stay as functions until needed
@@ -22,8 +21,13 @@ Change Propagation:
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Callable, List, TypeVar
 
-from .base import TupleOperable
-from .computed import StreamMerge, _get_dependency_keys
+from .base import TupleOperable, _get_dependency_keys
+from .computed import (
+    ComputedObservable,
+    ConditionalObservable,
+    ConditionNeverMet,
+    StreamMerge,
+)
 from .delta_kv_store import Delta, DeltaKVStore
 
 if TYPE_CHECKING:
@@ -73,9 +77,12 @@ def _collect_source_values(sources: List["Observable"]) -> List[Any]:
         try:
             val = src.value
             vals.append(val)
-        except ConditionNeverMet:
+        except Exception as e:
             # For conditionals that have never met, treat as None
-            vals.append(None)
+            if "never" in str(e).lower() and "active" in str(e).lower():
+                vals.append(None)
+            else:
+                raise
     return vals
 
 
@@ -165,7 +172,7 @@ class ValueOperable:
     def then(self, transform: Callable):
         """Apply transformation: obs >> f → f(obs)"""
         self._register_dependent()
-        return SmartComputed(self._store, [self], lambda x: transform(x))
+        return ComputedObservable(self._store, [self], lambda x: transform(x))
 
     def alongside(self, *others):
         """Combine streams: (obs₁, obs₂, ..., obsₙ)"""
@@ -177,26 +184,21 @@ class ValueOperable:
         self._register_dependent()
         if hasattr(condition, "_register_dependent"):
             condition._register_dependent()
-        elif callable(condition):
-            # For callable conditions, create a wrapper observable that tracks the condition
-            condition_obs = SmartComputed(
-                self._store, [self], lambda val: condition(val)
-            )
-            return ConditionalObservable(self._store, self, condition_obs)
+        # Pass callable conditions directly - ConditionalObservable handles them efficiently
         return ConditionalObservable(self._store, self, condition)
 
     def either(self, other):
         """Logical OR: bool(a) or bool(b)"""
         self._register_dependent()
         other._register_dependent()
-        return SmartComputed(
+        return ComputedObservable(
             self._store, [self, other], lambda a, b: bool(a) or bool(b)
         )
 
     def negate(self):
         """Logical NOT: not bool(obs)"""
         self._register_dependent()
-        return SmartComputed(self._store, [self], lambda x: not bool(x))
+        return ComputedObservable(self._store, [self], lambda x: not bool(x))
 
     # Operator overloads
     __rshift__ = then
@@ -221,21 +223,6 @@ class ObservableBase(ObservableInterface):
     def set(self, new_value: Any) -> None:
         """Set a new value - override in subclasses."""
         raise NotImplementedError
-
-
-class ComputedBase(ObservableBase, Materializable):
-    """Base class for computed observables (SmartComputed, StreamMerge)."""
-
-    def __init__(self, store):
-        ObservableBase.__init__(self, store)
-        Materializable.__init__(self)
-
-    def _register_dependent(self):
-        """Called when another computed depends on this computed."""
-        Materializable._register_dependent(self)
-        # Force materialization when dependents are registered
-        if not self._is_tracked:
-            self._track_in_store()
 
 
 # ============================================================================
@@ -347,7 +334,11 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
             self._track_in_store()
 
         def on_delta(delta: Delta):
-            if delta.key == self._key and delta.new_value is not None:
+            if (
+                delta.key == self._key
+                and delta.new_value is not None
+                and delta.new_value is not NULL_EVENT
+            ):
                 callback(delta.new_value)
 
         unsubscribe = self._store._kv.subscribe(self._key, on_delta)
@@ -356,7 +347,7 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
         if call_immediately:
             try:
                 value = self.value
-                if value is not None:
+                if value is not None and value is not NULL_EVENT:
                     callback(value)
             except ConditionNeverMet:
                 # Don't call immediately if conditions have never been met
@@ -372,208 +363,6 @@ class Observable(ObservableBase, Trackable, ValueOperable, Materializable):
 # ============================================================================
 # Smart Computed - Intelligent Chain Handling
 # ============================================================================
-
-
-class SmartComputed(ComputedBase, TupleOperable):
-    """
-    Computed value with intelligent materialization.
-
-    Represents f(A₁, A₂, ..., Aₙ) where each Aᵢ is an observable.
-
-    Materialization Strategy:
-    - Linear chains: f₁(f₂(...fₖ(x)...)) stays as composed function
-    - Branch points: Materialize intermediate results when multiple dependents
-    - Subscriptions: Force materialization for change propagation
-
-    Example:
-        a >> f1 >> f2 >> f3  (linear, stays virtual)
-        b = a >> f1 >> f2
-        c = b >> f3          (branch point, b materializes)
-        d = b >> f4          (branch point, b materializes)
-    """
-
-    __slots__ = (
-        "_store",
-        "_sources",
-        "_fused_fn",
-        "_materialized_key",
-        "_dependents_count",
-        "_is_subscribed",
-        "_cached_value",
-        "_is_dirty",
-    )
-
-    def __init__(self, store: "Store", sources: List[Observable], compute_fn: Callable):
-        ComputedBase.__init__(self, store)
-        TupleOperable.__init__(self)
-        self._sources = sources
-        self._fused_fn = compute_fn
-        self._is_subscribed = False
-        self._cached_value = None
-        self._is_dirty = True
-
-    @property
-    def value(self) -> Any:
-        """Get computed value."""
-        if self._materialized_key:
-            # Materialized: use DeltaKVStore caching
-            return self._store._kv.get(self._materialized_key)
-
-        # Virtual: recompute every time (no caching for virtual SmartComputed)
-        vals = [src.value for src in self._sources]
-        if len(vals) == 1:
-            return self._fused_fn(vals[0])
-        return self._fused_fn(*vals)
-
-    def set(self, new_value: Any) -> None:
-        """Computed values are read-only."""
-        pass  # No-op for API compatibility
-
-    def subscribe(
-        self, callback: Callable[[Any], None], call_immediately: bool = False
-    ) -> Callable[[], None]:
-        """Subscription forces materialization."""
-        self._is_subscribed = True
-        materialized = self._materialize_full_chain()
-
-        # The materialized observable will handle calling immediately
-        return materialized.subscribe(callback, call_immediately=call_immediately)
-
-    def _register_dependent(self):
-        """Called when another computed depends on this one."""
-        Materializable._register_dependent(self)
-
-        # Branch point detected: materialize for fan-out efficiency
-        if self._dependents_count >= 2 and not self._materialized_key:
-            self._materialize_as_node()
-
-    def _materialize_as_node(self) -> Observable:
-        """
-        Materialize THIS node into DeltaKVStore.
-        Sources stay as-is (may be virtual or tracked).
-        """
-        if self._materialized_key:
-            obs = self._store._observables.get(self._materialized_key)
-            if obs:
-                return obs
-
-        # Create key
-        self._materialized_key = self._store._gen_key("node")
-
-        # Build compute function
-        compute_fn = self._fused_fn
-        sources = self._sources
-
-        def compute():
-            vals = _collect_source_values(sources)
-            if len(vals) == 1:
-                return compute_fn(vals[0])
-            return compute_fn(*vals)
-
-        # Get dependency keys
-        dep_keys = _get_dependency_keys(sources, self._store)
-
-        # Register with DeltaKVStore
-        self._store._kv.computed(self._materialized_key, compute, deps=dep_keys)
-
-        # Create observable wrapper
-        obs = Observable(self._store, self._materialized_key)
-        obs._is_tracked = True
-        self._store._observables[self._materialized_key] = obs
-        return obs
-
-    def _materialize_full_chain(self) -> Observable:
-        """
-        Materialize the entire chain for subscriptions.
-
-        Strategy: Materialize the LEAF (this node) which will recursively
-        materialize all dependencies via _materialize_as_node.
-        """
-        return self._materialize_as_node()
-
-    # ========================================================================
-    # Operators - Chain building with fusion
-    # ========================================================================
-
-    def then(self, transform: Callable) -> "SmartComputed":
-        """Apply transformation with function composition optimization."""
-        self._register_dependent()
-
-        # If we're already materialized OR have multiple dependents,
-        # create a new computed that depends on us
-        if self._materialized_key or self._dependents_count > 1:
-            materialized = self._materialize_as_node()
-            return SmartComputed(self._store, [materialized], transform)
-
-        # Fuse operations: create new computed with combined function
-        old_fn = self._fused_fn
-
-        def fused(*vals):
-            intermediate = old_fn(*vals) if len(vals) > 1 else old_fn(vals[0])
-            # Handle case where old_fn returns multiple values (like StreamMerge)
-            if isinstance(intermediate, tuple):
-                return transform(*intermediate)
-            else:
-                return transform(intermediate)
-
-        return SmartComputed(self._store, self._sources, fused)
-
-    def alongside(self, *others: "Observable") -> "StreamMerge":
-        """Combine with other observables into tuple stream."""
-        all_obs = (self,) + others
-        store = self._store
-        return store._get_or_create_stream(all_obs)
-
-    def requiring(self, condition: "Observable") -> "ConditionalObservable":
-        """Filter by condition."""
-        self._register_dependent()
-
-        if callable(condition) and not hasattr(condition, "_register_dependent"):
-            materialized = self._materialize_as_node()
-            return ConditionalObservable(self._store, materialized, condition)
-
-        if hasattr(condition, "_register_dependent"):
-            condition._register_dependent()
-
-        materialized = self._materialize_as_node()
-        return ConditionalObservable(self._store, materialized, condition)
-
-    def either(self, other: "Observable") -> "SmartComputed":
-        """Logical OR with other observable."""
-        self._register_dependent()
-        if hasattr(other, "_register_dependent"):
-            other._register_dependent()
-
-        materialized = self._materialize_as_node()
-        return SmartComputed(
-            self._store, [materialized, other], lambda a, b: bool(a) or bool(b)
-        )
-
-    def negate(self) -> "SmartComputed":
-        """Logical NOT with function fusion when possible."""
-        self._register_dependent()
-
-        if not self._materialized_key and self._dependents_count == 1:
-            old_fn = self._fused_fn
-
-            def fused(*vals):
-                result = old_fn(*vals) if len(vals) > 1 else old_fn(vals[0])
-                return not bool(result)
-
-            return SmartComputed(self._store, self._sources, fused)
-
-        materialized = self._materialize_as_node()
-        return SmartComputed(self._store, [materialized], lambda x: not bool(x))
-
-    __rshift__ = then
-    __add__ = alongside
-    __and__ = requiring
-    __or__ = either
-    __invert__ = negate
-
-    def __repr__(self) -> str:
-        state = "materialized" if self._materialized_key else "virtual"
-        return f"SmartComputed({state}, deps={self._dependents_count}, sources={len(self._sources)})"
 
 
 # ============================================================================
@@ -601,7 +390,7 @@ class GlobalStore:
             elif hasattr(src, "_materialized_key") and src._materialized_key:
                 return src._materialized_key
             else:
-                # For virtual SmartComputed, use id-based key
+                # For virtual ComputedObservable, use id-based key
                 return f"virtual_{id(src)}"
 
         cache_key = tuple(get_source_id(src) for src in sources)
@@ -654,123 +443,6 @@ class ConditionNotMet(Exception):
     pass
 
 
-class ConditionNeverMet(Exception):
-    """Raised when accessing a conditional observable that has never had conditions met."""
-
-    pass
-
-
-# ============================================================================
-# ConditionalObservable - Only emits when conditions are met
-# ============================================================================
-
-
-class ConditionalObservable(SmartComputed):
-    """
-    Conditional observable implemented as a SmartComputed with special emission semantics.
-
-    Computes: source_value if condition_met else NullEvent
-    But only emits on transitions (inactive->active) and value changes when active.
-    """
-
-    def __init__(self, store, source, condition):
-        # Build the compute function
-        def compute_conditional(src_val, cond_val):
-            # Return source value if condition met, else NullEvent as sentinel
-            return src_val if cond_val else NULL_EVENT
-
-        # For callable conditions, we need to compute the condition
-        if callable(condition):
-            # Create condition computed from source
-            condition_computed = SmartComputed(
-                store, [source], lambda val: condition(val)
-            )
-            super().__init__(store, [source, condition_computed], compute_conditional)
-        else:
-            # Condition is an observable
-            super().__init__(store, [source, condition], compute_conditional)
-
-        # Initialize conditional state attributes
-        self._is_active = False
-        self._cached_value = None
-        self._has_ever_been_active = False
-
-        # Track conditional state for special emission logic
-        try:
-            computed_val = super().value  # Call parent value to avoid recursion
-            self._is_active = computed_val is not NULL_EVENT
-            self._cached_value = self._sources[0].value if self._is_active else None
-            self._has_ever_been_active = self._is_active
-        except ConditionNeverMet:
-            # If sources have never been active, start as inactive
-            pass
-
-    @property
-    def value(self):
-        """Get current value with conditional semantics."""
-        computed_value = super().value
-        if computed_value is NULL_EVENT:
-            if not self._has_ever_been_active:
-                raise ConditionNeverMet("Conditional has never been active")
-            return self._cached_value
-        return computed_value
-
-    def subscribe(self, callback, call_immediately: bool = False):
-        """Subscribe with conditional emission semantics."""
-        # Instead of using SmartComputed's subscribe, we override to add special logic
-        self._is_subscribed = True
-        materialized = self._materialize_full_chain()
-
-        def conditional_callback(computed_value):
-            # SmartComputed gives us the computed value (source if condition met, else NullEvent)
-            if computed_value is not NULL_EVENT:
-                # Condition is met - this could be a transition or value change
-                was_active = self._is_active
-                self._is_active = True
-                if not was_active:
-                    self._has_ever_been_active = True
-                    self._cached_value = computed_value
-                    callback(computed_value)
-                elif computed_value != self._cached_value:
-                    # Value changed while active
-                    self._cached_value = computed_value
-                    callback(computed_value)
-                # Else: condition still met, value unchanged - no emission
-            else:
-                # Condition not met - just update state
-                self._is_active = False
-
-        # Subscribe to the SmartComputed's emissions, but filter them through conditional logic
-        return materialized.subscribe(conditional_callback, call_immediately=False)
-
-    def then(self, transform):
-        """Apply transformation to conditional observable."""
-        # Register as dependent
-        self._register_dependent()
-        return SmartComputed(self._store, [self], lambda val: transform(val))
-
-    def requiring(self, condition):
-        """Chain conditional with another condition."""
-        # For chaining conditionals: conditional1 & condition2
-        # Creates a new conditional where source=conditional1 and condition=condition2
-        if callable(condition):
-            # condition is a callable - create computed condition
-            condition_computed = SmartComputed(
-                self._store, [self], lambda val: condition(val)
-            )
-            return ConditionalObservable(self._store, self, condition_computed)
-        else:
-            # condition is an observable
-            return ConditionalObservable(self._store, self, condition)
-
-    __and__ = requiring
-    __rshift__ = then
-
-    def set(self, value):
-        """Conditional observables are read-only."""
-        raise AttributeError("Conditional observables are read-only")
-
-
 # ============================================================================
 # Transaction support
 # ============================================================================
@@ -795,20 +467,28 @@ def reactive(*dependencies, autorun: bool = True):
                     if hasattr(dep, "_original_observable")
                     else dep
                 )
-                # Call immediately for computed observables, and for conditional observables
+                # Call immediately for computed observables
                 call_now = autorun
-                if (
-                    isinstance(actual_dep, ConditionalObservable)
-                    and not actual_dep._has_ever_been_active
-                ):
-                    # For conditionals that have never been active, call immediately with False
+
+                # Special handling for conditional observables
+                if actual_dep.__class__.__name__ == "ConditionalObservable":
+                    # Conditionals should not call immediately by default
+                    # They only fire on state transitions (active ↔ inactive)
+                    call_now = False
+
+                    # Check if already active on first access
                     try:
                         value = actual_dep.value
-                        func(value)
-                    except ConditionNeverMet:
-                        func(
-                            False
-                        )  # Conditionals that have never met are considered False
+                        if value is not None and value is not NULL_EVENT:
+                            # Already active - don't call, wait for transition
+                            pass
+                    except Exception as e:
+                        if "Conditional" in str(type(e)) or "never" in str(e).lower():
+                            # Never been active - call with False
+                            func(False)
+                        else:
+                            raise
+
                 unsubscribers.append(
                     dep.subscribe(lambda value: func(value), call_immediately=call_now)
                 )

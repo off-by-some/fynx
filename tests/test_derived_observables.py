@@ -286,7 +286,7 @@ class TestPerformanceCharacteristics:
 
         derived = source >> expensive_sum
 
-        # Each access recomputes (virtual SmartComputed don't cache)
+        # Each access recomputes (virtual ComputedObservable don't cache)
         assert derived.value == 60
         assert call_count[0] == 1
 
@@ -314,7 +314,7 @@ class TestPerformanceCharacteristics:
         assert derived.value == 10
         assert transform_calls == [5]
 
-        # Virtual SmartComputed don't cache - always recompute
+        # Virtual ComputedObservable don't cache - always recompute
         assert derived.value == 10
         assert transform_calls == [5, 5]  # Called again
 
