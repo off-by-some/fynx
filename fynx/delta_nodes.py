@@ -200,7 +200,34 @@ class VirtualNode(Node):
             return transform(self._compute_func())
 
         new_id = f"{self.node_id}_fused"
-        return VirtualNode(new_id, fused_func, self._store)
+        # Create FusedVirtualNode to preserve fusion chain
+        return FusedVirtualNode(new_id, fused_func, self._store, self._dependencies)
+
+
+class FusedVirtualNode(VirtualNode):
+    """
+    Virtual node with composed computation functions.
+
+    Represents a chain of fused transformations (f3 ∘ f2 ∘ f1) that execute
+    as a single computation for optimal performance in linear chains.
+
+    FusedVirtualNode is created when VirtualNode.fuse_with() is called.
+    It maintains the same behavior as VirtualNode but tracks that it's a fused chain.
+    """
+
+    def __init__(
+        self,
+        node_id: str,
+        compute_func: Callable[[], Any],
+        store,
+        dependencies: List[str] = None,
+    ):
+        # Don't call super().__init__ since we need to set dependencies first
+        Node.__init__(self, node_id, store)
+        self._compute_func = compute_func
+        self._dependencies = dependencies or []
+        self._direct_dependents: List[weakref.ref] = []
+        self._cached_value: Optional[Any] = None
 
     def _register_in_store(self) -> None:
         """Register as a computed value in the store."""
@@ -425,6 +452,34 @@ class NodeFactory:
     def get_node(self, node_id: str) -> Optional[Node]:
         """Get an existing node by ID."""
         return self._node_registry.get(node_id)
+
+    def create_computed_with_fusion(
+        self, parent_node: Node, transform: Callable
+    ) -> Node:
+        """
+        Create a computed node with fusion support.
+
+        If parent is a fusable VirtualNode with ≤1 consumer, fuse the functions.
+        Otherwise, create a normal computed node.
+        """
+        # Check if parent is fusable
+        is_virtual = isinstance(parent_node, VirtualNode)
+        is_fusable = is_virtual and parent_node._metrics.consumer_count <= 1
+
+        if is_fusable:
+            # Use parent's fuse_with method to create fused node
+            fused_node = parent_node.fuse_with(transform)
+            # Register in factory
+            self._node_registry[fused_node.node_id] = fused_node
+            return fused_node
+
+        # Not fusable - create normal computed node
+        # This path requires more context, so delegate to create_computed
+        return self.create_computed(
+            node_id=self._store._gen_key("computed"),
+            compute_func=transform,
+            dependencies=[parent_node.node_id],
+        )
 
     def transition_to_tracked(self, node_id: str) -> None:
         """
