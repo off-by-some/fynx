@@ -601,7 +601,7 @@ class ComputedObservable(ComputedBase):
         # NORMAL PATH: New computed
         return ComputedObservable(self._store, sources, fn)
 
-    def _make_stream(self, sources: list) -> "StreamObservable":
+    def _make_stream(self, sources: list) -> "StreamMerge":
         """Create stream - uses cached instances."""
         return self._store._get_or_create_stream(tuple(sources))
 
@@ -712,6 +712,26 @@ class ComputedObservable(ComputedBase):
         for dependent in self._direct_dependents:
             if hasattr(dependent, "_on_source_changed"):
                 dependent._on_source_changed()
+
+    def _on_node_invalidated(self):
+        """
+        Called by VirtualNode when it's invalidated.
+
+        This method is called by VirtualNode's notify_dependents() method
+        to trigger cache invalidation without going through the store.
+        """
+        # Invalidate cache so next value access recomputes
+        self._cached_value = None
+
+        # Propagate to our direct dependents (if we have a node)
+        # or use the legacy _direct_dependents list
+        if self._node and self._node.get_state() == "virtual":
+            self._node.notify_dependents()
+        else:
+            # Fallback to legacy direct dependents
+            for dependent in self._direct_dependents:
+                if hasattr(dependent, "_on_source_changed"):
+                    dependent._on_source_changed()
 
     def negate(self) -> "ComputedObservable":
         """Logical NOT with fusion."""

@@ -17,6 +17,7 @@ State Transitions:
 """
 
 import threading
+import weakref
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Set, Tuple
@@ -106,6 +107,10 @@ class Node(ABC):
         if self._state == NodeState.VIRTUAL:
             self._state = NodeState.TRACKED
             self._register_in_store()
+            # Clear direct dependents when transitioning to tracked
+            # Store-based propagation will handle notifications now
+            if hasattr(self, "_direct_dependents"):
+                self._direct_dependents.clear()
 
     def _transition_to_materialized(self) -> None:
         """Transition to Materialized state (ensures Tracked first)."""
@@ -114,6 +119,9 @@ class Node(ABC):
         if self._state == NodeState.TRACKED:
             self._state = NodeState.MATERIALIZED
             self._materialize_in_store()
+            # Clear direct dependents when materializing
+            if hasattr(self, "_direct_dependents"):
+                self._direct_dependents.clear()
 
     @abstractmethod
     def _register_in_store(self) -> None:
@@ -138,22 +146,47 @@ class VirtualNode(Node):
         super().__init__(node_id, store)
         self._compute_func = compute_func
         self._dependencies: List[str] = []
-        self._direct_dependents: List[Any] = []  # For O(1) direct propagation
+        self._direct_dependents: List[weakref.ref] = (
+            []
+        )  # Weak references for O(1) propagation
+        self._cached_value: Optional[Any] = None
 
     def read(self) -> Any:
         """Compute value on-demand by executing the fused function."""
         with self._lock:
             self._metrics.access_count += 1
-            # Pure computation, no caching
-            return self._compute_func()
+            # Use cached value if available to avoid recomputation
+            if self._cached_value is not None:
+                return self._cached_value
+            self._cached_value = self._compute_func()
+            return self._cached_value
 
     def write(self, value: Any) -> None:
         """Virtual nodes are read-only."""
         raise ValueError(f"Cannot write to virtual node {self.node_id}")
 
     def invalidate(self) -> None:
-        """Virtual nodes don't cache, so invalidation is a no-op."""
-        pass
+        """Invalidate cached value and notify direct dependents."""
+        with self._lock:
+            self._cached_value = None
+            self.notify_dependents()
+
+    def notify_dependents(self) -> None:
+        """
+        Fast path: O(1) direct notification without store overhead.
+
+        Notifies all direct dependents via weak references. This avoids
+        the DeltaKVStore overhead for linear chains staying in virtual mode.
+        """
+        valid_refs = []
+        for dep_ref in self._direct_dependents:
+            dep = dep_ref()  # Unwrap weakref
+            if dep is not None:
+                valid_refs.append(dep_ref)
+                if hasattr(dep, "_on_node_invalidated"):
+                    dep._on_node_invalidated()
+        # Clean up dead references
+        self._direct_dependents = valid_refs
 
     def fuse_with(self, transform: Callable[[Any], Any]) -> "VirtualNode":
         """
