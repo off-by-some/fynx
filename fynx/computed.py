@@ -23,10 +23,23 @@ Fusion Optimization:
 
 from typing import TYPE_CHECKING, Any, Callable, List
 
-from .base import BaseObservable, Materializable, OperatorMixin, _try_register_dependent
+from .base import (
+    BaseObservable,
+    Materializable,
+    OperatorMixin,
+    Subscribable,
+    Trackable,
+    TupleOperable,
+    _try_register_dependent,
+)
 
 if TYPE_CHECKING:
-    from .observable import Observable, StreamObservable
+    from .observable import (
+        ConditionalObservable,
+        Observable,
+        SmartComputed,
+        StreamObservable,
+    )
     from .store import Store
 
 
@@ -53,6 +66,36 @@ def _flatten_nested_values(*vals):
         else:
             result.append(v)
     return result
+
+
+def _get_dependency_keys(sources: List["Observable"], store) -> List[str]:
+    """Extract dependency keys from sources, ensuring they're tracked/materialized."""
+    dep_keys = []
+    for src in sources:
+        # Check by class name to avoid forward reference issues
+        class_name = src.__class__.__name__
+        if class_name in ("SmartComputed", "ConditionalObservable"):
+            # Source is computed - ensure it's materialized for dependency tracking
+            if not src._materialized_key:
+                src._materialize_as_node()
+            dep_keys.append(src._materialized_key)
+        elif class_name == "StreamMerge":
+            # StreamMerge - ensure it's tracked for dependency tracking
+            if not src._is_tracked:
+                src._track_in_store()
+            dep_keys.append(src._key)
+        elif hasattr(src, "_is_tracked") and hasattr(src, "_track_in_store"):
+            # Source is observable - track it if not already
+            if not src._is_tracked:
+                src._track_in_store()
+            dep_keys.append(src._key)
+        elif hasattr(src, "_key"):
+            # Source has a key but is not tracked (e.g., ConditionalObservable)
+            dep_keys.append(src._key)
+        else:
+            # Source doesn't have tracking - this shouldn't happen
+            raise ValueError(f"Cannot track dependency: {src}")
+    return dep_keys
 
 
 class NullEvent:
@@ -267,6 +310,248 @@ class ComputedBase(BaseObservable, Materializable, OperatorMixin):
     def __repr__(self) -> str:
         state = "materialized" if self.is_materialized else "virtual"
         return f"{self.__class__.__name__}({state}, deps={self._dependents_count})"
+
+
+# ============================================================================
+# StreamMerge - Ultra-Fast Stream Operations
+# ============================================================================
+
+
+class StreamMerge(ComputedBase, Trackable, TupleOperable, Subscribable):
+    """
+    Merges multiple observable streams into a single tuple stream.
+
+    Given observables A₁, A₂, ..., Aₙ, produces stream (A₁, A₂, ..., Aₙ).
+
+    Key Properties:
+    - Cached tuple: O(1) access to current values
+    - Incremental updates: Only changed indices updated on source changes
+    - Lazy subscription: Sources only subscribed to when StreamMerge is subscribed
+    - Memory efficient: Single tuple allocation per update cycle
+    """
+
+    __slots__ = (
+        "_sources",  # tuple[Observable]: Source observables
+        "_cached_values",  # list: Individual cached values [fast indexed update]
+        "_cached_tuple",  # tuple: Cached combined tuple [fast repeated access]
+        "_callbacks",  # set[Callable]: Registered callbacks
+        "_is_subscribed",  # bool: Track if we've set up source subscriptions
+        "_is_tracked",  # bool: Whether this StreamMerge is tracked in DeltaKVStore
+    )
+
+    def __init__(self, store: "Store", sources: List["Observable"]):
+        ComputedBase.__init__(self, store, sources)
+        Trackable.__init__(self)
+        TupleOperable.__init__(self)
+        Subscribable.__init__(self)
+        self._sources = tuple(sources)
+        self._key = store._gen_key("stream")  # For dependency tracking
+
+        # Initialize cached values - pay upfront cost once
+        self._cached_values = [src.value for src in self._sources]
+        self._cached_tuple = tuple(self._cached_values)
+
+        # Lazy subscription state
+        self._callbacks = set()
+        self._is_subscribed = False
+
+    @property
+    def value(self) -> tuple:
+        """Return current combined values as tuple."""
+        if self._is_tracked:
+            return self._store._kv.get(self._key)
+        return self._cached_tuple
+
+    def set(self, new_value: Any) -> None:
+        """Stream merges are read-only."""
+        pass  # No-op for API compatibility
+
+    def _track_in_store(self):
+        """Track this StreamMerge in DeltaKVStore for change propagation."""
+        if self._is_tracked:
+            return
+
+        self._is_tracked = True
+
+        # Get dependency keys for all sources
+        dep_keys = _get_dependency_keys(list(self._sources), self._store)
+
+        # Register computed function that returns the tuple
+        def compute_tuple():
+            return tuple(src.value for src in self._sources)
+
+        self._store._kv.computed(self._key, compute_tuple, deps=dep_keys)
+
+        # Set up subscription to update our cached values when the store value changes
+        def on_tuple_change(delta):
+            if delta.key == self._key and delta.new_value is not None:
+                self._cached_tuple = delta.new_value
+                self._cached_values = list(delta.new_value)
+                self._notify_callbacks()
+
+        self._store._kv.subscribe(self._key, on_tuple_change)
+
+    def subscribe(
+        self, callback: Callable[[tuple], None], call_immediately: bool = True
+    ) -> Callable[[], None]:
+        """Subscribe to tuple updates. Lazy: sources only subscribed on first subscriber."""
+        # Add callback to set
+        self._callbacks.add(callback)
+
+        # Lazy setup: only subscribe to sources on first subscriber
+        if not self._is_subscribed:
+            self._setup_source_subscriptions()
+            self._is_subscribed = True
+
+        # Immediately call with current value if requested
+        if call_immediately:
+            callback(self._cached_tuple)
+
+        # Return unsubscribe function
+        def unsubscribe():
+            self._callbacks.discard(callback)
+            # Optional: cleanup source subscriptions if no more callbacks
+            if not self._callbacks and self._is_subscribed:
+                self._teardown_source_subscriptions()
+
+        return unsubscribe
+
+    def _setup_source_subscriptions(self):
+        """
+        Subscribe to all sources for reactive updates.
+
+        Creates one subscription per source with an update handler
+        that updates the cache and notifies callbacks.
+        """
+        for idx, src in enumerate(self._sources):
+            # Create closure that captures the index
+            def make_update_handler(i):
+                def update_handler(new_val):
+                    # Update cached value at index
+                    self._cached_values[i] = new_val
+
+                    # Recreate cached tuple
+                    # This is the only allocation cost per update
+                    self._cached_tuple = tuple(self._cached_values)
+
+                    # Notify all subscribers
+                    self._notify_callbacks()
+
+                return update_handler
+
+            # Subscribe to source
+            handler = make_update_handler(idx)
+            unsub = src.subscribe(handler)
+            self._add_subscription(unsub)
+
+    def _teardown_source_subscriptions(self):
+        """Clean up source subscriptions when no longer needed."""
+        self._clear_subscriptions()
+        self._is_subscribed = False
+
+    def _notify_callbacks(self):
+        """Notify all callbacks with current cached tuple."""
+        # Make a copy of callbacks in case callback adds/removes subscribers
+        for cb in list(self._callbacks):
+            try:
+                cb(self._cached_tuple)
+            except Exception as e:
+                # Log error but don't break other callbacks
+                # In production, use proper logging
+                print(f"StreamMerge callback error: {e}")
+
+    # ========================================================================
+    # Custom Operators for StreamMerge
+    # ========================================================================
+
+    def then(self, transform: Callable) -> "SmartComputed":
+        """
+        Transform the merged stream.
+
+        Creates a SmartComputed that depends on all sources.
+        The transform receives the tuple of values.
+        """
+        store = self._sources[0]._store
+
+        # Register all sources as having a dependent
+        for src in self._sources:
+            if hasattr(src, "_register_dependent"):
+                src._register_dependent()
+
+        def compute_func(*vals):
+            # Flatten nested tuples from nested StreamMerges
+            def flatten_values(v):
+                if isinstance(v, tuple):
+                    result = []
+                    for item in v:
+                        result.extend(flatten_values(item))
+                    return result
+                else:
+                    return [v]
+
+            flattened = []
+            for v in vals:
+                flattened.extend(flatten_values(v))
+            return transform(*flattened)
+
+        # Lazy import to avoid circular dependency
+        from .observable import SmartComputed
+
+        return SmartComputed(
+            store,
+            list(self._sources),
+            compute_func,
+        )
+
+    def alongside(self, *others) -> "StreamMerge":
+        """
+        Extend the merge with additional observables.
+
+        Returns a cached StreamMerge instance for the combined sources.
+        """
+        store = self._sources[0]._store
+        all_obs = self._sources + others
+
+        # Register new sources as having dependents
+        for obs in others:
+            if hasattr(obs, "_register_dependent"):
+                obs._register_dependent()
+
+        return store._get_or_create_stream(all_obs)
+
+    def requiring(self, condition) -> "ConditionalObservable":
+        """Filter: only emit when condition is truthy."""
+        store = self._sources[0]._store
+
+        # Register all sources as having dependents
+        for src in self._sources:
+            if hasattr(src, "_register_dependent"):
+                src._register_dependent()
+
+        if hasattr(condition, "_register_dependent"):
+            condition._register_dependent()
+
+        # Create a computed that evaluates the condition on the tuple
+        def condition_fn(*vals):
+            return bool(vals[-1])  # Last value is the condition
+
+        # Lazy imports to avoid circular dependency
+        from .observable import ConditionalObservable, SmartComputed
+
+        # Create computed for the condition evaluation
+        condition_computed = SmartComputed(
+            store, list(self._sources) + [condition], condition_fn
+        )
+
+        # Create conditional observable that filters the tuple
+        return ConditionalObservable(store, self, condition_computed)
+
+    def __repr__(self) -> str:
+        state = "subscribed" if self._is_subscribed else "unsubscribed"
+        return (
+            f"StreamMerge({len(self._sources)} sources, "
+            f"{len(self._callbacks)} callbacks, {state})"
+        )
 
 
 # ============================================================================

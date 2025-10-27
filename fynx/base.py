@@ -304,3 +304,78 @@ class OperatorMixin:
 
     def __invert__(self):
         return self.negate()
+
+
+class TupleOperable:
+    """Mixin providing operator implementations for tuple-based observables."""
+
+    def then(self, transform: Callable):
+        """Apply transformation: obs >> f → f(obs)"""
+        self._register_dependent()
+
+        def compute_func(*vals):
+            # Flatten nested tuples from StreamMerge sources
+            def flatten_values(v):
+                if isinstance(v, tuple):
+                    result = []
+                    for item in v:
+                        result.extend(flatten_values(item))
+                    return result
+                else:
+                    return [v]
+
+            flattened = []
+            for v in vals:
+                flattened.extend(flatten_values(v))
+            return transform(*flattened)
+
+        # Lazy import to avoid circular dependency
+        from .observable import SmartComputed
+
+        return SmartComputed(self._store, [self], compute_func)
+
+    def alongside(self, *others):
+        """Combine streams: (obs₁, obs₂, ..., obsₙ)"""
+        all_obs = (self,) + others
+        return self._store._get_or_create_stream(all_obs)
+
+    def requiring(self, condition):
+        """Filter by condition: only emit when conditions are met"""
+        self._register_dependent()
+        if hasattr(condition, "_register_dependent"):
+            condition._register_dependent()
+        elif callable(condition):
+            # For callable conditions, create a wrapper observable that tracks the condition
+            from .observable import ConditionalObservable, SmartComputed
+
+            condition_obs = SmartComputed(
+                self._store, [self], lambda val: condition(val)
+            )
+            return ConditionalObservable(self._store, self, condition_obs)
+        from .observable import ConditionalObservable
+
+        return ConditionalObservable(self._store, self, condition)
+
+    def either(self, other):
+        """Logical OR: bool(a) or bool(b)"""
+        self._register_dependent()
+        other._register_dependent()
+        from .observable import SmartComputed
+
+        return SmartComputed(
+            self._store, [self, other], lambda a, b: bool(a) or bool(b)
+        )
+
+    def negate(self):
+        """Logical NOT: not bool(obs)"""
+        self._register_dependent()
+        from .observable import SmartComputed
+
+        return SmartComputed(self._store, [self], lambda x: not bool(x))
+
+    # Operator overloads
+    __rshift__ = then
+    __add__ = alongside
+    __and__ = requiring
+    __or__ = either
+    __invert__ = negate
