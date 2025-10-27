@@ -26,10 +26,12 @@ Think of observables as values that can change over time. Each observable either
 
 Formally, we can model this as a directed acyclic graph (DAG) where nodes are observables and edges are dependencies. Each node $n$ has a value $\text{val}(n)$ and optionally a computation function $f_n$:
 
-$\text{val}(n) = \begin{cases}
+$$
+\text{val}(n) = \begin{cases}
 \text{stored value} & \text{if } n \text{ is a source} \\
 f_n(\text{val}(p_1), \dots, \text{val}(p_k)) & \text{if } n \text{ has parents } p_1, \dots, p_k
-\end{cases}$
+\end{cases}
+$$
 
 A computation graph emerges naturally from these dependencies. Sources sit at the leaves—they store actual values. Computed nodes sit higher up, each knowing which nodes it depends on and how to combine their values. When a source changes, the system needs to figure out which computed values might have changed and let them know.
 
@@ -57,7 +59,9 @@ This looks inefficient—recomputing on every access—but it's optimal for line
 
 The cost of accessing a virtual node at depth $d$ is:
 
-$C_{\text{read}}^{\text{virtual}} = \sum_{i=1}^{d} c_i$
+$$
+C_{\text{read}}^{\text{virtual}} = \sum_{i=1}^{d} c_i
+$$
 
 where $c_i$ is the computation cost at each level. For a fused chain, this collapses to a single composed function evaluation, making it $O(d)$ but with minimal constant factors.
 
@@ -86,7 +90,9 @@ Tracking enables the dependency graph to route updates correctly. The store main
 
 When `x` changes, the system uses $\mathcal{D}$ to find all nodes that transitively depend on `x`. For tracked nodes, access cost drops to constant time:
 
-$C_{\text{read}}^{\text{tracked}} = O(1)$
+$$
+C_{\text{read}}^{\text{tracked}} = O(1)
+$$
 
 This is a hash table lookup rather than recomputation. But notice that `y` stays virtual—it's still just a fused function inside `z`'s computation.
 
@@ -112,11 +118,15 @@ The instant `w` is created, `y` materializes because it now has two consumers (`
 
 The cost model makes the threshold of 2 dependents obvious. Let $\phi(n)$ be the fan-out (number of consumers) of node $n$, and let $c_n$ be its computation cost. Without materialization, total cost for all consumers is:
 
-$C_{\text{total}}^{\text{virtual}} = \phi(n) \times c_n$
+$$
+C_{\text{total}}^{\text{virtual}} = \phi(n) \times c_n
+$$
 
 With materialization, you compute once and look up $\phi(n)$ times:
 
-$C_{\text{total}}^{\text{materialized}} = c_n + \phi(n) \times O(1)$
+$$
+C_{\text{total}}^{\text{materialized}} = c_n + \phi(n) \times O(1)
+$$
 
 Materialization wins when $\phi(n) \geq 2$, which is exactly the threshold FynX uses.
 
@@ -198,8 +208,8 @@ The threshold is exactly two consumers. Why two? The cost model makes it clear: 
 
 Formally, for a node with computation cost $c$ and $k$ consumers:
 
-$\text{Without caching: } k \cdot c$
-$\text{With caching: } c + k \cdot O(1)$
+$$\text{Without caching: } k \cdot c$$
+$$\text{With caching: } c + k \cdot O(1)$$
 
 Caching becomes beneficial when $k \cdot c > c + k \cdot O(1)$, which simplifies to $k > 1 + \frac{O(1)}{c - O(1)}$. For any non-trivial computation where $c \gg O(1)$, the threshold is effectively $k \geq 2$.
 

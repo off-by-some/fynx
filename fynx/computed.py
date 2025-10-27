@@ -559,10 +559,12 @@ class ComputedObservable(ComputedBase):
 
         if not _skip_source_registration:
             for source in sources:
-                if hasattr(source, "_register_dependent"):
-                    # Pass self only if source can handle dependent tracking (computed observables)
-                    # Regular observables just need to know they have dependents
-                    if hasattr(source, "_direct_dependents"):  # ComputedBase has this
+                # Fast path: just increment counter for regular observables
+                if hasattr(source, "_dependents_count"):
+                    source._dependents_count += 1
+                elif hasattr(source, "_register_dependent"):
+                    # ComputedBase path - check for direct dependents support
+                    if hasattr(source, "_direct_dependents"):
                         source._register_dependent(self)
                     else:
                         source._register_dependent()
@@ -625,8 +627,10 @@ class ComputedObservable(ComputedBase):
 
         Fusion preserves single-chain benefits while maintaining direct propagation.
         """
+        # Fast path: check materialized_key directly, avoid property call
+        materialized = self._materialized_key is not None
         # Fuse if: not materialized AND no fan-out (≤1 dependent)
-        return not self.is_materialized and self._dependents_count <= 1
+        return not materialized and self._dependents_count <= 1
 
     def _materialize_as_node(self):
         """
@@ -664,19 +668,25 @@ class ComputedObservable(ComputedBase):
             intermediate = old_fn(*vals)  # old_fn handles unpacking correctly
             return new_transform(intermediate)
 
+        # Fast check: avoid is_materialized property call
+        materialized = self._materialized_key is not None
+
         # Store original sources to check if tracking changed
         original_sources = self._sources
 
-        # Check if any source is tracked - if so, materialize this before fusion
-        has_tracked_source = any(
-            hasattr(src, "_is_tracked") and src._is_tracked for src in original_sources
-        )
+        # Fast check for tracked sources - cache the result
+        if not materialized:
+            # Only need to check if not already materialized
+            has_tracked_source = any(
+                hasattr(src, "_is_tracked") and src._is_tracked
+                for src in original_sources
+            )
 
-        if has_tracked_source and not self.is_materialized:
-            # Source is tracked but we're virtual - need materialization for proper invalidation
-            self._materialize_as_node()
-            # Now create non-fused computed that depends on materialized self
-            return ComputedObservable(self._store, [self], new_transform)
+            if has_tracked_source:
+                # Source is tracked but we're virtual - need materialization for proper invalidation
+                self._materialize_as_node()
+                # Now create non-fused computed that depends on materialized self
+                return ComputedObservable(self._store, [self], new_transform)
 
         return ComputedObservable(
             self._store,
