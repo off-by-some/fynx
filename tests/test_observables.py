@@ -351,8 +351,8 @@ class TestObservableTransactions:
 
         # Updates are applied correctly
         assert counter.value == 30
-        # Note: Current implementation sends all notifications
-        assert notifications_during_transaction == [10, 20, 30]
+        # Note: Batch fusion coalesces multiple deltas to same key into single delta
+        assert notifications_during_transaction == [30]
 
     def test_transaction_defers_notifications_until_completion(self):
         """Transaction should defer notifications until transaction completes."""
@@ -376,14 +376,14 @@ class TestObservableTransactions:
         # Reset for transaction test
         notifications.clear()
 
-        # Act - With transaction (currently allows reentrant updates but doesn't batch notifications)
+        # Act - With transaction (batch fusion coalesces deltas to same key)
         with transaction():
             counter.set(1)
             counter.set(2)
             counter.set(3)
 
-        # Assert - All notifications are sent (batching not yet implemented)
-        assert notifications == [1, 2, 3]
+        # Assert - Batch fusion reduces multiple deltas to same key to single delta
+        assert notifications == [3]
 
     def test_transaction_ensures_atomic_updates(self):
         """Transaction should ensure atomic updates prevent intermediate inconsistent states."""
@@ -404,8 +404,8 @@ class TestObservableTransactions:
 
         # Assert - All updates are applied, final value is correct
         assert counter.value == 30
-        # Note: Current implementation sends all notifications
-        assert notifications == [10, 20, 30]
+        # Note: Batch fusion coalesces multiple deltas to same key into single delta
+        assert notifications == [30]
 
     def test_transaction_coordinates_multiple_observable_updates(self):
         """Transaction should coordinate updates across multiple observables."""

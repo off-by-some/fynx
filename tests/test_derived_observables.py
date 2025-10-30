@@ -588,3 +588,55 @@ class TestIntegrationWithOtherOperators:
         total.set(60)
         assert is_expensive_obs.value == True
         assert message.value == "High-value order"
+
+
+class TestFusionPerformance:
+    """Tests for fusion optimization to prevent recursion errors in long chains."""
+
+    def test_long_chain_no_recursion_error(self):
+        """Long transformation chains should not cause recursion errors due to fusion."""
+        # This test ensures fusion prevents stack overflow in long chains
+        base = observable(0)
+        current = base
+
+        # Create a chain of 1000 transformations (would cause recursion without fusion)
+        chain_length = 1000
+        for i in range(chain_length):
+            current = current >> (lambda x, i=i: x + 1)
+
+        # Access value should work without recursion error
+        result = current.value
+        assert result == chain_length
+
+        # Change source and verify propagation still works
+        base.set(10)
+        result_after_change = current.value
+        assert result_after_change == 10 + chain_length
+
+    def test_deeply_nested_chains_maintain_correctness(self):
+        """Deep chains should maintain mathematical correctness."""
+        base = observable(1)
+        current = base
+
+        # Create chain: x -> x*2 -> x+1 -> x*3 -> x-1 -> ... -> final result
+        transformations = [
+            lambda x: x * 2,  # 1 -> 2
+            lambda x: x + 1,  # 2 -> 3
+            lambda x: x * 3,  # 3 -> 9
+            lambda x: x - 1,  # 9 -> 8
+            lambda x: x + 10,  # 8 -> 18
+        ]
+
+        expected_values = [1, 2, 3, 9, 8, 18]
+
+        for i, transform in enumerate(transformations):
+            current = current >> transform
+            assert current.value == expected_values[i + 1]
+
+        # Verify final result
+        assert current.value == 18
+
+        # Change source and verify all transformations reapply correctly
+        base.set(2)
+        # 2 -> 4 -> 5 -> 15 -> 14 -> 24
+        assert current.value == 24

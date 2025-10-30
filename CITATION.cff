@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "FynX: Functional Yielding Observable Networks"
+authors:
+- family-names: "Bridges"
+  given-names: "Cassidy"
+repository-code: "https://github.com/off-by-some/fynx"
+url: "https://github.com/off-by-some/fynx"
+license: MIT OR CC-BY-4.0
+preferred-citation:
+  type: software
+  title: "FynX: Functional Yielding Observable Networks"
+authors:
+- family-names: "Bridges"
+  given-names: "Cassidy"
+  repository-code: "https://github.com/off-by-some/fynx"
+  url: "https://github.com/off-by-some/fynx"
+  license: MIT OR CC-BY-4.0
+  year: 2025

@@ -5,43 +5,51 @@ A high-performance reactive key-value store that uses delta-based change detecti
 and only propagates changes to affected nodes.
 """
 
-# Import DeltaKVStore from observable.py (the backend implementation)
-from .delta_kv_store import DeltaKVStore
+# Import ReactiveStore from delta_kv_store.py (the backend implementation)
+from .delta_kv_store import (
+    ChangeSignificanceTester,
+    ChangeType,
+    CircularDependencyError,
+    ComputationError,
+    Delta,
+    GTCPMetrics,
+    MorphismType,
+    ReactiveStore,
+)
 
 # Import core classes from observable.py (the Observable API)
 from .observable import (
+    NULL_EVENT,
+    ComputedObservable,
+    ConditionalNeverMet,
+    ConditionalObservable,
+    ConditionNotMet,
     Observable,
+    ReactiveFunctionError,
+    SimpleMapObservable,
+    StreamMerge,
     _reset_global_store,
+    get_global_store,
 )
-from .observable import observable as global_observable
+from .observable import observable as global_observable  # Exceptions; Sentinel
 from .observable import (
     reactive,
     transaction,
 )
+
+# Import Store from store.py (the metaclass-based Store with automatic attribute access)
+from .store import Store
 
 # Backward compatibility alias
 observable = global_observable
 
 # Import Store classes from store.py
 from .store import (
-    Store,
     StoreMeta,
     StoreSnapshot,
     Subscriptable,
 )
 from .store import observable as store_observable
-
-# Import Store and related classes from store.py (the Store API)
-# from .store import (
-#     SessionValue,
-# )
-# from .store import Store as StoreClass
-# from .store import (
-#     StoreMeta,
-#     StoreSnapshot,
-#     Subscriptable,
-# )
-# from .store import SubscriptableDescriptor as StoreSubscriptableDescriptor
 
 
 # Create a simple exception class for reactive functions
@@ -55,29 +63,38 @@ class ReactiveFunctionWasCalled(Exception):
 __all__ = [
     # Core observables from observable.py
     "Observable",
-    "DerivedObservable",
-    "MergedObservable",
+    "SimpleMapObservable",
+    "ComputedObservable",
     "ConditionalObservable",
-    "OrObservable",
-    "NegatedObservable",
-    # Store classes from store.py
+    "StreamMerge",
+    # Store classes
     "Store",
     "StoreMeta",
     "StoreSnapshot",
     "Subscriptable",
     # Reactive system from observable.py
     "reactive",
-    "ReactiveContext",
     # Factory functions
     "observable",  # Global observable function (backward compatibility)
     "global_observable",  # Global observable function from observable.py
     "store_observable",  # Store-specific observable function from store.py
     "transaction",
+    "get_global_store",
     # Exception classes from observable.py
     "ConditionalNeverMet",
-    "ConditionalNotMet",
-    # Backend implementation from observable.py
-    "DeltaKVStore",
+    "ConditionNotMet",
+    "ReactiveFunctionError",
+    # Backend implementation
+    "ReactiveStore",
+    "ChangeType",
+    "Delta",
+    "CircularDependencyError",
+    "ComputationError",
+    "ChangeSignificanceTester",
+    "MorphismType",
+    "GTCPMetrics",
+    # Sentinel
+    "NULL_EVENT",
     # Testing utilities (internal use)
     "_reset_global_store",
     # Exceptions

@@ -159,8 +159,12 @@ from typing import (
     Union,
 )
 
-from .computed import ComputedObservable, ConditionNeverMet, ConditionNotMet
-from .observable import Observable
+from .observable import (
+    ComputedObservable,
+    ConditionalNeverMet,
+    ConditionNotMet,
+    Observable,
+)
 
 T = TypeVar("T")
 
@@ -263,9 +267,10 @@ class SubscriptableDescriptor(Generic[T]):
         """Support >> operator for computed values."""
         if self._original_observable is not None:
             return self._original_observable >> func
-        # For standalone descriptors, create an observable and transform it
-        obs = Observable("standalone", self._initial_value)
-        return obs >> func
+        # For standalone descriptors, we can't create valid observables without a store
+        raise RuntimeError(
+            "Cannot use >> operator on Store descriptor without original observable. Use Store class inheritance."
+        )
 
     def __add__(self, other):
         """Support + operator - try merging first, fall back to value addition."""
@@ -281,9 +286,8 @@ class SubscriptableDescriptor(Generic[T]):
             else:
                 # Not merging observables, do value addition
                 return self.value + other
-        # For standalone descriptors
-        obs = Observable("standalone", self._initial_value)
-        return obs + other
+        # For standalone descriptors without a store, use value addition
+        return self.value + other
 
     def __sub__(self, other):
         """Support - operator for value subtraction."""
@@ -368,8 +372,25 @@ class StoreSnapshot:
 def observable(initial_value: Optional[T] = None) -> Any:
     """
     Create an observable with an initial value, used as a descriptor in Store classes.
+
+    This creates observables that are wrapped by the StoreMeta metaclass.
+    Each observable needs a Store and key, which we provide via the global Store instance.
     """
-    return Observable("standalone", initial_value)
+    # Import the Store class and get_global_store from observable.py
+    from .observable import get_global_store
+
+    # Use the global store instance
+    store = get_global_store()
+
+    # Generate a unique key for this observable
+    store._key_counter += 1
+    key = f"obs${store._key_counter}"
+
+    # Create the actual Observable
+    obs = Observable(store, key, initial_value)
+    store._observables[key] = obs
+
+    return obs
 
 
 # Type alias for subscriptable observables (class variables)
@@ -418,7 +439,7 @@ class StoreMeta(type):
                 # Wrap all observables (including computed ones) in descriptors
                 try:
                     initial_value = attr_value.value
-                except (ConditionNeverMet, ConditionNotMet):
+                except (ConditionalNeverMet, ConditionNotMet):
                     # For conditionals that haven't met conditions, use None
                     initial_value = None
                 new_namespace[attr_name] = SubscriptableDescriptor(
@@ -434,6 +455,7 @@ class StoreMeta(type):
         # Cache observable attributes and their instances for efficient access
         cls._observable_attrs = list(observable_attrs)
         # Store the original observables from the namespace before they get replaced
+        # Note: These are the actual Observable instances, not the descriptors
         cls._observables = {
             attr: namespace[attr] for attr in observable_attrs if attr in namespace
         }
@@ -444,7 +466,8 @@ class StoreMeta(type):
         """Intercept class attribute assignment for observables."""
         if hasattr(cls, "_observables") and name in getattr(cls, "_observables", {}):
             # It's a known observable, delegate to its set method
-            getattr(cls, "_observables")[name].set(value)
+            observable_instance = getattr(cls, "_observables")[name]
+            observable_instance.set(value)
         else:
             super().__setattr__(name, value)
 

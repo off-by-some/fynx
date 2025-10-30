@@ -145,7 +145,7 @@ While the theory guarantees correctness; implementation determines speed. FynX d
 ```bash
 # Run the full benchmark suite
 poetry install --with benchmark
-poetry run python scripts/benchmark.py
+poetry run python scripts/benchmarks/benchmark.py
 ```
 
 Below is a sample of the output from the above command:

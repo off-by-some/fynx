@@ -120,7 +120,7 @@ class TestConditionalReactions:
         assert notifications == [
             "sync_False",
             "sync_True",
-        ]  # Receives is_logged_in.value when condition becomes met
+        ]  # Receives True when condition becomes met
 
         # Remove data - no emission when condition becomes unmet
         has_data.set(False)
@@ -182,21 +182,25 @@ class TestConditionalReactions:
         def enable_premium_features(both_true):
             notifications.append(f"premium_{both_true}")
 
-        # Initial state - conditions already met, but no immediate execution
-        assert notifications == []
+        # Initial state - conditions already met, calls immediately
+        assert notifications == ["premium_True"]
 
         # Change triggers reaction
         logged_in.set(False)
-        assert notifications == ["premium_False"]
+        assert notifications == ["premium_True", "premium_False"]
 
         verified.set(False)
-        assert notifications == ["premium_False"]  # Still False
+        assert notifications == ["premium_True", "premium_False"]  # Still False
 
         logged_in.set(True)
-        assert notifications == ["premium_False"]  # Still one False
+        assert notifications == ["premium_True", "premium_False"]  # Still one False
 
         verified.set(True)
-        assert notifications == ["premium_False", "premium_True"]  # Now both True
+        assert notifications == [
+            "premium_True",
+            "premium_False",
+            "premium_True",
+        ]  # Now both True
 
 
 class TestMultipleObservableReactions:

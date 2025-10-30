@@ -1,0 +1,226 @@
+{
+  "Observable Creation": {
+    "FynX": {
+      "ops_per_second": 488709.19472962647,
+      "timestamp": "2025-10-28T20:45:11.734833"
+    },
+    "RxPY": {
+      "ops_per_second": 134432.31787481657,
+      "timestamp": "2025-10-28T20:45:11.735345"
+    }
+  },
+  "Individual Updates": {
+    "FynX": {
+      "ops_per_second": 408987.01581024943,
+      "timestamp": "2025-10-28T20:45:13.628240"
+    },
+    "RxPY": {
+      "ops_per_second": 139251.4160268867,
+      "timestamp": "2025-10-28T20:45:13.628672"
+    }
+  },
+  "BehaviorSubject Creation": {
+    "FynX": {
+      "ops_per_second": 513931.17465855484,
+      "timestamp": "2025-10-28T20:38:45.545858"
+    },
+    "RxPY": {
+      "ops_per_second": 198754.6581378279,
+      "timestamp": "2025-10-28T20:38:45.546313"
+    }
+  },
+  "Map Transformation": {
+    "FynX": {
+      "ops_per_second": 13997.207828531366,
+      "timestamp": "2025-10-28T20:38:53.845184"
+    },
+    "RxPY-Opt": {
+      "ops_per_second": 141377.58240545038,
+      "timestamp": "2025-10-28T20:45:23.113255"
+    },
+    "RxPY": {
+      "ops_per_second": 263645.14238356607,
+      "timestamp": "2025-10-28T21:24:48.833732"
+    }
+  },
+  "Conditional Reactivity": {
+    "FynX": {
+      "ops_per_second": 7843.203399802716,
+      "timestamp": "2025-10-28T20:30:01.578530"
+    },
+    "RxPY-Opt": {
+      "ops_per_second": 133168.78590037042,
+      "timestamp": "2025-10-28T20:39:02.850156"
+    }
+  },
+  "Chain Propagation": {
+    "FynX": {
+      "ops_per_second": 185650.56976601374,
+      "timestamp": "2025-10-28T20:39:03.355380"
+    },
+    "RxPY": {
+      "ops_per_second": 92825.28488300687,
+      "timestamp": "2025-10-28T20:39:03.355787"
+    }
+  },
+  "FlatMap Transformation": {
+    "FynX": {
+      "ops_per_second": 51349.40617387907,
+      "timestamp": "2025-10-28T20:39:16.034357"
+    },
+    "RxPY": {
+      "ops_per_second": 14400.0200286823,
+      "timestamp": "2025-10-28T20:39:16.034814"
+    }
+  },
+  "Scan Accumulation": {
+    "FynX": {
+      "ops_per_second": 371153152.8428891,
+      "timestamp": "2025-10-28T20:39:23.349058"
+    },
+    "RxPY": {
+      "ops_per_second": 278139.109563169,
+      "timestamp": "2025-10-28T20:24:58.645844"
+    }
+  },
+  "Filter Operation": {
+    "FynX": {
+      "ops_per_second": 10505.249794431324,
+      "timestamp": "2025-10-28T20:46:04.813700"
+    },
+    "RxPY": {
+      "ops_per_second": 310791.79969723057,
+      "timestamp": "2025-10-28T20:25:07.650702"
+    }
+  },
+  "Distinct Until Changed": {
+    "FynX": {
+      "ops_per_second": 25316.6606560621,
+      "timestamp": "2025-10-28T20:39:39.950230"
+    },
+    "RxPY": {
+      "ops_per_second": 308458.0309183055,
+      "timestamp": "2025-10-28T20:39:39.950700"
+    }
+  },
+  "Take/Limit Operation": {
+    "FynX": {
+      "ops_per_second": 93.08235983677493,
+      "timestamp": "2025-10-28T21:02:38.876072"
+    },
+    "RxPY": {
+      "ops_per_second": 1272.6262888018484,
+      "timestamp": "2025-10-28T20:39:47.919738"
+    }
+  },
+  "Reactive Fan-out": {
+    "FynX": {
+      "ops_per_second": 233811.4334658107,
+      "timestamp": "2025-10-28T20:39:55.796141"
+    },
+    "RxPY": {
+      "ops_per_second": 11769.349797751369,
+      "timestamp": "2025-10-28T20:39:55.801176"
+    }
+  },
+  "Stream Merge": {
+    "FynX": {
+      "ops_per_second": 12374.575257413719,
+      "timestamp": "2025-10-28T20:40:04.515808"
+    },
+    "RxPY": {
+      "ops_per_second": 125246.88432128966,
+      "timestamp": "2025-10-28T20:40:04.516292"
+    }
+  },
+  "Stream Zip": {
+    "FynX": {
+      "ops_per_second": 10230.850785240156,
+      "timestamp": "2025-10-28T20:25:50.067008"
+    },
+    "RxPY": {
+      "ops_per_second": 71127.33636271936,
+      "timestamp": "2025-10-28T20:25:50.067399"
+    }
+  },
+  "CombineLatest": {
+    "FynX": {
+      "ops_per_second": 5134.3935614642105,
+      "timestamp": "2025-10-28T20:25:59.235737"
+    },
+    "RxPY": {
+      "ops_per_second": 101899.6970630567,
+      "timestamp": "2025-10-28T20:46:54.906113"
+    }
+  },
+  "Complex Conditional Logic": {
+    "FynX": {
+      "ops_per_second": 6388.535447301124,
+      "timestamp": "2025-10-28T21:08:16.767973"
+    },
+    "RxPY": {
+      "ops_per_second": 53056.37288182522,
+      "timestamp": "2025-10-28T20:47:03.948163"
+    }
+  },
+  "Diamond Dependency": {
+    "FynX": {
+      "ops_per_second": 10428.31032020261,
+      "timestamp": "2025-10-28T21:08:26.921101"
+    },
+    "RxPY": {
+      "ops_per_second": 93608.61168076552,
+      "timestamp": "2025-10-28T21:26:41.037495"
+    }
+  },
+  "Deep Dependency Tree": {
+    "FynX": {
+      "ops_per_second": 30.22920899986474,
+      "timestamp": "2025-10-28T20:26:58.108611"
+    },
+    "RxPY": {
+      "ops_per_second": 0.6523855667197987,
+      "timestamp": "2025-10-28T20:26:58.726144"
+    }
+  },
+  "Batch Updates": {
+    "FynX": {
+      "ops_per_second": 237.94353604380547,
+      "timestamp": "2025-10-28T20:27:13.159502"
+    },
+    "RxPY": {
+      "ops_per_second": 1535.3998947673285,
+      "timestamp": "2025-10-28T21:05:04.546814"
+    }
+  },
+  "Glitch-Free Updates": {
+    "FynX": {
+      "ops_per_second": 7144.771631581003,
+      "timestamp": "2025-10-28T20:27:23.227895"
+    },
+    "RxPY": {
+      "ops_per_second": 182700.48672468626,
+      "timestamp": "2025-10-28T21:05:14.283097"
+    }
+  },
+  "Memory Pressure - Many Observables": {
+    "FynX": {
+      "ops_per_second": 464407.934810746,
+      "timestamp": "2025-10-28T21:05:22.831545"
+    },
+    "RxPY": {
+      "ops_per_second": 21557.245442704938,
+      "timestamp": "2025-10-28T20:27:31.511678"
+    }
+  },
+  "Memory Pressure - Deep Chains": {
+    "FynX": {
+      "ops_per_second": 20976.910773710457,
+      "timestamp": "2025-10-28T20:27:47.464375"
+    },
+    "RxPY": {
+      "ops_per_second": 1741.6832625595498,
+      "timestamp": "2025-10-28T21:28:23.700143"
+    }
+  }
+}

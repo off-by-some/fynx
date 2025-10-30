@@ -385,12 +385,14 @@ class TestRealWorldExamples:
 
         # Ready state: app ready AND user auth AND data loaded
         ready_conditions = is_app_ready & is_user_auth & is_data_loaded
-        ready_state = ready_conditions >> (
-            lambda ready: app_state.value if ready else None
+        ready_state = (ready_conditions + app_state) >> (
+            lambda ready, state: state if ready and state == "ready" else None
         )
 
         # Error state
-        error_state = is_app_error >> (lambda error: app_state.value if error else None)
+        error_state = (is_app_error + app_state) >> (
+            lambda error, state: state if error and state == "error" else None
+        )
 
         ready_notifications = []
         error_notifications = []
@@ -513,18 +515,13 @@ class TestPerformanceBenefits:
 
         # With conditionals - expensive operations only run when condition met
         clean_data = raw_data & is_worth_processing
-        processed_data = clean_data >> (
-            lambda d: expensive_cleanup(d) if d is not None else None
-        )
+        processed_data = clean_data >> (lambda d: expensive_cleanup(d) if d else None)
         final_result = processed_data >> (
-            lambda d: expensive_analysis(d) if d is not None else None
+            lambda d: expensive_analysis(d) if d else None
         )
 
         # Short data - no expensive operations (condition never met)
-        from fynx.computed import ConditionNeverMet
-
-        with pytest.raises(ConditionNeverMet):
-            _ = final_result.value  # Should raise exception
+        assert final_result.value is None  # Should return None
         assert expensive_calls == []
 
         # Set long data - operations run
