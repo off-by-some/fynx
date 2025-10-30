@@ -522,7 +522,7 @@ class ParticleField(ReactiveComponent):
         # Render special markers
         cx, cy = int(center_x), int(center_y)
         if 0 <= cx < w and 0 <= cy < h:
-            grid[cy][cx] = ("✦", "bright_white")
+            grid[cy][cx] = ("+", "bright_white")
 
         ax, ay = int(attractor_x), int(attractor_y)
         if 0 <= ax < w and 0 <= ay < h:
@@ -584,7 +584,7 @@ class StatsPanel(ReactiveComponent):
             equal=True,
             children=[
                 Box(
-                    title="⚡ Energy",
+                    title="Energy",
                     border=energy_border,
                     padding=(0, 1),
                     children=[
@@ -593,13 +593,13 @@ class StatsPanel(ReactiveComponent):
                     ],
                 ),
                 Box(
-                    title="🚀 Speed",
+                    title="Speed",
                     border="green",
                     padding=(0, 1),
                     children=[Text(text=f"{speed:.2f} u/s", color="green", bold=True)],
                 ),
                 Box(
-                    title="🎯 Center",
+                    title="Center",
                     border="magenta",
                     padding=(0, 1),
                     children=[
@@ -607,7 +607,7 @@ class StatsPanel(ReactiveComponent):
                     ],
                 ),
                 Box(
-                    title="💥 Hits",
+                    title="Hits",
                     border=hits_border,
                     padding=(0, 1),
                     children=[Text(text=str(hits), color="red", bold=True)],
@@ -656,21 +656,21 @@ class Dashboard(ReactiveComponent):
         perf_border_style = "bright_green" if collision_flash > 0.1 else "green"
 
         return Box(
-            title="🌌 FynX Particle Physics - Terminal Art",
+            title="FynX Particle Physics - Terminal Art",
             border=main_border_style,
             padding=(1, 2),
             children=[
-                H1(text="O(affected) Reactive Computation ✨"),
+                H1(text="O(affected) Reactive Computation"),
                 Spacer(height=1),
                 Box(
-                    title=f"📊 Simulation ({count} particles, frame {frame:,})",
+                    title=f"Simulation ({count} particles, frame {frame:,})",
                     border=sim_border_style,
                     padding=(0, 1),
                     children=[ParticleField(width=field_width, height=field_height)],
                 ),
                 Spacer(height=1),
                 Box(
-                    title="⚡ FynX O(affected) Performance",
+                    title="FynX O(affected) Performance",
                     border=perf_border_style,
                     padding=(1, 2),
                     children=[
@@ -681,7 +681,7 @@ class Dashboard(ReactiveComponent):
                 ),
                 Line(width=field_width),
                 Text(
-                    text="Press Ctrl+C to exit • Watch the magic ✨",
+                    text="Press Ctrl+C to exit - Watch the magic",
                     color="dim",
                     italic=True,
                 ),
@@ -694,7 +694,7 @@ class Dashboard(ReactiveComponent):
 # ============================================================================
 
 if __name__ == "__main__":
-    print("🌌 FynX Particle Physics - Terminal Art ✨")
+    print("FynX Particle Physics - Terminal Art")
     print("Enhanced with glow, trails, atmosphere & reactive magic\n")
 
     spawn_particles(15)
@@ -726,6 +726,6 @@ if __name__ == "__main__":
                 time.sleep(1 / 20)
 
         except KeyboardInterrupt:
-            print(f"\n✨ {Physics.frame.value:,} frames rendered!")
-            print("Terminal art created with FynX reactive magic! 🚀✨")
-            print("Terminal art created with FynX reactive magic! 🚀✨")
+            print(f"\n{Physics.frame.value:,} frames rendered!")
+            print("Terminal art created with FynX reactive magic!")
+            print("Terminal art created with FynX reactive magic!")
