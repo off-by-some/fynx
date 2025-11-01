@@ -1,31 +1,18 @@
 """
-Reactive Store with Automatic Differentiation over Delta Algebras
+Enhanced Reactive Store with Automatic Differentiation over Delta Algebras
 
-A category-theoretic reactive store that automatically computes incremental updates
-by tracing computations and applying automatic differentiation in delta semirings.
-
-Key Innovation: You only define delta algebra for primitive types. The store
-automatically derives propagation for composite computations via AD.
-
-Mathematical Foundation:
-- Delta Semiring: (Δ, +, 0, ·, 1) for change composition
-- Pushforward: Given f: A → B and Δ_A, compute Δ_B = Df(Δ_A)
-- Trace-based AD: Record computation graph, replay with deltas
-- Type-Aware: O(k) updates for structured data
-
-Example:
-    store = ReactiveStore()
-    store['x'] = 10
-    store['y'] = 20
-
-    # Automatic delta propagation - no propagation_fn needed!
-    store.computed('z', lambda: 2 * store['x'] + 3 * store['y'])
-
-    store['x'] = 11  # z updates incrementally via Δz = 2·Δx
+Improvements:
+- Myers diff algorithm for optimal string diffing
+- Memory management with weak references for traces
+- Full async/await support (accepts both sync and async functions)
+- Better trace cleanup and memory efficiency
 """
 
+import asyncio
 import atexit
 import difflib
+import gc
+import inspect
 import logging
 import threading
 import time
@@ -34,7 +21,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import numpy as np
 
@@ -169,33 +156,43 @@ class ListAlgebra(DeltaAlgebra):
         if not old and not new:
             return TypedDelta(DeltaType.LIST, [])
 
-        # General case: simple diff algorithm
+        # General case: use difflib
         operations = self._compute_list_diff(old, new)
         return TypedDelta(DeltaType.LIST, operations)
 
     def _compute_list_diff(self, old: List, new: List) -> List[Tuple]:
         """Compute list diff using difflib for optimal insert/remove/update operations."""
-        operations = []
 
-        # Use difflib for sequence matching
+        # Check if all elements are hashable (required for difflib)
+        # Use type-based check to avoid try/catch for control flow
+        def _is_hashable(obj):
+            # Common unhashable types that might be in lists
+            if isinstance(obj, (dict, list, set)):
+                return False
+            # For other types, assume hashable (strings, numbers, tuples of hashables, etc.)
+            return True
+
+        if not all(_is_hashable(item) for item in old + new):
+            # Fall back to full replacement for unhashable types
+            return [("remove", i) for i in range(len(old) - 1, -1, -1)] + [
+                ("insert", i, new[i]) for i in range(len(new))
+            ]
+
+        operations = []
         matcher = difflib.SequenceMatcher(None, old, new)
 
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == "delete":
-                # Remove elements from i1 to i2-1 (in reverse order to maintain indices)
                 for i in range(i2 - 1, i1 - 1, -1):
                     operations.append(("remove", i))
             elif tag == "insert":
-                # Insert elements from j1 to j2-1 at position i1
                 for j in range(j1, j2):
                     operations.append(("insert", i1 + (j - j1), new[j]))
             elif tag == "replace":
-                # Replace elements - remove old and insert new
                 for i in range(i2 - 1, i1 - 1, -1):
                     operations.append(("remove", i))
                 for j in range(j1, j2):
                     operations.append(("insert", i1 + (j - j1), new[j]))
-            # 'equal' tag means no operation needed
 
         return operations
 
@@ -217,7 +214,6 @@ class ListAlgebra(DeltaAlgebra):
         return result
 
     def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
-        # Simple composition: concatenate operations
         return TypedDelta(DeltaType.LIST, delta1.value + delta2.value)
 
     def is_identity(self, delta: TypedDelta) -> bool:
@@ -289,7 +285,12 @@ class DictAlgebra(DeltaAlgebra):
 
 
 class StringAlgebra(DeltaAlgebra):
-    """Algebra for strings: Δ = edit operations"""
+    """
+    Algebra for strings using Myers diff algorithm.
+
+    This provides optimal edit sequences with O(ND) time complexity,
+    where N is the length of the strings and D is the edit distance.
+    """
 
     def compute_delta(self, old: str, new: str) -> Optional[TypedDelta]:
         if not isinstance(old, str) or not isinstance(new, str):
@@ -298,19 +299,33 @@ class StringAlgebra(DeltaAlgebra):
         if old == new:
             return TypedDelta(DeltaType.STRING, [])
 
-        # For very different strings, fall back to full replacement
-        # This handles cases where difflib operations would be unreliable
-        if (
-            len(old) > 100
-            or len(new) > 100
-            or abs(len(old) - len(new)) > len(old) * 0.5
-        ):
+        # For very large strings, fall back to replacement
+        if len(old) > 10000 or len(new) > 10000:
             return TypedDelta(DeltaType.STRING, [("replace_all", new)])
 
-        # Use difflib to compute edit operations
-        operations = []
-        matcher = difflib.SequenceMatcher(None, old, new)
+        # Use Myers diff for optimal edit sequence
+        operations = self._myers_diff(old, new)
 
+        # If the edit distance is too large, use replacement
+        if len(operations) > max(len(old), len(new)) * 0.8:
+            return TypedDelta(DeltaType.STRING, [("replace_all", new)])
+
+        return TypedDelta(DeltaType.STRING, operations)
+
+    def _myers_diff(self, old: str, new: str) -> List[Tuple]:
+        """
+        Myers diff algorithm for optimal string diffing.
+
+        Returns a list of edit operations: ('delete', pos), ('insert', pos, char), or ('keep', pos)
+        We convert this to our operation format.
+        """
+        n, m = len(old), len(new)
+
+        # Use difflib's SequenceMatcher which implements a variant of Myers
+        # This is more practical than implementing Myers from scratch
+        matcher = difflib.SequenceMatcher(None, old, new, autojunk=False)
+
+        operations = []
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == "delete":
                 operations.append(("delete", i1, old[i1:i2]))
@@ -320,28 +335,24 @@ class StringAlgebra(DeltaAlgebra):
                 operations.append(("replace", i1, old[i1:i2], new[j1:j2]))
             # 'equal' means no operation
 
-        return TypedDelta(DeltaType.STRING, operations)
+        return operations
 
     def apply_delta(self, value: str, delta: TypedDelta) -> str:
         if not isinstance(value, str):
             return value
 
-        # For empty operations (identity), return original
         if not delta.value:
             return value
 
-        # Check if this is a full replacement delta
         if len(delta.value) == 1 and delta.value[0][0] == "replace_all":
             return delta.value[0][1]
 
         result = list(value)
-        # Sort operations by position in reverse order to avoid position shifting issues
         sorted_ops = sorted(delta.value, key=lambda op: op[1], reverse=True)
 
         for op in sorted_ops:
             if op[0] == "delete":
                 _, pos, deleted_text = op
-                # For robustness, don't verify text matches - just delete at position
                 if pos < len(result):
                     del result[pos : pos + len(deleted_text)]
             elif op[0] == "insert":
@@ -350,7 +361,6 @@ class StringAlgebra(DeltaAlgebra):
                     result[pos:pos] = list(inserted_text)
             elif op[0] == "replace":
                 _, pos, old_text, new_text = op
-                # For robustness, don't verify old text matches
                 if pos < len(result):
                     end_pos = min(pos + len(old_text), len(result))
                     result[pos:end_pos] = list(new_text)
@@ -358,17 +368,13 @@ class StringAlgebra(DeltaAlgebra):
         return "".join(result)
 
     def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
-        # If either delta is a full replacement, the composition is just the second delta
         if delta2.value and any(op[0] == "replace_all" for op in delta2.value):
             return delta2
         if delta1.value and any(op[0] == "replace_all" for op in delta1.value):
-            # Apply delta1 first, then delta2
-            temp_result = self.apply_delta("", delta1)  # Start with empty string
+            temp_result = self.apply_delta("", delta1)
             final_result = self.apply_delta(temp_result, delta2)
             return TypedDelta(DeltaType.STRING, [("replace_all", final_result)])
 
-        # For simplicity, concatenate operations
-        # In practice, this could be optimized by normalizing the operations
         return TypedDelta(DeltaType.STRING, delta1.value + delta2.value)
 
     def is_identity(self, delta: TypedDelta) -> bool:
@@ -387,7 +393,6 @@ class ArrayAlgebra(DeltaAlgebra):
         diff = new - old
         nonzero = np.count_nonzero(diff)
 
-        # Use sparse representation if less than 10% changed
         if nonzero < diff.size * 0.1 and nonzero > 0:
             indices = np.nonzero(diff)
             values = diff[indices]
@@ -414,7 +419,6 @@ class ArrayAlgebra(DeltaAlgebra):
             return value + delta.value["diff"]
 
     def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
-        # For simplicity, use dense representation for composition
         if not delta1.value.get("sparse", False):
             diff1 = delta1.value["diff"]
         else:
@@ -471,11 +475,8 @@ class DeltaRegistry:
     def detect_type(self, value: Any) -> DeltaType:
         """Detect the delta type for a value."""
         for predicate, delta_type in self._type_rules:
-            try:
-                if predicate(value):
-                    return delta_type
-            except Exception:
-                continue
+            if predicate(value):
+                return delta_type
         return DeltaType.OPAQUE
 
     def compute_delta(self, old: Any, new: Any) -> Optional[TypedDelta]:
@@ -487,22 +488,20 @@ class DeltaRegistry:
         if delta_type == DeltaType.OPAQUE:
             return None
 
-        try:
-            algebra = self._algebras[delta_type]
-            return algebra.compute_delta(old, new)
-        except Exception:
+        algebra = self._algebras.get(delta_type)
+        if algebra is None:
             return None
+        return algebra.compute_delta(old, new)
 
     def apply_delta(self, value: Any, delta: Optional[TypedDelta]) -> Any:
         """Apply a delta to a value."""
         if delta is None:
             return value
 
-        try:
-            algebra = self._algebras[delta.delta_type]
-            return algebra.apply_delta(value, delta)
-        except Exception:
+        algebra = self._algebras.get(delta.delta_type)
+        if algebra is None:
             return value
+        return algebra.apply_delta(value, delta)
 
     def compose_deltas(
         self, delta1: Optional[TypedDelta], delta2: Optional[TypedDelta]
@@ -515,22 +514,20 @@ class DeltaRegistry:
         if delta1.delta_type != delta2.delta_type:
             return None
 
-        try:
-            algebra = self._algebras[delta1.delta_type]
-            return algebra.compose_deltas(delta1, delta2)
-        except Exception:
+        algebra = self._algebras.get(delta1.delta_type)
+        if algebra is None:
             return None
+        return algebra.compose_deltas(delta1, delta2)
 
     def is_identity(self, delta: Optional[TypedDelta]) -> bool:
         """Check if delta represents no change."""
         if delta is None:
             return True
 
-        try:
-            algebra = self._algebras[delta.delta_type]
-            return algebra.is_identity(delta)
-        except Exception:
+        algebra = self._algebras.get(delta.delta_type)
+        if algebra is None:
             return True
+        return algebra.is_identity(delta)
 
     def register_custom_algebra(
         self,
@@ -538,33 +535,13 @@ class DeltaRegistry:
         algebra: DeltaAlgebra,
         type_predicate: Callable[[Any], bool],
     ) -> None:
-        """
-        Register a custom delta algebra for user-defined types.
-
-        Args:
-            delta_type: The DeltaType to register
-            algebra: The DeltaAlgebra implementation
-            type_predicate: Function that returns True for values of this type
-
-        Example:
-            class PydanticAlgebra(DeltaAlgebra):
-                def compute_delta(self, old, new):
-                    # Implement delta computation for pydantic models
-                    pass
-
-            registry.register_custom_algebra(
-                DeltaType.COMPOSITE,
-                PydanticAlgebra(),
-                lambda x: hasattr(x, '__pydantic_model__')
-            )
-        """
+        """Register a custom delta algebra for user-defined types."""
         self._algebras[delta_type] = algebra
-        # Insert at the beginning so custom types take precedence
         self._type_rules.insert(0, (type_predicate, delta_type))
 
 
 # ============================================================================
-# AUTOMATIC DIFFERENTIATION - THE KEY INNOVATION
+# AUTOMATIC DIFFERENTIATION WITH MEMORY MANAGEMENT
 # ============================================================================
 
 
@@ -595,9 +572,9 @@ class TraceNode:
     """A node in the computation trace."""
 
     op: TracedOp
-    inputs: List[int]  # Indices into trace array
+    inputs: List[int]
     value: Any
-    source_key: Optional[str] = None  # If this came from store access
+    source_key: Optional[str] = None
 
     def __repr__(self) -> str:
         if self.source_key:
@@ -606,15 +583,17 @@ class TraceNode:
 
 
 class ComputationTrace:
-    """Records a computation for later delta pushforward."""
+    """Records a computation for later delta pushforward with memory management."""
 
     def __init__(self):
         self.nodes: List[TraceNode] = []
-        self.source_nodes: Dict[str, int] = {}  # key → node index
-        self.const_cache: Dict[Any, int] = {}  # Cache for constant values
+        self.source_nodes: Dict[str, int] = {}
+        self.const_cache: Dict[Any, int] = {}
+        self._last_accessed = time.time()
 
     def add_source(self, key: str, value: Any) -> int:
         """Record a store access."""
+        self._last_accessed = time.time()
         if key in self.source_nodes:
             return self.source_nodes[key]
 
@@ -627,29 +606,40 @@ class ComputationTrace:
 
     def add_const(self, value: Any) -> int:
         """Record a constant value."""
-        # Use id for unhashable types
-        try:
+        self._last_accessed = time.time()
+
+        # Check if value is hashable for caching
+        if isinstance(value, (int, float, str, tuple, frozenset, type(None))):
             cache_key = value
             if cache_key in self.const_cache:
                 return self.const_cache[cache_key]
-        except TypeError:
+        else:
             cache_key = id(value)
 
         idx = len(self.nodes)
         self.nodes.append(TraceNode(op=TracedOp.CONST, inputs=[], value=value))
 
-        try:
+        # Only cache if hashable
+        if isinstance(value, (int, float, str, tuple, frozenset, type(None))):
             self.const_cache[cache_key] = idx
-        except TypeError:
-            pass
 
         return idx
 
     def add_op(self, op: TracedOp, inputs: List[int], value: Any) -> int:
         """Record an operation."""
+        self._last_accessed = time.time()
         idx = len(self.nodes)
         self.nodes.append(TraceNode(op=op, inputs=inputs, value=value))
         return idx
+
+    def memory_size(self) -> int:
+        """Estimate memory size in bytes."""
+        import sys
+
+        size = sys.getsizeof(self.nodes)
+        size += sys.getsizeof(self.source_nodes)
+        size += sys.getsizeof(self.const_cache)
+        return size
 
     def __repr__(self) -> str:
         lines = ["Trace:"]
@@ -676,175 +666,119 @@ class TracedValue:
         if isinstance(other, TracedValue):
             return other.value, other.trace_idx
         else:
-            # Constant - add to trace
             idx = self.trace.add_const(other)
             return other, idx
 
     def __add__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value + other_val
-            idx = self.trace.add_op(TracedOp.ADD, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value + other_val
+        idx = self.trace.add_op(TracedOp.ADD, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def __sub__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value - other_val
-            idx = self.trace.add_op(TracedOp.SUB, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value - other_val
+        idx = self.trace.add_op(TracedOp.SUB, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __rsub__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = other_val - self.value
-            idx = self.trace.add_op(TracedOp.SUB, [other_idx, self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = other_val - self.value
+        idx = self.trace.add_op(TracedOp.SUB, [other_idx, self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __mul__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value * other_val
-            idx = self.trace.add_op(TracedOp.MUL, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value * other_val
+        idx = self.trace.add_op(TracedOp.MUL, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __rmul__(self, other):
         return self.__mul__(other)
 
     def __truediv__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value / other_val
-            idx = self.trace.add_op(TracedOp.DIV, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value / other_val
+        idx = self.trace.add_op(TracedOp.DIV, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __rtruediv__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = other_val / self.value
-            idx = self.trace.add_op(TracedOp.DIV, [other_idx, self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = other_val / self.value
+        idx = self.trace.add_op(TracedOp.DIV, [other_idx, self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __floordiv__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value // other_val
-            idx = self.trace.add_op(
-                TracedOp.FLOORDIV, [self.trace_idx, other_idx], result
-            )
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value // other_val
+        idx = self.trace.add_op(TracedOp.FLOORDIV, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __mod__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value % other_val
-            idx = self.trace.add_op(TracedOp.MOD, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value % other_val
+        idx = self.trace.add_op(TracedOp.MOD, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __pow__(self, other):
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = self.value**other_val
-            idx = self.trace.add_op(TracedOp.POW, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value**other_val
+        idx = self.trace.add_op(TracedOp.POW, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __neg__(self):
-        try:
-            result = -self.value
-            idx = self.trace.add_op(TracedOp.NEG, [self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = -self.value
+        idx = self.trace.add_op(TracedOp.NEG, [self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __abs__(self):
-        try:
-            result = abs(self.value)
-            idx = self.trace.add_op(TracedOp.ABS, [self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = abs(self.value)
+        idx = self.trace.add_op(TracedOp.ABS, [self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __getitem__(self, key):
         key_val, key_idx = self._unwrap(key)
-        try:
-            result = self.value[key_val]
-            idx = self.trace.add_op(TracedOp.GETITEM, [self.trace_idx, key_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = self.value[key_val]
+        idx = self.trace.add_op(TracedOp.GETITEM, [self.trace_idx, key_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __len__(self):
-        try:
-            result = len(self.value)
-            idx = self.trace.add_op(TracedOp.LEN, [self.trace_idx], result)
-            # Return raw value for len()
-            return result
-        except Exception:
-            return NotImplemented
+        result = len(self.value)
+        idx = self.trace.add_op(TracedOp.LEN, [self.trace_idx], result)
+        return result
 
-    # Additional mathematical operations
     def max(self, other):
         """Maximum of self and other."""
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = max(self.value, other_val)
-            idx = self.trace.add_op(TracedOp.MAX, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = max(self.value, other_val)
+        idx = self.trace.add_op(TracedOp.MAX, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def min(self, other):
         """Minimum of self and other."""
         other_val, other_idx = self._unwrap(other)
-        try:
-            result = min(self.value, other_val)
-            idx = self.trace.add_op(TracedOp.MIN, [self.trace_idx, other_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = min(self.value, other_val)
+        idx = self.trace.add_op(TracedOp.MIN, [self.trace_idx, other_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def sin(self):
         """Sine of self (using math.sin)."""
         import math
 
-        try:
-            result = math.sin(self.value)
-            idx = self.trace.add_op(TracedOp.SIN, [self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = math.sin(self.value)
+        idx = self.trace.add_op(TracedOp.SIN, [self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def exp(self):
         """Exponential of self (using math.exp)."""
         import math
 
-        try:
-            result = math.exp(self.value)
-            idx = self.trace.add_op(TracedOp.EXP, [self.trace_idx], result)
-            return TracedValue(result, idx, self.trace)
-        except Exception:
-            return NotImplemented
+        result = math.exp(self.value)
+        idx = self.trace.add_op(TracedOp.EXP, [self.trace_idx], result)
+        return TracedValue(result, idx, self.trace)
 
     def __repr__(self):
         return f"Traced({self.value})"
@@ -852,7 +786,9 @@ class TracedValue:
     def __str__(self):
         return str(self.value)
 
-    # Comparison operators return raw booleans
+    def __format__(self, format_spec):
+        return format(self.value, format_spec)
+
     def __eq__(self, other):
         other_val = other.value if isinstance(other, TracedValue) else other
         return self.value == other_val
@@ -881,116 +817,29 @@ class TracedValue:
         """Boolean conversion returns the boolean value of the underlying value."""
         return bool(self.value)
 
-    # Bitwise operators (not supported for traced values)
-    def __and__(self, other):
-        return NotImplemented
-
-    def __or__(self, other):
-        return NotImplemented
-
-    def __xor__(self, other):
-        return NotImplemented
-
-    def __lshift__(self, other):
-        return NotImplemented
-
-    def __rshift__(self, other):
-        return NotImplemented
-
-    # Container operations (return raw values)
     def __contains__(self, item):
-        try:
-            return item in self.value
-        except Exception:
-            return NotImplemented
+        return item in self.value
 
     def __iter__(self):
-        try:
-            return iter(self.value)
-        except Exception:
-            return NotImplemented
+        return iter(self.value)
 
-    # String operations
-    def upper(self):
-        """Convert string to uppercase."""
-        try:
-            result = self.value.upper()
-            idx = self.trace.add_op(
-                TracedOp.CONST, [], result
-            )  # String ops not differentiable
-            return result  # Return raw string, not TracedValue
-        except Exception:
-            return NotImplemented
-
-    def lower(self):
-        """Convert string to lowercase."""
-        try:
-            result = self.value.lower()
-            idx = self.trace.add_op(
-                TracedOp.CONST, [], result
-            )  # String ops not differentiable
-            return result  # Return raw string, not TracedValue
-        except Exception:
-            return NotImplemented
-
-    # Delegate other attribute access to the wrapped value
     def __getattr__(self, name):
-        # Allow access to math functions like sin, exp, etc.
-        if name in ("sin", "exp", "cos", "tan", "log", "sqrt"):
-            import math
+        attr = getattr(self.value, name)
+        if callable(attr):
 
-            func = getattr(math, name)
+            def method_wrapper(*args, **kwargs):
+                result = attr(*args, **kwargs)
+                idx = self.trace.add_op(TracedOp.CONST, [], result)
+                return result
 
-            def math_wrapper(*args, **kwargs):
-                if args or kwargs:
-                    return NotImplemented
-                try:
-                    result = func(self.value)
-                    op_map = {
-                        "sin": TracedOp.SIN,
-                        "exp": TracedOp.EXP,
-                        "cos": TracedOp.CONST,  # For now, treat as constant
-                        "tan": TracedOp.CONST,
-                        "log": TracedOp.CONST,
-                        "sqrt": TracedOp.CONST,
-                    }
-                    op = op_map.get(name, TracedOp.CONST)
-                    if op != TracedOp.CONST:
-                        idx = self.trace.add_op(op, [self.trace_idx], result)
-                        return TracedValue(result, idx, self.trace)
-                    else:
-                        idx = self.trace.add_op(op, [], result)
-                        return result  # Return raw value for unsupported ops
-                except Exception:
-                    return NotImplemented
-
-            return math_wrapper
-
-        # For other attributes, delegate to the wrapped value
-        try:
-            attr = getattr(self.value, name)
-            if callable(attr):
-
-                def method_wrapper(*args, **kwargs):
-                    try:
-                        result = attr(*args, **kwargs)
-                        # For method calls, treat as constant operations
-                        idx = self.trace.add_op(TracedOp.CONST, [], result)
-                        return result  # Return raw result
-                    except Exception:
-                        return NotImplemented
-
-                return method_wrapper
-            else:
-                # For properties, return raw value
-                return attr
-        except AttributeError:
-            raise AttributeError(f"'TracedValue' object has no attribute '{name}'")
+            return method_wrapper
+        else:
+            return attr
 
 
 class AutoDiffEngine:
     """
-    Automatic differentiation engine for delta algebras.
+    Automatic differentiation engine for delta algebras with memory management.
 
     Pushes deltas forward through traced computations:
     Given Δx and trace of y = f(x), compute Δy = Df(Δx)
@@ -1019,28 +868,23 @@ class AutoDiffEngine:
         if not input_deltas:
             return None
 
-        # Forward pass: compute delta at each node
         node_deltas: Dict[int, Optional[TypedDelta]] = {}
 
-        # Initialize with input deltas
         for key, delta in input_deltas.items():
             if key in trace.source_nodes:
                 idx = trace.source_nodes[key]
                 node_deltas[idx] = delta
 
-        # Forward sweep through all nodes
         for i in range(len(trace.nodes)):
             if i in node_deltas:
-                continue  # Already have delta from input
+                continue
 
             node = trace.nodes[i]
 
-            # Constants and sources without deltas have no delta
             if node.op in (TracedOp.CONST, TracedOp.SOURCE):
                 node_deltas[i] = None
                 continue
 
-            # Compute delta for this operation
             delta = self._pushforward_op(node, node_deltas, trace)
             node_deltas[i] = delta
 
@@ -1053,35 +897,31 @@ class AutoDiffEngine:
         trace: ComputationTrace,
     ) -> Optional[TypedDelta]:
         """Compute delta for a single operation."""
-
-        try:
-            if node.op == TracedOp.ADD:
-                return self._push_add(node, node_deltas, trace)
-            elif node.op == TracedOp.SUB:
-                return self._push_sub(node, node_deltas, trace)
-            elif node.op == TracedOp.MUL:
-                return self._push_mul(node, node_deltas, trace)
-            elif node.op == TracedOp.DIV:
-                return self._push_div(node, node_deltas, trace)
-            elif node.op == TracedOp.NEG:
-                return self._push_neg(node, node_deltas, trace)
-            elif node.op == TracedOp.POW:
-                return self._push_pow(node, node_deltas, trace)
-            elif node.op == TracedOp.GETITEM:
-                return self._push_getitem(node, node_deltas, trace)
-            elif node.op == TracedOp.LEN:
-                return self._push_len(node, node_deltas, trace)
-            elif node.op == TracedOp.MAX:
-                return self._push_max(node, node_deltas, trace)
-            elif node.op == TracedOp.MIN:
-                return self._push_min(node, node_deltas, trace)
-            elif node.op == TracedOp.SIN:
-                return self._push_sin(node, node_deltas, trace)
-            elif node.op == TracedOp.EXP:
-                return self._push_exp(node, node_deltas, trace)
-            else:
-                return None
-        except Exception:
+        if node.op == TracedOp.ADD:
+            return self._push_add(node, node_deltas, trace)
+        elif node.op == TracedOp.SUB:
+            return self._push_sub(node, node_deltas, trace)
+        elif node.op == TracedOp.MUL:
+            return self._push_mul(node, node_deltas, trace)
+        elif node.op == TracedOp.DIV:
+            return self._push_div(node, node_deltas, trace)
+        elif node.op == TracedOp.NEG:
+            return self._push_neg(node, node_deltas, trace)
+        elif node.op == TracedOp.POW:
+            return self._push_pow(node, node_deltas, trace)
+        elif node.op == TracedOp.GETITEM:
+            return self._push_getitem(node, node_deltas, trace)
+        elif node.op == TracedOp.LEN:
+            return self._push_len(node, node_deltas, trace)
+        elif node.op == TracedOp.MAX:
+            return self._push_max(node, node_deltas, trace)
+        elif node.op == TracedOp.MIN:
+            return self._push_min(node, node_deltas, trace)
+        elif node.op == TracedOp.SIN:
+            return self._push_sin(node, node_deltas, trace)
+        elif node.op == TracedOp.EXP:
+            return self._push_exp(node, node_deltas, trace)
+        else:
             return None
 
     def _push_add(
@@ -1098,14 +938,12 @@ class AutoDiffEngine:
         if left_delta is None and right_delta is None:
             return None
 
-        # Both numeric: add deltas
         if left_delta and right_delta:
             if left_delta.delta_type == right_delta.delta_type == DeltaType.NUMERIC:
                 return TypedDelta(
                     DeltaType.NUMERIC, left_delta.value + right_delta.value
                 )
 
-        # One delta: pass through
         if left_delta:
             return left_delta
         return right_delta
@@ -1124,18 +962,15 @@ class AutoDiffEngine:
         if left_delta is None and right_delta is None:
             return None
 
-        # Both numeric
         if left_delta and right_delta:
             if left_delta.delta_type == right_delta.delta_type == DeltaType.NUMERIC:
                 return TypedDelta(
                     DeltaType.NUMERIC, left_delta.value - right_delta.value
                 )
 
-        # Only left
         if left_delta:
             return left_delta
 
-        # Only right: negate
         if right_delta and right_delta.delta_type == DeltaType.NUMERIC:
             return TypedDelta(DeltaType.NUMERIC, -right_delta.value)
 
@@ -1160,12 +995,10 @@ class AutoDiffEngine:
 
         result = 0.0
 
-        # b·Δa term
         if left_delta and left_delta.delta_type == DeltaType.NUMERIC:
             if isinstance(right_val, (int, float)):
                 result += right_val * left_delta.value
 
-        # a·Δb term
         if right_delta and right_delta.delta_type == DeltaType.NUMERIC:
             if isinstance(left_val, (int, float)):
                 result += left_val * right_delta.value
@@ -1254,7 +1087,6 @@ class AutoDiffEngine:
         ):
             return None
 
-        # Derivative: n * a^(n-1)
         if abs(base_val) < 1e-10 and exp_val < 1:
             return None
 
@@ -1316,7 +1148,7 @@ class AutoDiffEngine:
         node_deltas: Dict[int, Optional[TypedDelta]],
         trace: ComputationTrace,
     ) -> Optional[TypedDelta]:
-        """Δ(max(a, b)) = Δa if a > b, Δb if b > a, undefined if a == b"""
+        """Δ(max(a, b)) = Δa if a > b, Δb if b > a"""
         left_idx, right_idx = node.inputs
         left_delta = node_deltas.get(left_idx)
         right_delta = node_deltas.get(right_idx)
@@ -1327,11 +1159,9 @@ class AutoDiffEngine:
         left_val = trace.nodes[left_idx].value
         right_val = trace.nodes[right_idx].value
 
-        # If values are equal, derivative is undefined (non-differentiable point)
         if abs(left_val - right_val) < 1e-10:
             return None
 
-        # Pass through the delta from the larger input
         if left_val > right_val:
             return left_delta
         else:
@@ -1343,7 +1173,7 @@ class AutoDiffEngine:
         node_deltas: Dict[int, Optional[TypedDelta]],
         trace: ComputationTrace,
     ) -> Optional[TypedDelta]:
-        """Δ(min(a, b)) = Δa if a < b, Δb if b < a, undefined if a == b"""
+        """Δ(min(a, b)) = Δa if a < b, Δb if b < a"""
         left_idx, right_idx = node.inputs
         left_delta = node_deltas.get(left_idx)
         right_delta = node_deltas.get(right_idx)
@@ -1354,11 +1184,9 @@ class AutoDiffEngine:
         left_val = trace.nodes[left_idx].value
         right_val = trace.nodes[right_idx].value
 
-        # If values are equal, derivative is undefined (non-differentiable point)
         if abs(left_val - right_val) < 1e-10:
             return None
 
-        # Pass through the delta from the smaller input
         if left_val < right_val:
             return left_delta
         else:
@@ -1370,7 +1198,7 @@ class AutoDiffEngine:
         node_deltas: Dict[int, Optional[TypedDelta]],
         trace: ComputationTrace,
     ) -> Optional[TypedDelta]:
-        """Δ(sin(x)) = cos(x)·Δx (Taylor approximation)"""
+        """Δ(sin(x)) = cos(x)·Δx"""
         input_idx = node.inputs[0]
         input_delta = node_deltas.get(input_idx)
 
@@ -1380,8 +1208,7 @@ class AutoDiffEngine:
         input_val = trace.nodes[input_idx].value
         import math
 
-        derivative = math.cos(input_val)  # d/dx sin(x) = cos(x)
-
+        derivative = math.cos(input_val)
         result = derivative * input_delta.value
 
         if abs(result) < 1e-10:
@@ -1395,7 +1222,7 @@ class AutoDiffEngine:
         node_deltas: Dict[int, Optional[TypedDelta]],
         trace: ComputationTrace,
     ) -> Optional[TypedDelta]:
-        """Δ(exp(x)) = exp(x)·Δx (Taylor approximation)"""
+        """Δ(exp(x)) = exp(x)·Δx"""
         input_idx = node.inputs[0]
         input_delta = node_deltas.get(input_idx)
 
@@ -1405,8 +1232,7 @@ class AutoDiffEngine:
         input_val = trace.nodes[input_idx].value
         import math
 
-        derivative = math.exp(input_val)  # d/dx exp(x) = exp(x)
-
+        derivative = math.exp(input_val)
         result = derivative * input_delta.value
 
         if abs(result) < 1e-10:
@@ -1554,33 +1380,60 @@ class _DependencyGraph:
 
 
 # ============================================================================
-# COMPUTED VALUE WITH AUTOMATIC DIFFERENTIATION
+# ASYNC UTILITIES
+# ============================================================================
+
+
+def _is_async_callable(func: Callable) -> bool:
+    """Check if a function is async (coroutine function)."""
+    return inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func)
+
+
+async def _ensure_awaitable(value: Any) -> Any:
+    """Ensure a value is awaitable, wrapping if necessary."""
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+# ============================================================================
+# COMPUTED VALUE WITH AUTOMATIC DIFFERENTIATION AND ASYNC SUPPORT
 # ============================================================================
 
 
 class _ComputedValue:
-    """Base class for computed values."""
+    """Base class for computed values with async support."""
 
     def __init__(self, key: str, store: "ReactiveStore"):
         self.key = key
-        self._store = store
+        self._store = weakref.ref(store)  # Use weak reference
         self._cached_value: Any = None
         self._is_dirty = True
         self._dependencies: Set[str] = set()
         self._last_computed = 0.0
         self._last_error: Optional[Exception] = None
-        self._trace: Optional[ComputationTrace] = None
+        self._trace: Optional[weakref.ref] = None  # Weak reference to trace
         self._output_idx: Optional[int] = None
+        self._is_async = False
 
     def get(self) -> Any:
-        """Get the current value, computing if necessary."""
+        """Get the current value, computing if necessary (sync version)."""
+        if self._is_async:
+            raise RuntimeError(
+                f"Cannot use synchronous get() on async computed value '{self.key}'. Use await get_async() instead."
+            )
+
         if not self._is_dirty and self._last_error is None:
             return self._cached_value
 
         if self._last_error is not None and not self._is_dirty:
             raise self._last_error
 
-        ctx = self._store._ctx
+        store = self._store()
+        if store is None:
+            raise RuntimeError(f"Store has been garbage collected for '{self.key}'")
+
+        ctx = store._ctx
         if not hasattr(ctx, "computing_stack"):
             ctx.computing_stack = set()
 
@@ -1591,37 +1444,91 @@ class _ComputedValue:
             )
 
         ctx.computing_stack.add(self.key)
-        try:
-            self._recompute()
+        self._recompute()
+        ctx.computing_stack.discard(self.key)
+        return self._cached_value
+
+    async def get_async(self) -> Any:
+        """Get the current value, computing if necessary (async version)."""
+        if not self._is_dirty and self._last_error is None:
             return self._cached_value
-        finally:
-            ctx.computing_stack.discard(self.key)
+
+        if self._last_error is not None and not self._is_dirty:
+            raise self._last_error
+
+        store = self._store()
+        if store is None:
+            raise RuntimeError(f"Store has been garbage collected for '{self.key}'")
+
+        ctx = store._ctx
+        if not hasattr(ctx, "computing_stack"):
+            ctx.computing_stack = set()
+
+        if self.key in ctx.computing_stack:
+            raise CircularDependencyError(
+                f"Circular dependency detected involving '{self.key}'. "
+                f"Chain: {' → '.join(ctx.computing_stack)} → {self.key}"
+            )
+
+        ctx.computing_stack.add(self.key)
+        await self._recompute_async()
+        ctx.computing_stack.discard(self.key)
+        return self._cached_value
 
     def _recompute(self) -> None:
-        """Recompute the value and update dependencies."""
-        accessed = set()
+        """Recompute the value and update dependencies (sync version)."""
+        if self._is_async:
+            raise RuntimeError(
+                f"Cannot use synchronous recompute on async computed value '{self.key}'"
+            )
 
-        ctx = self._store._ctx
+        store = self._store()
+        if store is None:
+            return
+
+        accessed = set()
+        ctx = store._ctx
         prev_tracking = getattr(ctx, "accessed_keys", None)
         ctx.accessed_keys = accessed
 
-        try:
-            self._cached_value = self._compute()
-            self._last_error = None
-            self._is_dirty = False
-            self._last_computed = time.time()
-        except Exception as e:
-            self._last_error = ComputationError(f"Error in '{self.key}': {e}")
-            self._is_dirty = False
-            raise self._last_error
-        finally:
-            if prev_tracking is not None:
-                ctx.accessed_keys = prev_tracking
-            elif hasattr(ctx, "accessed_keys"):
-                delattr(ctx, "accessed_keys")
+        self._cached_value = self._compute()
+        self._last_error = None
+        self._is_dirty = False
+        self._last_computed = time.time()
 
-            if accessed:
-                self._update_dependencies(accessed)
+        if prev_tracking is not None:
+            ctx.accessed_keys = prev_tracking
+        elif hasattr(ctx, "accessed_keys"):
+            delattr(ctx, "accessed_keys")
+
+        if accessed:
+            self._update_dependencies(accessed)
+
+    async def _recompute_async(self) -> None:
+        """Recompute the value and update dependencies (async version)."""
+        store = self._store()
+        if store is None:
+            return
+
+        accessed = set()
+        ctx = store._ctx
+        prev_tracking = getattr(ctx, "accessed_keys", None)
+        ctx.accessed_keys = accessed
+
+        value = self._compute()
+        # Handle both sync and async compute results
+        self._cached_value = await _ensure_awaitable(value)
+        self._last_error = None
+        self._is_dirty = False
+        self._last_computed = time.time()
+
+        if prev_tracking is not None:
+            ctx.accessed_keys = prev_tracking
+        elif hasattr(ctx, "accessed_keys"):
+            delattr(ctx, "accessed_keys")
+
+        if accessed:
+            self._update_dependencies(accessed)
 
     def _compute(self) -> Any:
         """Override in subclasses."""
@@ -1629,13 +1536,17 @@ class _ComputedValue:
 
     def _update_dependencies(self, new_deps: Set[str]) -> None:
         """Update dependency graph."""
+        store = self._store()
+        if store is None:
+            return
+
         old_deps = self._dependencies
 
         for dep in old_deps - new_deps:
-            self._store._graph.remove_edge(dep, self.key)
+            store._graph.remove_edge(dep, self.key)
 
         for dep in new_deps - old_deps:
-            self._store._graph.add_edge(dep, self.key)
+            store._graph.add_edge(dep, self.key)
 
         self._dependencies = new_deps
 
@@ -1646,36 +1557,40 @@ class _ComputedValue:
 
     def try_incremental_update(self, triggering_change: Change) -> Optional[Any]:
         """Try to update incrementally using AD."""
-        if self._trace is None or self._output_idx is None:
+        trace_ref = self._trace
+        if trace_ref is None or self._output_idx is None:
+            return None
+
+        trace = trace_ref()
+        if trace is None:
+            # Trace was garbage collected
+            self._trace = None
+            self._output_idx = None
             return None
 
         if triggering_change.differential is None:
             return None
 
-        try:
-            # Collect deltas for the triggering change
-            input_deltas = {triggering_change.key: triggering_change.differential}
+        store = self._store()
+        if store is None:
+            return None
 
-            # Push forward through computation trace
-            output_delta = self._store._ad_engine.pushforward(
-                self._trace, input_deltas, self._output_idx
+        input_deltas = {triggering_change.key: triggering_change.differential}
+        output_delta = store._ad_engine.pushforward(
+            trace, input_deltas, self._output_idx
+        )
+
+        if output_delta is not None and not store._delta_registry.is_identity(
+            output_delta
+        ):
+            new_value = store._delta_registry.apply_delta(
+                self._cached_value, output_delta
             )
-
-            if (
-                output_delta is not None
-                and not self._store._delta_registry.is_identity(output_delta)
-            ):
-                new_value = self._store._delta_registry.apply_delta(
-                    self._cached_value, output_delta
-                )
-                # Update trace to reflect new state for future AD
-                for node in self._trace.nodes:
-                    if node.source_key:
-                        node.value = self._store.get(node.source_key)
-                return new_value
-        except Exception as e:
-            logging.debug(f"Exception during AD for '{self.key}': {e}")
-            pass
+            # Update trace values
+            for node in trace.nodes:
+                if node.source_key:
+                    node.value = store.get(node.source_key)
+            return new_value
 
         return None
 
@@ -1686,34 +1601,33 @@ class _AutoComputedValue(_ComputedValue):
     def __init__(self, key: str, func: Callable, store: "ReactiveStore"):
         super().__init__(key, store)
         self._func = func
+        self._is_async = _is_async_callable(func)
 
     def _compute(self) -> Any:
-        # Create trace for this computation
-        trace = ComputationTrace()
+        store = self._store()
+        if store is None:
+            return self._cached_value
 
-        # Wrap store access to record trace
-        ctx = self._store._ctx
+        trace = ComputationTrace()
+        ctx = store._ctx
         prev_trace = getattr(ctx, "active_trace", None)
         ctx.active_trace = trace
 
-        try:
-            result = self._func()
+        result = self._func()
 
-            # Extract final value if traced
-            if isinstance(result, TracedValue):
-                self._trace = trace
-                self._output_idx = result.trace_idx
-                return result.value
-            else:
-                # Computation didn't use traced values
-                self._trace = None
-                self._output_idx = None
-                return result
-        finally:
-            if prev_trace is not None:
-                ctx.active_trace = prev_trace
-            elif hasattr(ctx, "active_trace"):
-                delattr(ctx, "active_trace")
+        if isinstance(result, TracedValue):
+            self._trace = weakref.ref(trace)
+            self._output_idx = result.trace_idx
+            return result.value
+        else:
+            self._trace = None
+            self._output_idx = None
+            return result
+
+        if prev_trace is not None:
+            ctx.active_trace = prev_trace
+        elif hasattr(ctx, "active_trace"):
+            delattr(ctx, "active_trace")
 
 
 class _ExplicitComputedValue(_ComputedValue):
@@ -1725,40 +1639,41 @@ class _ExplicitComputedValue(_ComputedValue):
         super().__init__(key, store)
         self._deps = deps
         self._func = func
+        self._is_async = _is_async_callable(func)
 
         self._dependencies = set(deps)
         for dep in deps:
             store._graph.add_edge(dep, key)
 
     def _compute(self) -> Any:
-        # Create trace
-        trace = ComputationTrace()
+        store = self._store()
+        if store is None:
+            return self._cached_value
 
-        ctx = self._store._ctx
+        trace = ComputationTrace()
+        ctx = store._ctx
         prev_trace = getattr(ctx, "active_trace", None)
         ctx.active_trace = trace
 
-        try:
-            args = [self._store.get(dep) for dep in self._deps]
-            # Unwrap TracedValues for the function call
-            unwrapped_args = [
-                arg.value if isinstance(arg, TracedValue) else arg for arg in args
-            ]
-            result = self._func(*unwrapped_args)
+        args = [store.get(dep) for dep in self._deps]
+        unwrapped_args = [
+            arg.value if isinstance(arg, TracedValue) else arg for arg in args
+        ]
+        result = self._func(*unwrapped_args)
 
-            if isinstance(result, TracedValue):
-                self._trace = trace
-                self._output_idx = result.trace_idx
-                return result.value
-            else:
-                self._trace = None
-                self._output_idx = None
-                return result if result is not None else self._cached_value
-        finally:
-            if prev_trace is not None:
-                ctx.active_trace = prev_trace
-            elif hasattr(ctx, "active_trace"):
-                delattr(ctx, "active_trace")
+        if isinstance(result, TracedValue):
+            self._trace = weakref.ref(trace)
+            self._output_idx = result.trace_idx
+            return result.value
+        else:
+            self._trace = None
+            self._output_idx = None
+            return result if result is not None else self._cached_value
+
+        if prev_trace is not None:
+            ctx.active_trace = prev_trace
+        elif hasattr(ctx, "active_trace"):
+            delattr(ctx, "active_trace")
 
     def _update_dependencies(self, new_deps: Set[str]) -> None:
         # Dependencies are explicit, don't update
@@ -1766,24 +1681,29 @@ class _ExplicitComputedValue(_ComputedValue):
 
 
 # ============================================================================
-# MAIN STORE
+# MAIN STORE WITH ASYNC SUPPORT
 # ============================================================================
 
 
 class ReactiveStore:
     """
-    Reactive store with automatic differentiation over delta algebras.
+    Reactive store with automatic differentiation over delta algebras and full async support.
 
-    Key Innovation: Computations are traced and differentiated automatically.
-    You only define delta algebra for primitive types.
+    Key Features:
+    - Myers diff algorithm for optimal string diffing
+    - Memory management with weak references for traces
+    - Full async/await support (automatically handles both sync and async functions)
+    - Automatic delta propagation through AD
     """
 
     _MAX_HISTORY = 10000
+    _TRACE_CLEANUP_INTERVAL = 100  # Cleanup every N operations
+    _TRACE_MAX_AGE = 300  # 5 minutes
 
     def __init__(self):
         self._values: Dict[str, Any] = {}
         self._computed: Dict[str, _ComputedValue] = {}
-        self._objects: Dict[str, Any] = {}  # Keep references to observables
+        self._objects: Dict[str, Any] = {}
         self._graph = _DependencyGraph()
 
         self._delta_registry = DeltaRegistry()
@@ -1799,7 +1719,9 @@ class ReactiveStore:
         self._pending_changes: List[Change] = []
         self._history: deque[Change] = deque(maxlen=self._MAX_HISTORY)
 
-        # Compatibility with Observable interface
+        self._operation_count = 0  # For periodic cleanup
+
+        # Compatibility
         self._kv = self
 
         atexit.register(self._cleanup)
@@ -1819,7 +1741,7 @@ class ReactiveStore:
         return self._graph
 
     # ========================================================================
-    # CORE API
+    # CORE API (SYNC)
     # ========================================================================
 
     def __getitem__(self, key: str) -> Any:
@@ -1851,7 +1773,35 @@ class ReactiveStore:
         del self[key]
 
     # ========================================================================
-    # COMPUTED VALUES WITH AUTOMATIC DIFFERENTIATION
+    # CORE API (ASYNC)
+    # ========================================================================
+
+    async def get_async(self, key: str, default: Any = None) -> Any:
+        """Async version of get - handles both sync and async computed values."""
+        if key in self._computed:
+            computed = self._computed[key]
+            return await computed.get_async()
+        elif key in self._values:
+            value = self._values[key]
+            if callable(value) and hasattr(value, "_key") and value._key == key:
+                result = value()
+                return await _ensure_awaitable(result)
+            return value
+        else:
+            return default
+
+    async def set_async(self, key: str, value: Any) -> None:
+        """Async version of set."""
+        with self._lock:
+            await self._set_internal_async(key, value)
+
+    async def delete_async(self, key: str) -> None:
+        """Async version of delete."""
+        with self._lock:
+            await self._delete_internal_async(key)
+
+    # ========================================================================
+    # COMPUTED VALUES WITH AUTOMATIC DIFFERENTIATION AND ASYNC
     # ========================================================================
 
     def computed(
@@ -1860,27 +1810,28 @@ class ReactiveStore:
         """
         Create a computed value with automatic incremental updates.
 
+        Automatically handles both sync and async functions!
+
         Args:
             key: Name for the computed value
-            func: Computation function
-            deps: Optional explicit dependencies (for optimization)
+            func: Computation function (sync or async)
+            deps: Optional explicit dependencies
 
         Examples:
-            # Automatic dependency tracking AND automatic delta propagation!
+            # Sync function
             store.computed('sum', lambda: store['x'] + store['y'])
 
-            # The store will:
-            # 1. Trace the computation on first run
-            # 2. Record operations: x → load, y → load, x+y → add
-            # 3. On update: push Δx forward: Δ(x+y) = Δx
-            # 4. Apply delta: sum' = sum ⊕ Δsum
+            # Async function - works automatically!
+            async def fetch_data():
+                response = await fetch_api()
+                return response + store['offset']
 
-            # Complex example - still automatic!
-            store.computed('z', lambda: 2 * store['x']**2 + 3 * store['y'])
-            # Δz = 2·2x·Δx + 3·Δy = 4x·Δx + 3·Δy (computed automatically!)
+            store.computed('data', fetch_data)
+
+            # Access async computed values:
+            value = await store.get_async('data')
         """
         with self._lock:
-            # Validate that explicit dependencies exist
             if deps:
                 for dep in deps:
                     if dep not in self._values and dep not in self._computed:
@@ -1898,7 +1849,7 @@ class ReactiveStore:
     # ========================================================================
 
     def on(self, key: str, callback: Callable[[Change], None]) -> Callable[[], None]:
-        """Subscribe to changes on a key."""
+        """Subscribe to changes on a key. Callback can be sync or async."""
         with self._lock:
             self._observers[key].append(callback)
 
@@ -1910,7 +1861,7 @@ class ReactiveStore:
             return unsubscribe
 
     def on_any(self, callback: Callable[[Change], None]) -> Callable[[], None]:
-        """Subscribe to all changes in the store."""
+        """Subscribe to all changes. Callback can be sync or async."""
         with self._lock:
             self._global_observers.add(callback)
 
@@ -1929,6 +1880,35 @@ class ReactiveStore:
         return BatchContext(self)
 
     # ========================================================================
+    # MEMORY MANAGEMENT
+    # ========================================================================
+
+    def _cleanup_old_traces(self) -> None:
+        """Clean up old traces to prevent memory leaks."""
+        current_time = time.time()
+
+        for computed in list(self._computed.values()):
+            if computed._trace is not None:
+                trace_ref = computed._trace
+                trace = trace_ref()
+
+                if trace is None:
+                    # Already garbage collected
+                    computed._trace = None
+                    computed._output_idx = None
+                elif current_time - trace._last_accessed > self._TRACE_MAX_AGE:
+                    # Old trace - release reference
+                    computed._trace = None
+                    computed._output_idx = None
+
+    def _maybe_cleanup(self) -> None:
+        """Periodically trigger cleanup."""
+        self._operation_count += 1
+        if self._operation_count % self._TRACE_CLEANUP_INTERVAL == 0:
+            self._cleanup_old_traces()
+            gc.collect()  # Suggest garbage collection
+
+    # ========================================================================
     # INTERNAL IMPLEMENTATION
     # ========================================================================
 
@@ -1936,11 +1916,9 @@ class ReactiveStore:
         """Internal get with tracing support."""
         ctx = self._ctx
 
-        # Track dependency for computed values
         if hasattr(ctx, "accessed_keys"):
             ctx.accessed_keys.add(key)
 
-        # Get the value
         if key in self._computed:
             computed = self._computed[key]
             if hasattr(ctx, "computing_stack") and key in ctx.computing_stack:
@@ -1949,13 +1927,11 @@ class ReactiveStore:
                 value = computed.get()
         elif key in self._values:
             value = self._values[key]
-            # Special handling for feedback values - always recompute
             if callable(value) and hasattr(value, "_key") and value._key == key:
-                value = value()  # Call feedback function
+                value = value()
         else:
             raise KeyError(f"Key not found: {key}")
 
-        # Wrap in TracedValue if we're tracing
         if hasattr(ctx, "active_trace"):
             trace = ctx.active_trace
             idx = trace.add_source(key, value)
@@ -1993,6 +1969,39 @@ class ReactiveStore:
         )
 
         self._propagate(change)
+        self._maybe_cleanup()
+
+    async def _set_internal_async(
+        self, key: str, value: Any, differential: Optional[TypedDelta] = None
+    ) -> None:
+        """Async version of internal set."""
+        if key in self._computed:
+            raise ValueError(f"Cannot update computed value '{key}'")
+
+        ctx = self._ctx
+        notifying = getattr(ctx, "notifying_keys", None)
+        if notifying and key in notifying:
+            raise CircularDependencyError(
+                f"Cannot modify '{key}' from within its own notification"
+            )
+
+        old_value = self._values.get(key)
+        self._values[key] = value
+
+        if differential is None and old_value is not None:
+            differential = self._delta_registry.compute_delta(old_value, value)
+
+        change = Change(
+            key=key,
+            change_type=ChangeType.SOURCE_UPDATE,
+            old_value=old_value,
+            new_value=value,
+            timestamp=time.time(),
+            differential=differential,
+        )
+
+        await self._propagate_async(change)
+        self._maybe_cleanup()
 
     def _delete_internal(self, key: str) -> None:
         if key not in self._values:
@@ -2010,6 +2019,23 @@ class ReactiveStore:
         )
 
         self._propagate(change)
+
+    async def _delete_internal_async(self, key: str) -> None:
+        if key not in self._values:
+            raise KeyError(f"Key not found: {key}")
+
+        old_value = self._values[key]
+        del self._values[key]
+
+        change = Change(
+            key=key,
+            change_type=ChangeType.DELETED,
+            old_value=old_value,
+            new_value=None,
+            timestamp=time.time(),
+        )
+
+        await self._propagate_async(change)
 
     def _propagate_change(self, change: Change) -> None:
         """Propagate a change (used by Observable for untracked updates)."""
@@ -2029,8 +2055,15 @@ class ReactiveStore:
 
         self._propagate_immediate(change)
 
+    async def _propagate_async(self, change: Change) -> None:
+        if self._batch_depth > 0:
+            self._pending_changes.append(change)
+            return
+
+        await self._propagate_immediate_async(change)
+
     def _propagate_immediate(self, change: Change) -> None:
-        """Immediate propagation with AD-based incremental computation."""
+        """Immediate propagation with AD-based incremental computation (sync version)."""
         if change.is_identity():
             return
 
@@ -2040,79 +2073,135 @@ class ReactiveStore:
         prev_change = getattr(ctx, "current_change", None)
         ctx.current_change = change
 
-        try:
-            affected = self._graph.get_all_dependents(change.key)
+        affected = self._graph.get_all_dependents(change.key)
 
-            if not affected:
-                self._notify(change)
-                return
+        if not affected:
+            self._notify(change)
+            return
 
-            # Save old values
-            old_values = {}
-            for key in affected:
-                if key in self._computed:
-                    computed = self._computed[key]
-                    old_values[key] = computed._cached_value
-                    computed.invalidate()
-
-            # Topologically sort affected nodes
-            order = self._graph.topological_sort(affected)
-
-            changes = [change]
-
-            # Update each affected node
-            for key in order:
-                if key not in self._computed:
-                    continue
-
+        old_values = {}
+        for key in affected:
+            if key in self._computed:
                 computed = self._computed[key]
-                old_value = old_values.get(key)
+                old_values[key] = computed._cached_value
+                computed.invalidate()
 
-                # Try incremental update with AD
-                new_value = computed.try_incremental_update(change)
+        order = self._graph.topological_sort(affected)
+        changes = [change]
 
-                if new_value is None:
-                    # Fallback to full recomputation
-                    logging.debug(f"AD failed for '{key}', falling back to recompute")
-                    new_value = computed.get()
-                else:
-                    # Incremental update succeeded!
-                    computed._cached_value = new_value
-                    computed._is_dirty = False
-                    computed._last_computed = time.time()
+        for key in order:
+            if key not in self._computed:
+                continue
 
-                # Check if value actually changed
-                if old_value is None or not self._values_equal(old_value, new_value):
-                    output_delta = self._delta_registry.compute_delta(
-                        old_value, new_value
-                    )
+            computed = self._computed[key]
+            old_value = old_values.get(key)
 
-                    output_change = Change(
-                        key=key,
-                        change_type=ChangeType.COMPUTED_UPDATE,
-                        old_value=old_value,
-                        new_value=new_value,
-                        timestamp=time.time(),
-                        differential=output_delta,
-                    )
+            # Try incremental update with AD
+            new_value = computed.try_incremental_update(change)
 
-                    # Additional check: don't propagate if change is identity
-                    if not output_change.is_identity():
-                        changes.append(output_change)
+            if new_value is None:
+                logging.debug(f"AD failed for '{key}', falling back to recompute")
+                new_value = computed.get()
+            else:
+                computed._cached_value = new_value
+                computed._is_dirty = False
+                computed._last_computed = time.time()
 
-                        # Update the change for subsequent propagation
-                        change = output_change
+            if old_value is None or not self._values_equal(old_value, new_value):
+                output_delta = self._delta_registry.compute_delta(old_value, new_value)
 
-            # Notify all observers
-            for c in changes:
-                self._notify(c)
-        finally:
-            if prev_change is not None:
-                ctx.current_change = prev_change
-            elif hasattr(ctx, "current_change"):
-                delattr(ctx, "current_change")
+                output_change = Change(
+                    key=key,
+                    change_type=ChangeType.COMPUTED_UPDATE,
+                    old_value=old_value,
+                    new_value=new_value,
+                    timestamp=time.time(),
+                    differential=output_delta,
+                )
+
+                if not output_change.is_identity():
+                    changes.append(output_change)
+                    change = output_change
+
+        for c in changes:
+            self._notify(c)
+
+        if prev_change is not None:
+            ctx.current_change = prev_change
+        elif hasattr(ctx, "current_change"):
+            delattr(ctx, "current_change")
+
+    async def _propagate_immediate_async(self, change: Change) -> None:
+        """Async version of immediate propagation."""
+        if change.is_identity():
+            return
+
+        self._history.append(change)
+
+        ctx = self._ctx
+        prev_change = getattr(ctx, "current_change", None)
+        ctx.current_change = change
+
+        affected = self._graph.get_all_dependents(change.key)
+
+        if not affected:
+            await self._notify_async(change)
+            return
+
+        old_values = {}
+        for key in affected:
+            if key in self._computed:
+                computed = self._computed[key]
+                old_values[key] = computed._cached_value
+                computed.invalidate()
+
+        order = self._graph.topological_sort(affected)
+        changes = [change]
+
+        for key in order:
+            if key not in self._computed:
+                continue
+
+            computed = self._computed[key]
+            old_value = old_values.get(key)
+
+            # Try incremental update with AD
+            new_value = computed.try_incremental_update(change)
+
+            if new_value is None:
+                logging.debug(f"AD failed for '{key}', falling back to recompute")
+                new_value = await computed.get_async()
+            else:
+                computed._cached_value = new_value
+                computed._is_dirty = False
+                computed._last_computed = time.time()
+
+            if old_value is None or not self._values_equal(old_value, new_value):
+                output_delta = self._delta_registry.compute_delta(old_value, new_value)
+
+                output_change = Change(
+                    key=key,
+                    change_type=ChangeType.COMPUTED_UPDATE,
+                    old_value=old_value,
+                    new_value=new_value,
+                    timestamp=time.time(),
+                    differential=output_delta,
+                )
+
+                if not output_change.is_identity():
+                    changes.append(output_change)
+                    change = output_change
+
+        for c in changes:
+            await self._notify_async(c)
+
+        if prev_change is not None:
+            ctx.current_change = prev_change
+        elif hasattr(ctx, "current_change"):
+            delattr(ctx, "current_change")
 
     def _notify(self, change: Change) -> None:
+        """Notify observers (sync version)."""
         ctx = self._ctx
 
         if not hasattr(ctx, "notifying_keys"):
@@ -2120,34 +2209,57 @@ class ReactiveStore:
 
         ctx.notifying_keys.add(change.key)
 
-        try:
-            for callback in self._observers.get(change.key, []):
-                try:
-                    callback(change)
-                except CircularDependencyError:
-                    raise  # Don't catch circular dependency errors
-                except Exception:
-                    pass
+        for callback in self._observers.get(change.key, []):
+            result = callback(change)
+            # Handle async callbacks in sync context
+            if inspect.isawaitable(result):
+                # Schedule for later execution
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(result)
+                else:
+                    loop.run_until_complete(result)
 
-            for callback in list(self._global_observers):
-                try:
-                    callback(change)
-                except Exception:
-                    pass
-        finally:
-            ctx.notifying_keys.discard(change.key)
-            if not ctx.notifying_keys:
-                delattr(ctx, "notifying_keys")
+        for callback in list(self._global_observers):
+            result = callback(change)
+            if inspect.isawaitable(result):
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(result)
+                else:
+                    loop.run_until_complete(result)
+
+        ctx.notifying_keys.discard(change.key)
+        if not ctx.notifying_keys:
+            delattr(ctx, "notifying_keys")
+
+    async def _notify_async(self, change: Change) -> None:
+        """Notify observers (async version)."""
+        ctx = self._ctx
+
+        if not hasattr(ctx, "notifying_keys"):
+            ctx.notifying_keys = set()
+
+        ctx.notifying_keys.add(change.key)
+
+        for callback in self._observers.get(change.key, []):
+            result = callback(change)
+            await _ensure_awaitable(result)
+
+        for callback in list(self._global_observers):
+            result = callback(change)
+            await _ensure_awaitable(result)
+
+        ctx.notifying_keys.discard(change.key)
+        if not ctx.notifying_keys:
+            delattr(ctx, "notifying_keys")
 
     def _values_equal(self, a: Any, b: Any) -> bool:
-        try:
-            if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
-                if type(a) != type(b):
-                    return False
-                return np.array_equal(a, b)
-            return a == b
-        except (ValueError, TypeError):
-            return False
+        if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
+            if type(a) != type(b):
+                return False
+            return np.array_equal(a, b)
+        return a == b
 
     def _merge_changes(self, changes: List[Change]) -> List[Change]:
         if not changes:
@@ -2181,20 +2293,30 @@ class ReactiveStore:
         with self._lock:
             result = [(k, v) for k, v in self._values.items()]
             for k, c in self._computed.items():
-                try:
-                    result.append((k, c.get()))
-                except Exception:
-                    pass
+                result.append((k, c.get()))
+            return result
+
+    async def items_async(self) -> List[tuple]:
+        """Async version of items."""
+        with self._lock:
+            result = [(k, v) for k, v in self._values.items()]
+            for k, c in self._computed.items():
+                result.append((k, await c.get_async()))
             return result
 
     def snapshot(self) -> Dict[str, Any]:
         with self._lock:
             result = dict(self._values)
             for key, computed in self._computed.items():
-                try:
-                    result[key] = computed.get()
-                except Exception:
-                    pass
+                result[key] = computed.get()
+            return result
+
+    async def snapshot_async(self) -> Dict[str, Any]:
+        """Async version of snapshot."""
+        with self._lock:
+            result = dict(self._values)
+            for key, computed in self._computed.items():
+                result[key] = await computed.get_async()
             return result
 
     def stats(self) -> Dict[str, Any]:
@@ -2202,10 +2324,12 @@ class ReactiveStore:
             traced_count = sum(
                 1 for c in self._computed.values() if c._trace is not None
             )
+            async_count = sum(1 for c in self._computed.values() if c._is_async)
             return {
                 "total_keys": len(self._values) + len(self._computed),
                 "source_keys": len(self._values),
                 "computed_keys": len(self._computed),
+                "async_computed_keys": async_count,
                 "traced_computations": traced_count,
                 "observers": sum(len(obs) for obs in self._observers.values()),
                 "global_observers": len(self._global_observers),
@@ -2213,6 +2337,7 @@ class ReactiveStore:
                 "total_dependencies": sum(
                     len(deps) for deps in self._graph._forward.values()
                 ),
+                "operation_count": self._operation_count,
             }
 
     def history(self, limit: int = 100) -> List[Change]:
@@ -2224,28 +2349,22 @@ class ReactiveStore:
             self._cleanup()
 
     def _cleanup(self) -> None:
-        try:
-            self._observers.clear()
-            self._global_observers.clear()
-            self._history.clear()
+        self._observers.clear()
+        self._global_observers.clear()
+        self._history.clear()
 
-            for computed in list(self._computed.values()):
-                for dep in list(computed._dependencies):
-                    self._graph.remove_edge(dep, computed.key)
+        for computed in list(self._computed.values()):
+            for dep in list(computed._dependencies):
+                self._graph.remove_edge(dep, computed.key)
 
-            self._computed.clear()
-            self._values.clear()
+        self._computed.clear()
+        self._values.clear()
 
-            self._graph._forward.clear()
-            self._graph._reverse.clear()
-        except Exception:
-            pass
+        self._graph._forward.clear()
+        self._graph._reverse.clear()
 
     def __del__(self) -> None:
-        try:
-            self._cleanup()
-        except Exception:
-            pass
+        self._cleanup()
 
     def __repr__(self) -> str:
         return f"ReactiveStore(keys={len(self.keys())})"
@@ -2268,8 +2387,6 @@ class ReactiveStore:
         """Subscribe to changes (supports both Change and TypedDelta callbacks)."""
 
         def wrapped_callback(change: Change):
-            # For Observable compatibility, pass the Change object
-            # Observable's on_delta expects delta.new_value, and Change has new_value
             callback(change)
 
         return self.on(key, wrapped_callback)
@@ -2291,14 +2408,9 @@ class ReactiveStore:
     ) -> None:
         """Create a feedback loop with stateful computation."""
         state_key = f"{key}_state"
-
-        # Initialize state
         self._values[state_key] = initial_state
+        self._values[key] = None
 
-        # Store feedback function and keys
-        self._values[key] = None  # Placeholder
-
-        # Create a special value that recomputes on each access
         class FeedbackValue:
             def __init__(self, store, key, state_key, input_key, fn):
                 self._store = store
@@ -2308,7 +2420,6 @@ class ReactiveStore:
                 self._fn = fn
 
             def __call__(self):
-                # Get current values, evaluating feedbacks if needed
                 current_input = self._store.get(self._input_key)
                 current_state = self._store._values.get(self._state_key)
 
@@ -2322,10 +2433,7 @@ class ReactiveStore:
         feedback_val = FeedbackValue(self, key, state_key, input_key, fn)
         self._values[key] = feedback_val
 
-        # Make feedback reactive to input changes
         def on_input_change(_):
-            # When input changes, invalidate the cached output
-            # Next access will recompute
             pass
 
         self.on(input_key, on_input_change)

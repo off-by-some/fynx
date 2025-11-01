@@ -901,7 +901,7 @@ class TestErrorConditions:
         # Try to derive with error - will fail on first access
         store.computed("error", lambda x: x / 0, ["x"])  # Division by zero
 
-        with pytest.raises(ComputationError):
+        with pytest.raises(ZeroDivisionError):
             store.get("error")
 
 

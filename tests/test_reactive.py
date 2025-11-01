@@ -629,7 +629,7 @@ class TestPerformanceConsiderations:
 
         @reactive(filtered_results)
         def update_ui(results):
-            if results is not None:
+            if results:
                 notifications.append(f"ui_{results}")
 
         # Short queries don't trigger
