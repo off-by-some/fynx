@@ -164,13 +164,12 @@ class ListAlgebra(DeltaAlgebra):
         """Compute list diff using difflib for optimal insert/remove/update operations."""
 
         # Check if all elements are hashable (required for difflib)
-        # Use type-based check to avoid try/catch for control flow
         def _is_hashable(obj):
-            # Common unhashable types that might be in lists
-            if isinstance(obj, (dict, list, set)):
+            try:
+                hash(obj)
+                return True
+            except TypeError:
                 return False
-            # For other types, assume hashable (strings, numbers, tuples of hashables, etc.)
-            return True
 
         if not all(_is_hashable(item) for item in old + new):
             # Fall back to full replacement for unhashable types
