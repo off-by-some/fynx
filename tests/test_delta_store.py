@@ -10,7 +10,7 @@ Law 3 (Tensor): ∀f:A→C,g:B→D: ∃! f⊗g: A⊗B → C⊗D
 Law 4 (Trace): Tr^A_B(f: A⊗B→A⊗B): B→B
 
 Derived Properties:
-- Comonad laws: ε∘δ = id, δ∘δ = ∇δ∘δ
+- Comonad laws: ε∘δ = id] = δ∘δ = ∇δ∘δ
 - Adjunction optimality: materialize ⟺ |dependents| ≥ 2
 - Coherence: linear chains fuse correctly
 - Poset: topological order maintained
@@ -23,15 +23,11 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from fynx.delta_kv_store import (
+from fynx import (
     Change,
-    ChangeSignificanceTester,
     ChangeType,
     CircularDependencyError,
     ComputationError,
-    Delta,
-    GTCPMetrics,
-    MorphismType,
     ReactiveStore,
 )
 
@@ -48,9 +44,9 @@ class TestIdentityLaw:
         store = ReactiveStore()
 
         # Create identity morphisms
-        store.source("name", "Alice")
-        store.source("age", 30)
-        store.source("active", True)
+        store["name"] = "Alice"
+        store["age"] = 30
+        store["active"] = True
 
         # Verify: get(key) = s_key(1) = value
         assert store.get("name") == "Alice"
@@ -62,18 +58,18 @@ class TestIdentityLaw:
         store = ReactiveStore()
 
         # Create source
-        store.source("value", 42)
+        store["value"] = 42
         assert store.get("value") == 42
 
         # Updating changes the same morphism (uniqueness)
-        store.update("value", 43)
+        store["value"] = 43
         assert store.get("value") == 43
 
     def test_source_counit_property(self):
         """Counit ε extracts value: ε(s_a) = a."""
         store = ReactiveStore()
 
-        store.source("x", 100)
+        store["x"] = 100
 
         # ε (get) extracts the value
         extracted = store.get("x")
@@ -83,25 +79,25 @@ class TestIdentityLaw:
         """Only identity morphisms (sources) can be updated."""
         store = ReactiveStore()
 
-        store.source("source", 10)
-        store.derive("derived", lambda x: x * 2, ["source"])
+        store["source"] = 10
+        store.computed("derived", lambda: store["source"] * 2)
 
         # Can update source
-        store.update("source", 20)
+        store["source"] = 20
         assert store.get("source") == 20
 
         # Cannot update derived (not an identity morphism)
         with pytest.raises(ValueError):
-            store.update("derived", 40)
+            store["derived"] = 40
 
     def test_source_with_complex_types(self):
         """Identity morphisms work with complex Python types."""
         store = ReactiveStore()
 
         # Lists, dicts, custom objects
-        store.source("list", [1, 2, 3])
-        store.source("dict", {"a": 1, "b": 2})
-        store.source("array", np.array([1, 2, 3]))
+        store["list"] = [1, 2, 3]
+        store["dict"] = {"a": 1, "b": 2}
+        store["array"] = np.array([1, 2, 3])
 
         assert store.get("list") == [1, 2, 3]
         assert store.get("dict") == {"a": 1, "b": 2}
@@ -110,7 +106,7 @@ class TestIdentityLaw:
     def test_source_is_immutable_morphism_type(self):
         """Sources should have identity morphism type."""
         store = ReactiveStore()
-        store.source("x", 10)
+        store["x"] = 10
 
         # DeltaKVStore doesn't have _nodes, so we test the value directly
         assert store.get("x") == 10
@@ -129,26 +125,26 @@ class TestCompositionLaw:
         """Derive creates composition morphism h = g∘f."""
         store = ReactiveStore()
 
-        store.source("x", 5)
-        store.derive("f", lambda x: x + 1, ["x"])  # f: x → x+1
-        store.derive("g", lambda y: y * 2, ["f"])  # g: y → y*2
+        store["x"] = 5
+        store.computed("f", lambda: store["x"] + 1)  # f: x → x+1
+        store.computed("g", lambda: store["f"] * 2)  # g: y → y*2
 
         # h = g∘f: x → 2(x+1)
         assert store.get("g") == (5 + 1) * 2  # = 12
 
     def test_composition_fusion_equivalence(self):
-        """Composition fusion: derive(k3,h,[k1]) ≡ derive(k2,g,[k1]);derive(k3,f,[k2])."""
+        """Composition fusion: derive(k3,h,[k1] ≡ derive(k2,g,[k1];derive(k3,f,[k2]."""
         store1 = ReactiveStore()
         store2 = ReactiveStore()
 
         # Composed approach: h = g∘f directly
-        store1.source("x", 10)
-        store1.derive("result", lambda x: (x + 5) * 2, ["x"])
+        store1["x"] = 10
+        store1.computed("result", lambda: (store1["x"] + 5) * 2)
 
         # Separate approach: f then g
-        store2.source("x", 10)
-        store2.derive("intermediate", lambda x: x + 5, ["x"])
-        store2.derive("result", lambda y: y * 2, ["intermediate"])
+        store2["x"] = 10
+        store2.computed("intermediate", lambda: store2["x"] + 5)
+        store2.computed("result", lambda: store2["intermediate"] * 2)
 
         # Both should give same result (composition law)
         assert store1.get("result") == store2.get("result") == 30
@@ -157,10 +153,10 @@ class TestCompositionLaw:
         """Composition is associative: (h∘g)∘f = h∘(g∘f)."""
         store = ReactiveStore()
 
-        store.source("x", 2)
-        store.derive("f", lambda x: x + 1, ["x"])  # f(2) = 3
-        store.derive("g", lambda x: x * 2, ["f"])  # g(3) = 6
-        store.derive("h", lambda x: x - 1, ["g"])  # h(6) = 5
+        store["x"] = 2
+        store.computed("f", lambda: store["x"] + 1)  # f(2) = 3
+        store.computed("g", lambda: store["f"] * 2)  # g(3) = 6
+        store.computed("h", lambda: store["g"] - 1)  # h(6) = 5
 
         # h∘g∘f = h(g(f(x)))
         assert store.get("h") == 5
@@ -169,10 +165,10 @@ class TestCompositionLaw:
         """Composition with multiple inputs: f(a,b) → c."""
         store = ReactiveStore()
 
-        store.source("a", 3)
-        store.source("b", 4)
-        store.derive("sum", lambda a, b: a + b, ["a", "b"])
-        store.derive("squared", lambda x: x**2, ["sum"])
+        store["a"] = 3
+        store["b"] = 4
+        store.computed("sum", lambda: store["a"] + store["b"])
+        store.computed("squared", lambda: store["sum"] ** 2)
 
         # (a+b)² = (3+4)² = 49
         assert store.get("squared") == 49
@@ -181,13 +177,13 @@ class TestCompositionLaw:
         """Composition recomputes when dependencies change (comultiplication δ)."""
         store = ReactiveStore()
 
-        store.source("base", 10)
-        store.derive("doubled", lambda x: x * 2, ["base"])
+        store["base"] = 10
+        store.computed("doubled", lambda: store["base"] * 2)
 
         assert store.get("doubled") == 20
 
         # Change base triggers recomputation
-        store.update("base", 15)
+        store["base"] = 15
         assert store.get("doubled") == 30
 
     def test_composition_caches_until_invalidated(self):
@@ -196,15 +192,15 @@ class TestCompositionLaw:
 
         computation_count = [0]
 
-        def expensive_fn(x):
+        def expensive_fn():
             computation_count[0] += 1
-            return x * 2
+            return store["base"] * 2
 
-        store.source("base", 10)
-        store.derive("expensive", expensive_fn, ["base"])
+        store["base"] = 10
+        store.computed("expensive", expensive_fn)
         # Add dependents to make expensive have fan-out >= 2 (adjunction theorem)
-        store.derive("dependent1", lambda x: x + 1, ["expensive"])
-        store.derive("dependent2", lambda x: x * 2, ["expensive"])
+        store.computed("dependent1", lambda: store["expensive"] + 1)
+        store.computed("dependent2", lambda: store["expensive"] * 2)
 
         # First access computes
         result = store.get("expensive")
@@ -217,7 +213,7 @@ class TestCompositionLaw:
         store.get("expensive")
 
         # Update invalidates cache
-        store.update("base", 20)
+        store["base"] = 20
         result = store.get("expensive")
         # Should be approximately 40 (allowing for floating point errors)
         assert result >= 39.0 and result <= 41.0
@@ -241,11 +237,11 @@ class TestAdjunctionMaterialization:
             computation_count[0] += 1
             return x * 2
 
-        store.source("base", 10)
-        store.derive("high_fanout", expensive_fn, ["base"])
+        store["base"] = 10
+        store.computed("high_fanout", expensive_fn, ["base"])
         # Give it 2 dependents (fan-out = 2) -> should be materialized
-        store.derive("dep1", lambda x: x + 1, ["high_fanout"])
-        store.derive("dep2", lambda x: x + 2, ["high_fanout"])
+        store.computed("dep1", lambda x: x + 1, ["high_fanout"])
+        store.computed("dep2", lambda x: x + 2, ["high_fanout"])
 
         # First access computes and caches
         assert store.get("high_fanout") == 20
@@ -268,10 +264,10 @@ class TestAdjunctionMaterialization:
             computation_count[0] += 1
             return x * 2
 
-        store.source("base", 10)
-        store.derive("low_fanout", expensive_fn, ["base"])
+        store["base"] = 10
+        store.computed("low_fanout", expensive_fn, ["base"])
         # Only 1 dependent (fan-out = 1) -> should not be materialized
-        store.derive("single_dep", lambda x: x + 1, ["low_fanout"])
+        store.computed("single_dep", lambda x: x + 1, ["low_fanout"])
 
         # First access computes
         assert store.get("low_fanout") == 20
@@ -297,9 +293,9 @@ class TestTensorLaw:
         """Product creates tensor morphism π: A⊗B → A×B."""
         store = ReactiveStore()
 
-        store.source("a", 1)
-        store.source("b", 2)
-        store.source("c", 3)
+        store["a"] = 1
+        store["b"] = 2
+        store["c"] = 3
         store.product("tensor", ["a", "b", "c"])
 
         # Tensor combines values
@@ -309,8 +305,8 @@ class TestTensorLaw:
         """Products are unique up to isomorphism: π ≅ π'."""
         store = ReactiveStore()
 
-        store.source("x", 10)
-        store.source("y", 20)
+        store["x"] = 10
+        store["y"] = 20
 
         store.product("p1", ["x", "y"])
         store.product("p2", ["x", "y"])
@@ -322,13 +318,13 @@ class TestTensorLaw:
         """Universal property: projections exist for any morphism to product."""
         store = ReactiveStore()
 
-        store.source("a", 5)
-        store.source("b", 7)
+        store["a"] = 5
+        store["b"] = 7
         store.product("pair", ["a", "b"])
 
         # Projections π₁ and π₂
-        store.derive("first", lambda p: p[0], ["pair"])
-        store.derive("second", lambda p: p[1], ["pair"])
+        store.computed("first", lambda p: p[0], ["pair"])
+        store.computed("second", lambda p: p[1], ["pair"])
 
         assert store.get("first") == 5
         assert store.get("second") == 7
@@ -337,32 +333,32 @@ class TestTensorLaw:
         """Product propagates changes from all components (comonad δ)."""
         store = ReactiveStore()
 
-        store.source("a", 1)
-        store.source("b", 2)
+        store["a"] = 1
+        store["b"] = 2
         store.product("pair", ["a", "b"])
 
         assert store.get("pair") == (1, 2)
 
         # Change first component
-        store.update("a", 10)
+        store["a"] = 10
         assert store.get("pair") == (10, 2)
 
         # Change second component
-        store.update("b", 20)
+        store["b"] = 20
         assert store.get("pair") == (10, 20)
 
     def test_product_with_derived_components(self):
         """Tensor can combine derived morphisms."""
         store = ReactiveStore()
 
-        store.source("x", 5)
-        store.derive("doubled", lambda x: x * 2, ["x"])
-        store.derive("tripled", lambda x: x * 3, ["x"])
+        store["x"] = 5
+        store.computed("doubled", lambda x: x * 2, ["x"])
+        store.computed("tripled", lambda x: x * 3, ["x"])
         store.product("combined", ["doubled", "tripled"])
 
         assert store.get("combined") == (10, 15)
 
-        store.update("x", 10)
+        store["x"] = 10
         assert store.get("combined") == (20, 30)
 
 
@@ -378,27 +374,27 @@ class TestTraceLaw:
         """Feedback creates trace morphism with hidden state."""
         store = ReactiveStore()
 
-        store.source("input", 5)
+        store["input"] = 5
 
         def accumulator(state, inp):
             return state + inp, state  # (new_state, output)
 
         store.feedback("acc", accumulator, "input", 0)
 
-        # First access: state=0, output=0
+        # First access: state=0] = output=0
         assert store.get("acc") == 0
 
-        # Second access: state=0+5=5, output=5
+        # Second access: state=0+5=5] = output=5
         assert store.get("acc") == 5
 
-        # Third access: state=5+5=10, output=10
+        # Third access: state=5+5=10] = output=10
         assert store.get("acc") == 10
 
     def test_feedback_fixed_point_uniqueness(self):
         """Trace solves unique fixed point: f(a*,b) = (a*,b') for all b."""
         store = ReactiveStore()
 
-        store.source("x", 1)
+        store["x"] = 1
 
         def counter(state, inp):
             new_state = state + 1
@@ -407,15 +403,15 @@ class TestTraceLaw:
         store.feedback("counter", counter, "x", 0)
 
         # Each access produces consistent fixed point evolution
-        assert store.get("counter") == 1  # state=1, output=1*1=1
-        assert store.get("counter") == 2  # state=2, output=2*1=2
-        assert store.get("counter") == 3  # state=3, output=3*1=3
+        assert store.get("counter") == 1  # state=1] = output=1*1=1
+        assert store.get("counter") == 2  # state=2] = output=2*1=2
+        assert store.get("counter") == 3  # state=3] = output=3*1=3
 
     def test_feedback_yanking_law(self):
         """Yanking law: Tr(f)∘Tr(g) = Tr(f∘(g⊗id))."""
         store = ReactiveStore()
 
-        store.source("x", 1)
+        store["x"] = 1
 
         def f(state, inp):
             return state + 1, state + inp
@@ -435,7 +431,7 @@ class TestTraceLaw:
         """Feedback properly evolves internal state over time."""
         store = ReactiveStore()
 
-        store.source("increment", 1)
+        store["increment"] = 1
 
         def stateful_counter(state, inc):
             new_state = state + inc
@@ -449,9 +445,9 @@ class TestTraceLaw:
         assert store.get("counter") == 3
 
         # Change input affects evolution
-        # Note: State continues from 3, doesn't reset
-        store.update("increment", 5)
-        assert store.get("counter") == 8  # 3 + 5
+        # Note: State continues from 3] = doesn't reset
+        store["increment"] = 5
+        assert store.get("counter") == 8  # 3 + 5 (state continues from 3)
 
 
 # ============================================================================
@@ -460,13 +456,13 @@ class TestTraceLaw:
 
 
 class TestComonadLaws:
-    """Test comonad (∇, ε, δ) structure"""
+    """Test comonad (∇] = ε] = δ) structure"""
 
     def test_counit_extracts_value(self):
         """Counit ε: ∇ ⇒ Id extracts current value."""
         store = ReactiveStore()
 
-        store.source("value", 42)
+        store["value"] = 42
 
         # ε (get) extracts the value
         assert store.get("value") == 42
@@ -475,16 +471,16 @@ class TestComonadLaws:
         """Comultiplication δ: ∇ ⇒ ∇∘∇ propagates to dependents."""
         store = ReactiveStore()
 
-        store.source("base", 10)
-        store.derive("d1", lambda x: x + 1, ["base"])
-        store.derive("d2", lambda x: x * 2, ["base"])
+        store["base"] = 10
+        store.computed("d1", lambda x: x + 1, ["base"])
+        store.computed("d2", lambda x: x * 2, ["base"])
 
         # Initial values
         assert store.get("d1") == 11
         assert store.get("d2") == 20
 
         # δ propagates change
-        store.update("base", 20)
+        store["base"] = 20
         assert store.get("d1") == 21
         assert store.get("d2") == 40
 
@@ -492,14 +488,14 @@ class TestComonadLaws:
         """ε∘δ = id: extracting after propagation gives same result."""
         store = ReactiveStore()
 
-        store.source("x", 100)
-        store.derive("y", lambda x: x * 2, ["x"])
+        store["x"] = 100
+        store.computed("y", lambda x: x * 2, ["x"])
 
         # Get initial value
         initial = store.get("y")
 
         # Propagate and extract
-        store.update("x", 100)  # No change
+        store["x"] = 100  # No change
         after_propagation = store.get("y")
 
         # Should be same (identity)
@@ -515,16 +511,16 @@ class TestComonadLaws:
         #     \    /
         #     join
 
-        store.source("source", 10)
-        store.derive("left", lambda x: x + 5, ["source"])
-        store.derive("right", lambda x: x * 2, ["source"])
-        store.derive("join", lambda l, r: l + r, ["left", "right"])
+        store["source"] = 10
+        store.computed("left", lambda x: x + 5, ["source"])
+        store.computed("right", lambda x: x * 2, ["source"])
+        store.computed("join", lambda l, r: l + r, ["left", "right"])
 
         # Initial: (10+5) + (10*2) = 15 + 20 = 35
         assert store.get("join") == 35
 
         # Change propagates through both paths
-        store.update("source", 20)
+        store["source"] = 20
         assert store.get("join") == 65  # (20+5) + (20*2) = 25 + 40
 
 
@@ -534,29 +530,29 @@ class TestComonadLaws:
 
 
 class TestPosetStructure:
-    """Test partial order (𝒦, ≼) and linear extension"""
+    """Test partial order (𝒦] = ≼) and linear extension"""
 
     def test_topological_order_maintained(self):
         """Linear extension ≼_L respects partial order ≼."""
         store = ReactiveStore()
 
         # Chain: a → b → c → d
-        store.source("a", 1)
-        store.derive("b", lambda x: x + 1, ["a"])
-        store.derive("c", lambda x: x + 1, ["b"])
-        store.derive("d", lambda x: x + 1, ["c"])
+        store["a"] = 1
+        store.computed("b", lambda x: x + 1, ["a"])
+        store.computed("c", lambda x: x + 1, ["b"])
+        store.computed("d", lambda x: x + 1, ["c"])
 
         # Update triggers topological computation
-        store.update("a", 10)
+        store["a"] = 10
 
-        # Values computed in order: a=10, b=11, c=12, d=13
+        # Values computed in order: a=10] = b=11] = c=12] = d=13
         assert store.get("d") == 13
 
     def test_poset_reflexivity(self):
         """Reflexivity: k ≼ k."""
         store = ReactiveStore()
 
-        store.source("x", 5)
+        store["x"] = 5
 
         # Check dependency structure - source keys exist in the store
         assert "x" in store._data
@@ -567,8 +563,8 @@ class TestPosetStructure:
         """Antisymmetry: k₁≼k₂ ∧ k₂≼k₁ ⇒ k₁=k₂."""
         store = ReactiveStore()
 
-        store.source("x", 5)
-        store.derive("y", lambda x: x + 1, ["x"])
+        store["x"] = 5
+        store.computed("y", lambda x: x + 1, ["x"])
 
         # y depends on x but x doesn't depend on y (antisymmetric)
         assert "y" in store._dep_graph.get_dependents("x")
@@ -580,29 +576,29 @@ class TestPosetStructure:
         """Transitivity: k₁≼k₂ ∧ k₂≼k₃ ⇒ k₁≼k₃."""
         store = ReactiveStore()
 
-        store.source("a", 1)
-        store.derive("b", lambda x: x + 1, ["a"])
-        store.derive("c", lambda x: x + 1, ["b"])
+        store["a"] = 1
+        store.computed("b", lambda x: x + 1, ["a"])
+        store.computed("c", lambda x: x + 1, ["b"])
 
         # a ≼ b, b ≼ c, therefore a ≼ c (transitive)
-        store.update("a", 10)
+        store["a"] = 10
         assert store.get("c") == 12  # Change propagates transitively
 
     def test_dag_requirement_cycle_detection(self):
         """DAG requirement: ¬∃k: k ≺ k (no self-dependency)."""
         store = ReactiveStore()
 
-        store.source("a", 1)
-        store.derive("b", lambda x: x + 1, ["a"])
+        store["a"] = 1
+        store.computed("b", lambda x: x + 1, ["a"])
 
         # Attempting to create self-cycle - it would fail on derive due to missing dependency
         # So we create an actual cycle
-        store.source("cycle_a", 1)
-        store.derive("cycle_b", lambda x: x + 1, ["cycle_a"])
+        store["cycle_a"] = 1
+        store.computed("cycle_b", lambda x: x + 1, ["cycle_a"])
 
         # Can't create reverse dependency since a cycle, but derive with non-existent key fails
         with pytest.raises(KeyError):
-            store.derive("bad", lambda x: x + 1, ["nonexistent"])
+            store.computed("bad", lambda x: x + 1, ["nonexistent"])
 
 
 # ============================================================================
@@ -617,10 +613,10 @@ class TestAdjunctionMaterialization:
         """Materialize ⟺ |dependents(k)| ≥ 2."""
         store = ReactiveStore()
 
-        store.source("source", 10)
-        store.derive("intermediate", lambda x: x + 5, ["source"])
-        store.derive("dep1", lambda x: x * 2, ["intermediate"])
-        store.derive("dep2", lambda x: x * 3, ["intermediate"])
+        store["source"] = 10
+        store.computed("intermediate", lambda x: x + 5, ["source"])
+        store.computed("dep1", lambda x: x * 2, ["intermediate"])
+        store.computed("dep2", lambda x: x * 3, ["intermediate"])
 
         # Access both dependents
         store.get("dep1")
@@ -636,9 +632,9 @@ class TestAdjunctionMaterialization:
         """Don't materialize when |dependents| < 2."""
         store = ReactiveStore()
 
-        store.source("source", 10)
-        store.derive("intermediate", lambda x: x + 5, ["source"])
-        store.derive("final", lambda x: x * 2, ["intermediate"])
+        store["source"] = 10
+        store.computed("intermediate", lambda x: x + 5, ["source"])
+        store.computed("final", lambda x: x * 2, ["intermediate"])
 
         # Access final
         store.get("final")
@@ -651,8 +647,8 @@ class TestAdjunctionMaterialization:
         """Triangle identity: ε∘Free(η) = id."""
         store = ReactiveStore()
 
-        store.source("x", 42)
-        store.derive("derived", lambda x: x * 2, ["x"])
+        store["x"] = 42
+        store.computed("derived", lambda x: x * 2, ["x"])
 
         # Materialize (Free functor)
         store.get("derived")
@@ -673,11 +669,11 @@ class TestAdjunctionMaterialization:
             compute_count[0] += 1
             return x**2
 
-        store.source("x", 10)
-        store.derive("expensive", expensive, ["x"])
-        store.derive("use1", lambda x: x + 1, ["expensive"])
-        store.derive("use2", lambda x: x + 2, ["expensive"])
-        store.derive("use3", lambda x: x + 3, ["expensive"])
+        store["x"] = 10
+        store.computed("expensive", expensive, ["x"])
+        store.computed("use1", lambda x: x + 1, ["expensive"])
+        store.computed("use2", lambda x: x + 2, ["expensive"])
+        store.computed("use3", lambda x: x + 3, ["expensive"])
 
         # Access all uses
         store.get("use1")
@@ -702,10 +698,10 @@ class TestCoherenceFusion:
         """Linear chains fuse: f_n∘...∘f_1."""
         store = ReactiveStore()
 
-        store.source("x", 5)
-        store.derive("f1", lambda x: x + 1, ["x"])
-        store.derive("f2", lambda x: x * 2, ["f1"])
-        store.derive("f3", lambda x: x - 1, ["f2"])
+        store["x"] = 5
+        store.computed("f1", lambda x: x + 1, ["x"])
+        store.computed("f2", lambda x: x * 2, ["f1"])
+        store.computed("f3", lambda x: x - 1, ["f2"])
 
         # Should fuse: ((x+1)*2)-1
         result = store.get("f3")
@@ -716,7 +712,7 @@ class TestCoherenceFusion:
         """Fusion preserves semantics: fused = unfused."""
         store = ReactiveStore()
 
-        store.source("x", 3)
+        store["x"] = 3
 
         def step1(x):
             return x + 1
@@ -727,9 +723,9 @@ class TestCoherenceFusion:
         def step3(x):
             return x - 1
 
-        store.derive("s1", step1, ["x"])
-        store.derive("s2", step2, ["s1"])
-        store.derive("s3", step3, ["s2"])
+        store.computed("s1", step1, ["x"])
+        store.computed("s2", step2, ["s1"])
+        store.computed("s3", step3, ["s2"])
 
         # Fused result
         fused = store.get("s3")
@@ -744,10 +740,10 @@ class TestCoherenceFusion:
         """Don't fuse at branch points (|dependents| > 1)."""
         store = ReactiveStore()
 
-        store.source("x", 10)
-        store.derive("intermediate", lambda x: x + 5, ["x"])
-        store.derive("branch1", lambda x: x * 2, ["intermediate"])
-        store.derive("branch2", lambda x: x * 3, ["intermediate"])
+        store["x"] = 10
+        store.computed("intermediate", lambda x: x + 5, ["x"])
+        store.computed("branch1", lambda x: x * 2, ["intermediate"])
+        store.computed("branch2", lambda x: x * 3, ["intermediate"])
 
         # intermediate is branch point (2 dependents)
         store.get("branch1")
@@ -762,9 +758,9 @@ class TestCoherenceFusion:
         store = ReactiveStore()
 
         # Linear: a → b → c
-        store.source("a", 1)
-        store.derive("b", lambda x: x + 1, ["a"])
-        store.derive("c", lambda x: x + 1, ["b"])
+        store["a"] = 1
+        store.computed("b", lambda x: x + 1, ["a"])
+        store.computed("c", lambda x: x + 1, ["b"])
 
         # Each intermediate has exactly 1 dependent
         a_dependents = store._dep_graph.get_dependents("a")
@@ -786,11 +782,11 @@ class TestObservation:
         store = ReactiveStore()
         changes = []
 
-        store.source("x", 10)
+        store["x"] = 10
         unsubscribe = store.observe("x", lambda delta: changes.append(delta))
 
         # Update should trigger observer
-        store.update("x", 20)
+        store["x"] = 20
 
         assert len(changes) >= 1
         # Latest change should be the update
@@ -807,8 +803,8 @@ class TestObservation:
         store = ReactiveStore()
         changes = []
 
-        store.source("base", 10)
-        store.derive("derived", lambda x: x * 2, ["base"])
+        store["base"] = 10
+        store.computed("derived", lambda x: x * 2, ["base"])
 
         # Access to compute initial value
         initial = store.get("derived")
@@ -817,7 +813,7 @@ class TestObservation:
         unsubscribe = store.observe("derived", lambda delta: changes.append(delta))
 
         # Change base - should trigger observer
-        store.update("base", 20)
+        store["base"] = 20
 
         assert len(changes) >= 1
         assert (
@@ -833,15 +829,15 @@ class TestObservation:
         store = ReactiveStore()
         changes = []
 
-        store.source("x", 10)
+        store["x"] = 10
         unsubscribe = store.observe("x", lambda delta: changes.append(delta))
 
-        store.update("x", 20)
+        store["x"] = 20
         initial_len = len(changes)
 
         unsubscribe()
 
-        store.update("x", 30)
+        store["x"] = 30
         # Should not have more notifications after unsubscribe
         assert len(changes) == initial_len
 
@@ -850,11 +846,11 @@ class TestObservation:
         store = ReactiveStore()
         changes1, changes2 = [], []
 
-        store.source("x", 42)
+        store["x"] = 42
         unsub1 = store.observe("x", lambda d: changes1.append(d))
         unsub2 = store.observe("x", lambda d: changes2.append(d))
 
-        store.update("x", 100)
+        store["x"] = 100
 
         # Both should receive the update
         assert len(changes1) >= 1
@@ -877,33 +873,33 @@ class TestErrorConditions:
         store = ReactiveStore()
 
         # Create actual circular dependency
-        store.source("a", 1)
-        store.derive("b", lambda a: a + 1, ["a"])
+        store["a"] = 1
+        store.computed("b", lambda a: a + 1, ["a"])
 
-        # Try to create cycle: b depends on c, which would depend on b
-        store.source("c", 1)
-        store.derive("d", lambda c: c + 1, ["c"])
+        # Try to create cycle: b depends on c] = which would depend on b
+        store["c"] = 1
+        store.computed("d", lambda c: c + 1, ["c"])
 
-        # Accessing d should work, creating full cycle would fail on derive
+        # Accessing d should work] = creating full cycle would fail on derive
         with pytest.raises(KeyError):
             # Can't create dependency on non-existent key
-            store.derive("bad", lambda x: x + 1, ["nonexistent"])
+            store.computed("bad", lambda x: x + 1, ["nonexistent"])
 
     def test_missing_key_raises_error(self):
         """Accessing non-existent key raises KeyError."""
         store = ReactiveStore()
 
         with pytest.raises(KeyError):
-            store.get("nonexistent")
+            store["nonexistent"]
 
     def test_computation_error_propagates(self):
         """Errors in computation functions propagate."""
         store = ReactiveStore()
 
-        store.source("x", 10)
+        store["x"] = 10
 
         # Try to derive with error - will fail on first access
-        store.derive("error", lambda x: x / 0, ["x"])  # Division by zero
+        store.computed("error", lambda x: x / 0, ["x"])  # Division by zero
 
         with pytest.raises(ComputationError):
             store.get("error")
@@ -921,8 +917,8 @@ class TestThreadSafety:
         """Concurrent reads are thread-safe."""
         store = ReactiveStore()
 
-        store.source("x", 100)
-        store.derive("doubled", lambda x: x * 2, ["x"])
+        store["x"] = 100
+        store.computed("doubled", lambda x: x * 2, ["x"])
 
         results = []
 
@@ -943,12 +939,12 @@ class TestThreadSafety:
         """Concurrent writes are thread-safe."""
         store = ReactiveStore()
 
-        store.source("counter", 0)
+        store["counter"] = 0
 
         def increment():
             for i in range(100):
                 current = store.get("counter")
-                store.update("counter", current + 1)
+                store["counter"] = current + 1
 
         threads = [threading.Thread(target=increment) for _ in range(3)]
         for t in threads:
@@ -975,13 +971,13 @@ class TestIntegration:
         store = ReactiveStore()
 
         # Build computation graph
-        store.source("price", 100)
-        store.source("quantity", 5)
-        store.source("tax_rate", 0.1)
+        store["price"] = 100
+        store["quantity"] = 5
+        store["tax_rate"] = 0.1
 
-        store.derive("subtotal", lambda p, q: p * q, ["price", "quantity"])
-        store.derive("tax", lambda s, r: s * r, ["subtotal", "tax_rate"])
-        store.derive("total", lambda s, t: s + t, ["subtotal", "tax"])
+        store.computed("subtotal", lambda p, q: p * q, ["price", "quantity"])
+        store.computed("tax", lambda s, r: s * r, ["subtotal", "tax_rate"])
+        store.computed("total", lambda s, t: s + t, ["subtotal", "tax"])
 
         # Verify initial computation
         assert store.get("subtotal") == 500
@@ -989,11 +985,11 @@ class TestIntegration:
         assert store.get("total") == 550
 
         # Change price
-        store.update("price", 120)
+        store["price"] = 120
         assert store.get("total") == 660  # (120*5)*1.1
 
         # Change tax rate
-        store.update("tax_rate", 0.15)
+        store["tax_rate"] = 0.15
         assert store.get("total") == 690  # (120*5)*1.15
 
     def test_statistical_computation(self):
@@ -1001,15 +997,15 @@ class TestIntegration:
         store = ReactiveStore()
 
         data = [1, 2, 3, 4, 5]
-        store.source("data", data)
+        store["data"] = data
 
-        store.derive("mean", lambda d: sum(d) / len(d), ["data"])
-        store.derive(
+        store.computed("mean", lambda d: sum(d) / len(d), ["data"])
+        store.computed(
             "variance",
             lambda d, m: sum((x - m) ** 2 for x in d) / len(d),
             ["data", "mean"],
         )
-        store.derive("std_dev", lambda v: math.sqrt(v), ["variance"])
+        store.computed("std_dev", lambda v: math.sqrt(v), ["variance"])
 
         assert store.get("mean") == 3.0
         assert store.get("variance") == 2.0
@@ -1020,10 +1016,10 @@ class TestIntegration:
         store = ReactiveStore()
 
         arr = np.array([1, 2, 3, 4, 5])
-        store.source("array", arr)
+        store["array"] = arr
 
-        store.derive("doubled", lambda a: a * 2, ["array"])
-        store.derive("sum", lambda a: np.sum(a), ["doubled"])
+        store.computed("doubled", lambda a: a * 2, ["array"])
+        store.computed("sum", lambda a: np.sum(a), ["doubled"])
 
         np.testing.assert_array_equal(store.get("doubled"), np.array([2, 4, 6, 8, 10]))
         assert store.get("sum") == 30
@@ -1041,9 +1037,9 @@ class TestUtilities:
         """keys() returns all defined keys."""
         store = ReactiveStore()
 
-        store.source("a", 1)
-        store.source("b", 2)
-        store.derive("c", lambda a, b: a + b, ["a", "b"])
+        store["a"] = 1
+        store["b"] = 2
+        store.computed("c", lambda a, b: a + b, ["a", "b"])
 
         keys = set(store.keys())
         assert keys == {"a", "b", "c"}
@@ -1052,23 +1048,23 @@ class TestUtilities:
         """stats() provides comprehensive information."""
         store = ReactiveStore()
 
-        store.source("x", 10)
-        store.derive("y", lambda x: x * 2, ["x"])
-        store.derive("z", lambda x: x * 3, ["x"])
+        store["x"] = 10
+        store.computed("y", lambda x: x * 2, ["x"])
+        store.computed("z", lambda x: x * 3, ["x"])
 
         stats = store.stats()
 
-        assert stats["total_objects"] == 3
-        assert stats["identity_morphisms"] == 1
-        assert stats["composition_morphisms"] == 2
+        assert stats["total_keys"] == 3
+        assert stats["source_keys"] == 1
+        assert stats["computed_keys"] == 2
 
     def test_delta_object_properties(self):
         """Delta objects have correct properties."""
         import time
 
-        delta = Delta(
+        delta = Change(
             key="key",
-            change_type=ChangeType.SOURCE_UPDATE.value,
+            change_type=ChangeType.SOURCE_UPDATE,
             old_value=10,
             new_value=20,
             timestamp=time.time(),
@@ -1076,7 +1072,7 @@ class TestUtilities:
         )
 
         assert delta.key == "key"
-        assert delta.change_type == ChangeType.SOURCE_UPDATE.value
+        assert delta.change_type == ChangeType.SOURCE_UPDATE
         assert delta.old_value == 10
         assert delta.new_value == 20
         assert delta.timestamp is not None
@@ -1088,7 +1084,7 @@ class TestUtilities:
 
 
 class TestDifferentialProgressSemiring:
-    """Verify (S × T, ⊕, ⊗, ⊖, e, ∅, ≤_T) forms a valid semiring"""
+    """Verify (S × T] = ⊕] = ⊗] = ⊖] = e] = ∅] = ≤_T) forms a valid semiring"""
 
 
 class TestGTCPConvergence:
@@ -1097,35 +1093,26 @@ class TestGTCPConvergence:
     def test_gtcp_contraction_factor(self):
         """Verify k < 1 for feedback loops"""
         store = ReactiveStore()
-        store.source("x", 10.0)
+        store["x"] = 10.0
 
         # Feedback that should contract
         def contracting_fn(state, input_val):
             new_state = 0.5 * state + 0.1 * input_val
             return new_state, new_state
 
-        store.feedback("y", contracting_fn, "x", state_init=0.0, gtcp_contraction=0.9)
+        store.feedback("y", contracting_fn, "x", initial_state=0.0)
 
         # Run several iterations - trigger state changes
         for i in range(20):
             # Update input to trigger computation
-            store.update("x", 10.0 + i * 0.1)
+            store["x"] = 10.0 + i * 0.1
             val = store.get("y")  # This advances the state incrementally
-
-        metrics = store.get_gtcp_metrics("y")
-
-        # For incremental trace, we should have some metrics recorded
-        # The key is that state changes are tracked
-        if metrics.magnitude_norms:
-            # Verify reasonable contraction factors
-            contraction_factor = metrics.contraction_factor()
-            if contraction_factor is not None:
-                # Should be reasonable value
-                assert contraction_factor >= 0
 
         # Verify the system doesn't crash and produces consistent results
         final_val = store.get("y")
         assert isinstance(final_val, (int, float))
+        # Feedback should have produced some value
+        assert final_val is not None
 
 
 class TestTraceAxioms:
@@ -1135,7 +1122,7 @@ class TestTraceAxioms:
     def test_dyl_differential_yanking(self):
         """tr_Δ(f)(Δσ) = tr(f)(σ ⊕ Δσ) ⊖ tr(f)(σ)"""
         store = ReactiveStore()
-        store.source("x", 10.0)
+        store["x"] = 10.0
 
         # Simple stateful computation that contracts properly
         def stateful_fn(state, input_val):
@@ -1151,7 +1138,7 @@ class TestTraceAxioms:
         assert isinstance(result_1, (int, float))
 
         # Apply delta: tr(f)(σ ⊕ Δσ)
-        store.update("x", 15.0)  # Δx = 5.0
+        store["x"] = 15.0  # Δx = 5.0
         result_2 = store.get("y")
 
         # DYL: incremental result should equal difference
@@ -1163,8 +1150,8 @@ class TestTraceAxioms:
     def test_itl_incremental_tightening(self):
         """ΔA = e ⇒ output contribution from A is e"""
         store = ReactiveStore()
-        store.source("a", 5.0)
-        store.source("b", 10.0)
+        store["a"] = 5.0
+        store["b"] = 10.0
 
         call_count = [0]
 
@@ -1172,28 +1159,28 @@ class TestTraceAxioms:
             call_count[0] += 1
             return a_val + b_val
 
-        store.derive("c", compute_fn, ["a", "b"])
+        store.computed("c", compute_fn, ["a", "b"])
         # Add 2 dependents to ensure 'c' gets materialized (fan_out >= 2 per adjunction theorem)
-        store.derive("d", lambda x: x * 2, ["c"])
-        store.derive("e", lambda x: x + 1, ["c"])
+        store.computed("d", lambda x: x * 2, ["c"])
+        store.computed("e", lambda x: x + 1, ["c"])
 
         # Initial computation
         result1 = store.get("c")
         initial_calls = call_count[0]
 
         # Update only 'b' (a unchanged, Δa = e)
-        store.update("b", 20.0)
+        store["b"] = 20.0
         result2 = store.get("c")
 
         # Should recompute since 'b' changed
         assert result2 == result1 + 10.0
         assert call_count[0] == initial_calls + 1
 
-        # Now update 'b' to same value (Δb = e)
-        store.update("b", 20.0)  # No change
+        # Now update 'b' to same value (Δb = e
+        store["b"] = 20.0  # No change
         result3 = store.get("c")
 
-        # ITL: no inputs changed, should use materialized cache
+        # ITL: no inputs changed] = should use materialized cache
         assert result3 == result2
         assert call_count[0] == initial_calls + 1  # No additional calls
 
@@ -1204,17 +1191,17 @@ class TestCategoryStructure:
     def test_morphism_composition_associative(self):
         """(h ∘ g) ∘ f = h ∘ (g ∘ f)"""
         store = ReactiveStore()
-        store.source("a", 5)
-        store.derive("b", lambda x: x + 1, ["a"])
-        store.derive("c", lambda x: x * 2, ["b"])
-        store.derive("d", lambda x: x - 3, ["c"])
+        store["a"] = 5
+        store.computed("b", lambda x: x + 1, ["a"])
+        store.computed("c", lambda x: x * 2, ["b"])
+        store.computed("d", lambda x: x - 3, ["c"])
 
         result = store.get("d")
         # d = ((a + 1) * 2) - 3 = (6 * 2) - 3 = 9
         assert result == 9
 
         # Verify composition is consistent after update
-        store.update("a", 10)
+        store["a"] = 10
         result2 = store.get("d")
         # d = ((10 + 1) * 2) - 3 = 19
         assert result2 == 19
@@ -1222,22 +1209,22 @@ class TestCategoryStructure:
     def test_identity_morphism(self):
         """id_A ∘ f = f ∘ id_A = f"""
         store = ReactiveStore()
-        store.source("x", 10)  # Identity morphism: 1 → X
+        store["x"] = 10  # Identity morphism: 1 → X
 
         # Get without any computation (pure identity)
         result = store.get("x")
         assert result == 10
 
         # After noop update
-        store.update("x", 10)  # No change
+        store["x"] = 10  # No change
         result2 = store.get("x")
         assert result2 == result
 
     def test_tensor_product_universal_property(self):
         """Product morphism satisfies π_i ∘ π = id_{A_i}"""
         store = ReactiveStore()
-        store.source("a", 5)
-        store.source("b", 10)
+        store["a"] = 5
+        store["b"] = 10
         store.product("ab", ["a", "b"])
 
         result = store.get("ab")
@@ -1250,12 +1237,12 @@ class TestCategoryStructure:
 
 
 class TestCoalgebraStructure:
-    """Verify (∇, ε, δ) forms valid comonad"""
+    """Verify (∇] = ε] = δ) forms valid comonad"""
 
     def test_counit_extract(self):
         """ε ∘ act = id_X (counit law)"""
         store = ReactiveStore()
-        store.source("x", 42)
+        store["x"] = 42
 
         # ε (extract): ∇X → X
         value = store.get("x")
@@ -1267,8 +1254,8 @@ class TestCoalgebraStructure:
     def test_comultiplication_coherence(self):
         """∇act ∘ act = act ∘ δ (comultiplication law)"""
         store = ReactiveStore()
-        store.source("x", 10)
-        store.derive("y", lambda x: x * 2, ["x"])
+        store["x"] = 10
+        store.computed("y", lambda x: x * 2, ["x"])
 
         observations = []
         store.observe("y", lambda d: observations.append(d))
@@ -1278,7 +1265,7 @@ class TestCoalgebraStructure:
         assert initial_y == 20
 
         # δ (comultiplication): propagate change
-        store.update("x", 20)
+        store["x"] = 20
 
         # Access 'y' again to trigger computation and observation
         final_y = store.get("y")
@@ -1294,12 +1281,12 @@ class TestCoalgebraStructure:
     def test_comonad_identities(self):
         """ε ∘ δ = id and ∇ε ∘ δ = id"""
         store = ReactiveStore()
-        store.source("x", 5)
-        store.derive("y", lambda x: x + 1, ["x"])
+        store["x"] = 5
+        store.computed("y", lambda x: x + 1, ["x"])
 
         # ε ∘ δ = id: extract after propagate = original
         original = store.get("y")
-        store.update("x", 5)  # No change
+        store["x"] = 5  # No change
         after_propagate = store.get("y")
         assert original == after_propagate
 
@@ -1310,8 +1297,8 @@ class TestDifferentialPropagationOptimality:
     def test_sparse_propagation(self):
         """Only affected nodes should recompute"""
         store = ReactiveStore()
-        store.source("a", 1)
-        store.source("b", 2)
+        store["a"] = 1
+        store["b"] = 2
 
         call_counts = {"c": 0, "d": 0, "e": 0}
 
@@ -1322,9 +1309,9 @@ class TestDifferentialPropagationOptimality:
 
             return fn
 
-        store.derive("c", track_calls("c"), ["a", "b"])
-        store.derive("d", track_calls("d"), ["a"])
-        store.derive("e", track_calls("e"), ["c", "d"])
+        store.computed("c", track_calls("c"), ["a", "b"])
+        store.computed("d", track_calls("d"), ["a"])
+        store.computed("e", track_calls("e"), ["c", "d"])
 
         # Initial computation
         store.get("e")
@@ -1333,7 +1320,7 @@ class TestDifferentialPropagationOptimality:
         initial_e = call_counts["e"]
 
         # Update only 'b'
-        store.update("b", 3)
+        store["b"] = 3
         store.get("e")
 
         # Only 'c' and 'e' should recompute (sparse propagation)
@@ -1345,7 +1332,7 @@ class TestDifferentialPropagationOptimality:
     def test_materialization_sharing(self):
         """Fan-out ≥ 2 should materialize exactly once"""
         store = ReactiveStore()
-        store.source("x", 10)
+        store["x"] = 10
 
         call_count = [0]
 
@@ -1353,9 +1340,9 @@ class TestDifferentialPropagationOptimality:
             call_count[0] += 1
             return x**2
 
-        store.derive("y", expensive_fn, ["x"])
-        store.derive("z1", lambda y: y + 1, ["y"])
-        store.derive("z2", lambda y: y + 2, ["y"])
+        store.computed("y", expensive_fn, ["x"])
+        store.computed("z1", lambda y: y + 1, ["y"])
+        store.computed("z2", lambda y: y + 2, ["y"])
 
         # Get both dependents - should compute 'y'
         val1 = store.get("z1")
@@ -1364,7 +1351,7 @@ class TestDifferentialPropagationOptimality:
         assert initial_count >= 1
 
         # Update source - invalidates cache
-        store.update("x", 20)
+        store["x"] = 20
 
         # Get dependents again - should recompute
         new_val1 = store.get("z1")
@@ -1383,9 +1370,9 @@ class TestSerialization:
         """Test that freeze() creates a valid snapshot"""
         store = ReactiveStore()
 
-        store.source("a", 10)
-        store.source("b", 20)
-        store.derive("sum", lambda a, b: a + b, ["a", "b"])
+        store["a"] = 10
+        store["b"] = 20
+        store.computed("sum", lambda a, b: a + b, ["a", "b"])
 
         # Get some values to populate cache
         store.get("sum")
@@ -1408,8 +1395,8 @@ class TestSerialization:
         """Test that from_snapshot() properly restores state"""
         store1 = ReactiveStore()
 
-        store1.source("x", 5)
-        store1.source("y", 10)
+        store1["x"] = 5
+        store1["y"] = 10
 
         # Create snapshot (only source values, no lambda functions)
         snapshot = store1.freeze()
@@ -1428,7 +1415,7 @@ class TestSerialization:
     def test_snapshot_is_alias_for_freeze(self):
         """Test that snapshot() is equivalent to freeze()"""
         store = ReactiveStore()
-        store.source("test", 42)
+        store["test"] = 42
 
         snapshot1 = store.freeze()
         snapshot2 = store.snapshot()
@@ -1441,7 +1428,7 @@ class TestSerialization:
         """Test serialization preserves materialized node state."""
         store1 = ReactiveStore()
 
-        store1.source("base", 5)
+        store1["base"] = 5
 
         computation_count = [0]
 
@@ -1449,10 +1436,10 @@ class TestSerialization:
             computation_count[0] += 1
             return x * 2
 
-        store1.derive("expensive", expensive_fn, ["base"])
+        store1.computed("expensive", expensive_fn, ["base"])
         # Create fan-out to trigger materialization
-        store1.derive("dep1", lambda x: x + 1, ["expensive"])
-        store1.derive("dep2", lambda x: x + 2, ["expensive"])
+        store1.computed("dep1", lambda x: x + 1, ["expensive"])
+        store1.computed("dep2", lambda x: x + 2, ["expensive"])
 
         # Access to trigger materialization
         store1.get("expensive")
@@ -1478,7 +1465,7 @@ class TestIncrementalPerformance:
 
 
 class TestAutoDiffAnyType:
-    """Test automatic differentiation with any type (scalars, structured, mixed)"""
+    """Test automatic differentiation with any type (scalars] = structured] = mixed)"""
 
     def test_autodiff_dict_input_scalar_output(self):
         """AutoDiff works for dict → scalar functions."""
@@ -1486,16 +1473,16 @@ class TestAutoDiffAnyType:
 
         # Function extracts a value from dict
         config = {"width": 10, "height": 20}
-        store.source("config", config)
+        store["config"] = config
 
         # Test dict to scalar
-        store.derive("area", lambda cfg: cfg["width"] * cfg["height"], ["config"])
+        store.computed("area", lambda cfg: cfg["width"] * cfg["height"], ["config"])
 
         # Initial value
         assert store.get("area") == 200
 
         # Update config
-        store.update("config", {"width": 15, "height": 20})
+        store["config"] = {"width": 15, "height": 20}
 
         # Should recompute (autodiff helps with incremental updates)
         assert store.get("area") == 300
@@ -1509,15 +1496,15 @@ class TestAutoDiffAnyType:
         store = ReactiveStore()
 
         data = [1, 2, 3, 4, 5]
-        store.source("data", data)
+        store["data"] = data
 
         # Sum of list
-        store.derive("total", lambda d: sum(d), ["data"])
+        store.computed("total", lambda d: sum(d), ["data"])
 
         assert store.get("total") == 15
 
         # Update data
-        store.update("data", [2, 3, 4, 5, 6])
+        store["data"] = [2, 3, 4, 5, 6]
         assert store.get("total") == 20
 
         # Verify the computed value exists
@@ -1529,10 +1516,10 @@ class TestAutoDiffAnyType:
         store = ReactiveStore()
 
         person = {"name": "Alice", "age": 30, "score": 85}
-        store.source("person", person)
+        store["person"] = person
 
         # Extract subset of dict
-        store.derive(
+        store.computed(
             "stats", lambda p: {"age": p["age"], "score": p["score"]}, ["person"]
         )
 
@@ -1541,7 +1528,7 @@ class TestAutoDiffAnyType:
         assert stats["score"] == 85
 
         # Update person
-        store.update("person", {"name": "Alice", "age": 31, "score": 90})
+        store["person"] = {"name": "Alice", "age": 31, "score": 90}
 
         new_stats = store.get("stats")
         assert new_stats["age"] == 31
@@ -1554,14 +1541,14 @@ class TestAutoDiffAnyType:
         price = 100
         weights = {"discount": 0.1, "tax": 0.05}
 
-        store.source("price", price)
-        store.source("weights", weights)
+        store["price"] = price
+        store["weights"] = weights
 
         # Mixed computation
         def compute_total(p, w):
             return p * (1 + w["tax"] - w["discount"])
 
-        store.derive("total", compute_total, ["price", "weights"])
+        store.computed("total", compute_total, ["price", "weights"])
 
         result = store.get("total")
         expected = 100 * (1 + 0.05 - 0.1)
@@ -1571,14 +1558,14 @@ class TestAutoDiffAnyType:
         """AutoDiff still works correctly for pure scalar functions."""
         store = ReactiveStore()
 
-        store.source("x", 3.0)
-        store.source("y", 4.0)
-        store.derive("sum", lambda x, y: x + y, ["x", "y"])
+        store["x"] = 3.0
+        store["y"] = 4.0
+        store.computed("sum", lambda x, y: x + y, ["x", "y"])
 
         assert store.get("sum") == 7.0
 
         # Update
-        store.update("x", 5.0)
+        store["x"] = 5.0
         assert store.get("sum") == 9.0
 
         # Verify the computed value exists

@@ -7,7 +7,7 @@ ensuring they work exactly as described in the conditionals.md documentation.
 
 import pytest
 
-from fynx import observable, reactive
+from fynx import NULL_EVENT, observable, reactive
 
 
 class TestBasicConditionalOperator:
@@ -439,10 +439,10 @@ class TestAdvancedPatterns:
         # Only process when enough data
         valid_readings = sensor_readings & has_enough_data
 
-        # Calculate statistics (handle None from failed conditions)
+        # Calculate statistics (handle NULL_EVENT from failed conditions)
         average_reading = valid_readings >> (
             lambda readings: (
-                sum(readings) / len(readings) if readings is not None else None
+                sum(readings) / len(readings) if readings is not NULL_EVENT else None
             )
         )
 

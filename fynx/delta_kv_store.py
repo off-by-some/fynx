@@ -1,21 +1,32 @@
 """
-DeltaKVStore - Category-Theoretic Reactive Store
+Reactive Store with Automatic Differentiation over Delta Algebras
+
+A category-theoretic reactive store that automatically computes incremental updates
+by tracing computations and applying automatic differentiation in delta semirings.
+
+Key Innovation: You only define delta algebra for primitive types. The store
+automatically derives propagation for composite computations via AD.
 
 Mathematical Foundation:
-- Observables: Comonad (Obs, ε, δ) with extract and duplicate
-- Subscriptions: Monoid (Sub, ⊕, ε) with composition
-- Propagation: Semiring (Δ, +, 0, ·, 1) with delta algebra
-- Topology: Graph classification for O(depth) to O(V+E) propagation
+- Delta Semiring: (Δ, +, 0, ·, 1) for change composition
+- Pushforward: Given f: A → B and Δ_A, compute Δ_B = Df(Δ_A)
+- Trace-based AD: Record computation graph, replay with deltas
+- Type-Aware: O(k) updates for structured data
 
-Core Invariants:
-1. Every set() emits a delta (event algebra)
-2. Significance testing only in propagation layer
-3. Single unified subscription mechanism
-4. Topology-aware dispatch for optimal complexity
+Example:
+    store = ReactiveStore()
+    store['x'] = 10
+    store['y'] = 20
+
+    # Automatic delta propagation - no propagation_fn needed!
+    store.computed('z', lambda: 2 * store['x'] + 3 * store['y'])
+
+    store['x'] = 11  # z updates incrementally via Δz = 2·Δx
 """
 
 import atexit
-import math
+import difflib
+import logging
 import threading
 import time
 import weakref
@@ -31,48 +42,1405 @@ T = TypeVar("T")
 
 
 # ============================================================================
-# DELTA ALGEBRA - The Semiring (Δ, +, 0, ·, 1)
+# EXCEPTIONS
+# ============================================================================
+
+
+class CircularDependencyError(Exception):
+    """Raised when a circular dependency is detected."""
+
+    pass
+
+
+class ComputationError(Exception):
+    """Raised when a computed value fails to evaluate."""
+
+    pass
+
+
+# ============================================================================
+# TYPE-AWARE DELTA ALGEBRA
+# ============================================================================
+
+
+class DeltaType(Enum):
+    """Classification of delta types for dispatch."""
+
+    NUMERIC = "numeric"
+    STRING = "string"
+    LIST = "list"
+    SET = "set"
+    DICT = "dict"
+    ARRAY = "array"
+    COMPOSITE = "composite"
+    OPAQUE = "opaque"
+
+
+@dataclass
+class TypedDelta:
+    """
+    Type-aware delta with algebraic structure.
+
+    For type T, represents Δ_T such that: O' = O ⊕_T Δ_T
+    """
+
+    delta_type: DeltaType
+    value: Any
+    metadata: Optional[Dict[str, Any]] = None
+
+    def __repr__(self) -> str:
+        return f"Δ[{self.delta_type.value}]({self.value})"
+
+
+class DeltaAlgebra(ABC):
+    """
+    Abstract delta algebra for type T.
+
+    Implements:
+    - δ_T(O, O') → Δ_T  (compute delta)
+    - O ⊕_T Δ_T → O'    (apply delta)
+    - Δ₁ ⊕ Δ₂ → Δ₃      (compose deltas)
+    """
+
+    @abstractmethod
+    def compute_delta(self, old: Any, new: Any) -> Optional[TypedDelta]:
+        """Compute Δ_T = δ_T(O, O')"""
+        pass
+
+    @abstractmethod
+    def apply_delta(self, value: Any, delta: TypedDelta) -> Any:
+        """Apply delta: O' = O ⊕_T Δ_T"""
+        pass
+
+    @abstractmethod
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        """Compose deltas: Δ₃ = Δ₁ ⊕ Δ₂"""
+        pass
+
+    @abstractmethod
+    def is_identity(self, delta: TypedDelta) -> bool:
+        """Check if delta is identity (no change)"""
+        pass
+
+
+class NumericAlgebra(DeltaAlgebra):
+    """Algebra for numbers: Δ = O' - O"""
+
+    def compute_delta(self, old: Any, new: Any) -> Optional[TypedDelta]:
+        if not isinstance(old, (int, float, complex)) or not isinstance(
+            new, (int, float, complex)
+        ):
+            return None
+        diff = new - old
+        return TypedDelta(DeltaType.NUMERIC, diff)
+
+    def apply_delta(self, value: Any, delta: TypedDelta) -> Any:
+        return value + delta.value
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        return TypedDelta(DeltaType.NUMERIC, delta1.value + delta2.value)
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        return abs(delta.value) < 1e-10
+
+
+class ListAlgebra(DeltaAlgebra):
+    """Algebra for lists: Δ = [operations]"""
+
+    def compute_delta(self, old: List, new: List) -> Optional[TypedDelta]:
+        if not isinstance(old, list) or not isinstance(new, list):
+            return None
+
+        operations = []
+
+        # Fast path: append only
+        if len(new) > len(old) and old and new[: len(old)] == old:
+            for i in range(len(old), len(new)):
+                operations.append(("insert", i, new[i]))
+            return TypedDelta(DeltaType.LIST, operations)
+
+        # Fast path: remove from end
+        if len(new) < len(old) and new and old[: len(new)] == new:
+            for i in range(len(old) - 1, len(new) - 1, -1):
+                operations.append(("remove", i))
+            return TypedDelta(DeltaType.LIST, operations)
+
+        # Fast path: empty lists
+        if not old and not new:
+            return TypedDelta(DeltaType.LIST, [])
+
+        # General case: simple diff algorithm
+        operations = self._compute_list_diff(old, new)
+        return TypedDelta(DeltaType.LIST, operations)
+
+    def _compute_list_diff(self, old: List, new: List) -> List[Tuple]:
+        """Compute list diff using difflib for optimal insert/remove/update operations."""
+        operations = []
+
+        # Use difflib for sequence matching
+        matcher = difflib.SequenceMatcher(None, old, new)
+
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == "delete":
+                # Remove elements from i1 to i2-1 (in reverse order to maintain indices)
+                for i in range(i2 - 1, i1 - 1, -1):
+                    operations.append(("remove", i))
+            elif tag == "insert":
+                # Insert elements from j1 to j2-1 at position i1
+                for j in range(j1, j2):
+                    operations.append(("insert", i1 + (j - j1), new[j]))
+            elif tag == "replace":
+                # Replace elements - remove old and insert new
+                for i in range(i2 - 1, i1 - 1, -1):
+                    operations.append(("remove", i))
+                for j in range(j1, j2):
+                    operations.append(("insert", i1 + (j - j1), new[j]))
+            # 'equal' tag means no operation needed
+
+        return operations
+
+    def apply_delta(self, value: List, delta: TypedDelta) -> List:
+        result = list(value)
+        for op in delta.value:
+            if op[0] == "insert":
+                _, idx, val = op
+                if idx <= len(result):
+                    result.insert(idx, val)
+            elif op[0] == "remove":
+                _, idx = op
+                if 0 <= idx < len(result):
+                    del result[idx]
+            elif op[0] == "update":
+                _, idx, val = op
+                if 0 <= idx < len(result):
+                    result[idx] = val
+        return result
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        # Simple composition: concatenate operations
+        return TypedDelta(DeltaType.LIST, delta1.value + delta2.value)
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        return len(delta.value) == 0
+
+
+class SetAlgebra(DeltaAlgebra):
+    """Algebra for sets: Δ = (added, removed)"""
+
+    def compute_delta(self, old: Set, new: Set) -> Optional[TypedDelta]:
+        if not isinstance(old, set) or not isinstance(new, set):
+            return None
+        added = new - old
+        removed = old - new
+        return TypedDelta(DeltaType.SET, (added, removed))
+
+    def apply_delta(self, value: Set, delta: TypedDelta) -> Set:
+        added, removed = delta.value
+        return (value | added) - removed
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        add1, rem1 = delta1.value
+        add2, rem2 = delta2.value
+        added = (add1 | add2) - rem2
+        removed = (rem1 | rem2) - add2
+        return TypedDelta(DeltaType.SET, (added, removed))
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        added, removed = delta.value
+        return len(added) == 0 and len(removed) == 0
+
+
+class DictAlgebra(DeltaAlgebra):
+    """Algebra for dicts: Δ = {key: (old, new)}"""
+
+    def compute_delta(self, old: Dict, new: Dict) -> Optional[TypedDelta]:
+        if not isinstance(old, dict) or not isinstance(new, dict):
+            return None
+        changes = {}
+        all_keys = set(old.keys()) | set(new.keys())
+        for key in all_keys:
+            old_val = old.get(key)
+            new_val = new.get(key)
+            if old_val != new_val:
+                changes[key] = (old_val, new_val)
+        return TypedDelta(DeltaType.DICT, changes)
+
+    def apply_delta(self, value: Dict, delta: TypedDelta) -> Dict:
+        result = dict(value)
+        for key, (old_val, new_val) in delta.value.items():
+            if new_val is None:
+                result.pop(key, None)
+            else:
+                result[key] = new_val
+        return result
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        changes = dict(delta1.value)
+        for key, (old2, new2) in delta2.value.items():
+            if key in changes:
+                old1, _ = changes[key]
+                changes[key] = (old1, new2)
+            else:
+                changes[key] = (old2, new2)
+        return TypedDelta(DeltaType.DICT, changes)
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        return len(delta.value) == 0
+
+
+class StringAlgebra(DeltaAlgebra):
+    """Algebra for strings: Δ = edit operations"""
+
+    def compute_delta(self, old: str, new: str) -> Optional[TypedDelta]:
+        if not isinstance(old, str) or not isinstance(new, str):
+            return None
+
+        if old == new:
+            return TypedDelta(DeltaType.STRING, [])
+
+        # For very different strings, fall back to full replacement
+        # This handles cases where difflib operations would be unreliable
+        if (
+            len(old) > 100
+            or len(new) > 100
+            or abs(len(old) - len(new)) > len(old) * 0.5
+        ):
+            return TypedDelta(DeltaType.STRING, [("replace_all", new)])
+
+        # Use difflib to compute edit operations
+        operations = []
+        matcher = difflib.SequenceMatcher(None, old, new)
+
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == "delete":
+                operations.append(("delete", i1, old[i1:i2]))
+            elif tag == "insert":
+                operations.append(("insert", i1, new[j1:j2]))
+            elif tag == "replace":
+                operations.append(("replace", i1, old[i1:i2], new[j1:j2]))
+            # 'equal' means no operation
+
+        return TypedDelta(DeltaType.STRING, operations)
+
+    def apply_delta(self, value: str, delta: TypedDelta) -> str:
+        if not isinstance(value, str):
+            return value
+
+        # For empty operations (identity), return original
+        if not delta.value:
+            return value
+
+        # Check if this is a full replacement delta
+        if len(delta.value) == 1 and delta.value[0][0] == "replace_all":
+            return delta.value[0][1]
+
+        result = list(value)
+        # Sort operations by position in reverse order to avoid position shifting issues
+        sorted_ops = sorted(delta.value, key=lambda op: op[1], reverse=True)
+
+        for op in sorted_ops:
+            if op[0] == "delete":
+                _, pos, deleted_text = op
+                # For robustness, don't verify text matches - just delete at position
+                if pos < len(result):
+                    del result[pos : pos + len(deleted_text)]
+            elif op[0] == "insert":
+                _, pos, inserted_text = op
+                if pos <= len(result):
+                    result[pos:pos] = list(inserted_text)
+            elif op[0] == "replace":
+                _, pos, old_text, new_text = op
+                # For robustness, don't verify old text matches
+                if pos < len(result):
+                    end_pos = min(pos + len(old_text), len(result))
+                    result[pos:end_pos] = list(new_text)
+
+        return "".join(result)
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        # If either delta is a full replacement, the composition is just the second delta
+        if delta2.value and any(op[0] == "replace_all" for op in delta2.value):
+            return delta2
+        if delta1.value and any(op[0] == "replace_all" for op in delta1.value):
+            # Apply delta1 first, then delta2
+            temp_result = self.apply_delta("", delta1)  # Start with empty string
+            final_result = self.apply_delta(temp_result, delta2)
+            return TypedDelta(DeltaType.STRING, [("replace_all", final_result)])
+
+        # For simplicity, concatenate operations
+        # In practice, this could be optimized by normalizing the operations
+        return TypedDelta(DeltaType.STRING, delta1.value + delta2.value)
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        return len(delta.value) == 0
+
+
+class ArrayAlgebra(DeltaAlgebra):
+    """Algebra for NumPy arrays: Δ = element-wise diff"""
+
+    def compute_delta(self, old: np.ndarray, new: np.ndarray) -> Optional[TypedDelta]:
+        if not isinstance(old, np.ndarray) or not isinstance(new, np.ndarray):
+            return None
+        if old.shape != new.shape:
+            return None
+
+        diff = new - old
+        nonzero = np.count_nonzero(diff)
+
+        # Use sparse representation if less than 10% changed
+        if nonzero < diff.size * 0.1 and nonzero > 0:
+            indices = np.nonzero(diff)
+            values = diff[indices]
+            return TypedDelta(
+                DeltaType.ARRAY,
+                {
+                    "sparse": True,
+                    "indices": indices,
+                    "values": values,
+                    "shape": old.shape,
+                },
+            )
+        else:
+            return TypedDelta(DeltaType.ARRAY, {"sparse": False, "diff": diff})
+
+    def apply_delta(self, value: np.ndarray, delta: TypedDelta) -> np.ndarray:
+        if delta.value.get("sparse"):
+            result = value.copy()
+            indices = delta.value["indices"]
+            values = delta.value["values"]
+            result[indices] = value[indices] + values
+            return result
+        else:
+            return value + delta.value["diff"]
+
+    def compose_deltas(self, delta1: TypedDelta, delta2: TypedDelta) -> TypedDelta:
+        # For simplicity, use dense representation for composition
+        if not delta1.value.get("sparse", False):
+            diff1 = delta1.value["diff"]
+        else:
+            shape = delta1.value["shape"]
+            diff1 = np.zeros(shape)
+            indices = delta1.value["indices"]
+            values = delta1.value["values"]
+            diff1[indices] = values
+
+        if not delta2.value.get("sparse", False):
+            diff2 = delta2.value["diff"]
+        else:
+            shape = delta2.value["shape"]
+            diff2 = np.zeros(shape)
+            indices = delta2.value["indices"]
+            values = delta2.value["values"]
+            diff2[indices] = values
+
+        combined = diff1 + diff2
+        return TypedDelta(DeltaType.ARRAY, {"sparse": False, "diff": combined})
+
+    def is_identity(self, delta: TypedDelta) -> bool:
+        if delta.value.get("sparse"):
+            return len(delta.value.get("values", [])) == 0
+        else:
+            diff = delta.value.get("diff")
+            if diff is None:
+                return True
+            return np.allclose(diff, 0)
+
+
+class DeltaRegistry:
+    """Central registry for type-specific delta algebras."""
+
+    def __init__(self):
+        self._algebras: Dict[DeltaType, DeltaAlgebra] = {
+            DeltaType.NUMERIC: NumericAlgebra(),
+            DeltaType.STRING: StringAlgebra(),
+            DeltaType.LIST: ListAlgebra(),
+            DeltaType.SET: SetAlgebra(),
+            DeltaType.DICT: DictAlgebra(),
+            DeltaType.ARRAY: ArrayAlgebra(),
+        }
+
+        self._type_rules = [
+            (lambda x: isinstance(x, (int, float, complex)), DeltaType.NUMERIC),
+            (lambda x: isinstance(x, str), DeltaType.STRING),
+            (lambda x: isinstance(x, np.ndarray), DeltaType.ARRAY),
+            (lambda x: isinstance(x, list), DeltaType.LIST),
+            (lambda x: isinstance(x, set), DeltaType.SET),
+            (lambda x: isinstance(x, dict), DeltaType.DICT),
+        ]
+
+    def detect_type(self, value: Any) -> DeltaType:
+        """Detect the delta type for a value."""
+        for predicate, delta_type in self._type_rules:
+            try:
+                if predicate(value):
+                    return delta_type
+            except Exception:
+                continue
+        return DeltaType.OPAQUE
+
+    def compute_delta(self, old: Any, new: Any) -> Optional[TypedDelta]:
+        """Compute delta between two values."""
+        if old is None or new is None:
+            return None
+
+        delta_type = self.detect_type(old)
+        if delta_type == DeltaType.OPAQUE:
+            return None
+
+        try:
+            algebra = self._algebras[delta_type]
+            return algebra.compute_delta(old, new)
+        except Exception:
+            return None
+
+    def apply_delta(self, value: Any, delta: Optional[TypedDelta]) -> Any:
+        """Apply a delta to a value."""
+        if delta is None:
+            return value
+
+        try:
+            algebra = self._algebras[delta.delta_type]
+            return algebra.apply_delta(value, delta)
+        except Exception:
+            return value
+
+    def compose_deltas(
+        self, delta1: Optional[TypedDelta], delta2: Optional[TypedDelta]
+    ) -> Optional[TypedDelta]:
+        """Compose two deltas."""
+        if delta1 is None:
+            return delta2
+        if delta2 is None:
+            return delta1
+        if delta1.delta_type != delta2.delta_type:
+            return None
+
+        try:
+            algebra = self._algebras[delta1.delta_type]
+            return algebra.compose_deltas(delta1, delta2)
+        except Exception:
+            return None
+
+    def is_identity(self, delta: Optional[TypedDelta]) -> bool:
+        """Check if delta represents no change."""
+        if delta is None:
+            return True
+
+        try:
+            algebra = self._algebras[delta.delta_type]
+            return algebra.is_identity(delta)
+        except Exception:
+            return True
+
+    def register_custom_algebra(
+        self,
+        delta_type: DeltaType,
+        algebra: DeltaAlgebra,
+        type_predicate: Callable[[Any], bool],
+    ) -> None:
+        """
+        Register a custom delta algebra for user-defined types.
+
+        Args:
+            delta_type: The DeltaType to register
+            algebra: The DeltaAlgebra implementation
+            type_predicate: Function that returns True for values of this type
+
+        Example:
+            class PydanticAlgebra(DeltaAlgebra):
+                def compute_delta(self, old, new):
+                    # Implement delta computation for pydantic models
+                    pass
+
+            registry.register_custom_algebra(
+                DeltaType.COMPOSITE,
+                PydanticAlgebra(),
+                lambda x: hasattr(x, '__pydantic_model__')
+            )
+        """
+        self._algebras[delta_type] = algebra
+        # Insert at the beginning so custom types take precedence
+        self._type_rules.insert(0, (type_predicate, delta_type))
+
+
+# ============================================================================
+# AUTOMATIC DIFFERENTIATION - THE KEY INNOVATION
+# ============================================================================
+
+
+class TracedOp(Enum):
+    """Operations that can be traced and differentiated."""
+
+    ADD = "+"
+    SUB = "-"
+    MUL = "*"
+    DIV = "/"
+    FLOORDIV = "//"
+    MOD = "%"
+    NEG = "neg"
+    ABS = "abs"
+    POW = "**"
+    GETITEM = "[]"
+    LEN = "len"
+    MAX = "max"
+    MIN = "min"
+    SIN = "sin"
+    EXP = "exp"
+    CONST = "const"
+    SOURCE = "source"
+
+
+@dataclass
+class TraceNode:
+    """A node in the computation trace."""
+
+    op: TracedOp
+    inputs: List[int]  # Indices into trace array
+    value: Any
+    source_key: Optional[str] = None  # If this came from store access
+
+    def __repr__(self) -> str:
+        if self.source_key:
+            return f"Node[{self.source_key}]"
+        return f"Node[{self.op.value}]"
+
+
+class ComputationTrace:
+    """Records a computation for later delta pushforward."""
+
+    def __init__(self):
+        self.nodes: List[TraceNode] = []
+        self.source_nodes: Dict[str, int] = {}  # key → node index
+        self.const_cache: Dict[Any, int] = {}  # Cache for constant values
+
+    def add_source(self, key: str, value: Any) -> int:
+        """Record a store access."""
+        if key in self.source_nodes:
+            return self.source_nodes[key]
+
+        idx = len(self.nodes)
+        self.nodes.append(
+            TraceNode(op=TracedOp.SOURCE, inputs=[], value=value, source_key=key)
+        )
+        self.source_nodes[key] = idx
+        return idx
+
+    def add_const(self, value: Any) -> int:
+        """Record a constant value."""
+        # Use id for unhashable types
+        try:
+            cache_key = value
+            if cache_key in self.const_cache:
+                return self.const_cache[cache_key]
+        except TypeError:
+            cache_key = id(value)
+
+        idx = len(self.nodes)
+        self.nodes.append(TraceNode(op=TracedOp.CONST, inputs=[], value=value))
+
+        try:
+            self.const_cache[cache_key] = idx
+        except TypeError:
+            pass
+
+        return idx
+
+    def add_op(self, op: TracedOp, inputs: List[int], value: Any) -> int:
+        """Record an operation."""
+        idx = len(self.nodes)
+        self.nodes.append(TraceNode(op=op, inputs=inputs, value=value))
+        return idx
+
+    def __repr__(self) -> str:
+        lines = ["Trace:"]
+        for i, node in enumerate(self.nodes):
+            if node.source_key:
+                lines.append(f"  {i}: {node.source_key} = {node.value}")
+            elif node.op == TracedOp.CONST:
+                lines.append(f"  {i}: const({node.value})")
+            else:
+                lines.append(f"  {i}: {node.op.value}({node.inputs}) = {node.value}")
+        return "\n".join(lines)
+
+
+class TracedValue:
+    """A value that records operations for AD."""
+
+    def __init__(self, value: Any, trace_idx: int, trace: ComputationTrace):
+        self.value = value
+        self.trace_idx = trace_idx
+        self.trace = trace
+
+    def _unwrap(self, other):
+        """Extract value and trace index from other operand."""
+        if isinstance(other, TracedValue):
+            return other.value, other.trace_idx
+        else:
+            # Constant - add to trace
+            idx = self.trace.add_const(other)
+            return other, idx
+
+    def __add__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value + other_val
+            idx = self.trace.add_op(TracedOp.ADD, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __sub__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value - other_val
+            idx = self.trace.add_op(TracedOp.SUB, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __rsub__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = other_val - self.value
+            idx = self.trace.add_op(TracedOp.SUB, [other_idx, self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __mul__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value * other_val
+            idx = self.trace.add_op(TracedOp.MUL, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __truediv__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value / other_val
+            idx = self.trace.add_op(TracedOp.DIV, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __rtruediv__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = other_val / self.value
+            idx = self.trace.add_op(TracedOp.DIV, [other_idx, self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __floordiv__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value // other_val
+            idx = self.trace.add_op(
+                TracedOp.FLOORDIV, [self.trace_idx, other_idx], result
+            )
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __mod__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value % other_val
+            idx = self.trace.add_op(TracedOp.MOD, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __pow__(self, other):
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = self.value**other_val
+            idx = self.trace.add_op(TracedOp.POW, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __neg__(self):
+        try:
+            result = -self.value
+            idx = self.trace.add_op(TracedOp.NEG, [self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __abs__(self):
+        try:
+            result = abs(self.value)
+            idx = self.trace.add_op(TracedOp.ABS, [self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __getitem__(self, key):
+        key_val, key_idx = self._unwrap(key)
+        try:
+            result = self.value[key_val]
+            idx = self.trace.add_op(TracedOp.GETITEM, [self.trace_idx, key_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __len__(self):
+        try:
+            result = len(self.value)
+            idx = self.trace.add_op(TracedOp.LEN, [self.trace_idx], result)
+            # Return raw value for len()
+            return result
+        except Exception:
+            return NotImplemented
+
+    # Additional mathematical operations
+    def max(self, other):
+        """Maximum of self and other."""
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = max(self.value, other_val)
+            idx = self.trace.add_op(TracedOp.MAX, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def min(self, other):
+        """Minimum of self and other."""
+        other_val, other_idx = self._unwrap(other)
+        try:
+            result = min(self.value, other_val)
+            idx = self.trace.add_op(TracedOp.MIN, [self.trace_idx, other_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def sin(self):
+        """Sine of self (using math.sin)."""
+        import math
+
+        try:
+            result = math.sin(self.value)
+            idx = self.trace.add_op(TracedOp.SIN, [self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def exp(self):
+        """Exponential of self (using math.exp)."""
+        import math
+
+        try:
+            result = math.exp(self.value)
+            idx = self.trace.add_op(TracedOp.EXP, [self.trace_idx], result)
+            return TracedValue(result, idx, self.trace)
+        except Exception:
+            return NotImplemented
+
+    def __repr__(self):
+        return f"Traced({self.value})"
+
+    def __str__(self):
+        return str(self.value)
+
+    # Comparison operators return raw booleans
+    def __eq__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value == other_val
+
+    def __ne__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value != other_val
+
+    def __lt__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value < other_val
+
+    def __le__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value <= other_val
+
+    def __gt__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value > other_val
+
+    def __ge__(self, other):
+        other_val = other.value if isinstance(other, TracedValue) else other
+        return self.value >= other_val
+
+    def __bool__(self):
+        """Boolean conversion returns the boolean value of the underlying value."""
+        return bool(self.value)
+
+    # Bitwise operators (not supported for traced values)
+    def __and__(self, other):
+        return NotImplemented
+
+    def __or__(self, other):
+        return NotImplemented
+
+    def __xor__(self, other):
+        return NotImplemented
+
+    def __lshift__(self, other):
+        return NotImplemented
+
+    def __rshift__(self, other):
+        return NotImplemented
+
+    # Container operations (return raw values)
+    def __contains__(self, item):
+        try:
+            return item in self.value
+        except Exception:
+            return NotImplemented
+
+    def __iter__(self):
+        try:
+            return iter(self.value)
+        except Exception:
+            return NotImplemented
+
+    # String operations
+    def upper(self):
+        """Convert string to uppercase."""
+        try:
+            result = self.value.upper()
+            idx = self.trace.add_op(
+                TracedOp.CONST, [], result
+            )  # String ops not differentiable
+            return result  # Return raw string, not TracedValue
+        except Exception:
+            return NotImplemented
+
+    def lower(self):
+        """Convert string to lowercase."""
+        try:
+            result = self.value.lower()
+            idx = self.trace.add_op(
+                TracedOp.CONST, [], result
+            )  # String ops not differentiable
+            return result  # Return raw string, not TracedValue
+        except Exception:
+            return NotImplemented
+
+    # Delegate other attribute access to the wrapped value
+    def __getattr__(self, name):
+        # Allow access to math functions like sin, exp, etc.
+        if name in ("sin", "exp", "cos", "tan", "log", "sqrt"):
+            import math
+
+            func = getattr(math, name)
+
+            def math_wrapper(*args, **kwargs):
+                if args or kwargs:
+                    return NotImplemented
+                try:
+                    result = func(self.value)
+                    op_map = {
+                        "sin": TracedOp.SIN,
+                        "exp": TracedOp.EXP,
+                        "cos": TracedOp.CONST,  # For now, treat as constant
+                        "tan": TracedOp.CONST,
+                        "log": TracedOp.CONST,
+                        "sqrt": TracedOp.CONST,
+                    }
+                    op = op_map.get(name, TracedOp.CONST)
+                    if op != TracedOp.CONST:
+                        idx = self.trace.add_op(op, [self.trace_idx], result)
+                        return TracedValue(result, idx, self.trace)
+                    else:
+                        idx = self.trace.add_op(op, [], result)
+                        return result  # Return raw value for unsupported ops
+                except Exception:
+                    return NotImplemented
+
+            return math_wrapper
+
+        # For other attributes, delegate to the wrapped value
+        try:
+            attr = getattr(self.value, name)
+            if callable(attr):
+
+                def method_wrapper(*args, **kwargs):
+                    try:
+                        result = attr(*args, **kwargs)
+                        # For method calls, treat as constant operations
+                        idx = self.trace.add_op(TracedOp.CONST, [], result)
+                        return result  # Return raw result
+                    except Exception:
+                        return NotImplemented
+
+                return method_wrapper
+            else:
+                # For properties, return raw value
+                return attr
+        except AttributeError:
+            raise AttributeError(f"'TracedValue' object has no attribute '{name}'")
+
+
+class AutoDiffEngine:
+    """
+    Automatic differentiation engine for delta algebras.
+
+    Pushes deltas forward through traced computations:
+    Given Δx and trace of y = f(x), compute Δy = Df(Δx)
+    """
+
+    def __init__(self, delta_registry: DeltaRegistry):
+        self.registry = delta_registry
+
+    def pushforward(
+        self,
+        trace: ComputationTrace,
+        input_deltas: Dict[str, TypedDelta],
+        output_idx: int,
+    ) -> Optional[TypedDelta]:
+        """
+        Push deltas forward through computation trace.
+
+        Args:
+            trace: Recorded computation
+            input_deltas: {source_key: Δ_source}
+            output_idx: Index of output node in trace
+
+        Returns:
+            Δ_output or None if cannot compute incrementally
+        """
+        if not input_deltas:
+            return None
+
+        # Forward pass: compute delta at each node
+        node_deltas: Dict[int, Optional[TypedDelta]] = {}
+
+        # Initialize with input deltas
+        for key, delta in input_deltas.items():
+            if key in trace.source_nodes:
+                idx = trace.source_nodes[key]
+                node_deltas[idx] = delta
+
+        # Forward sweep through all nodes
+        for i in range(len(trace.nodes)):
+            if i in node_deltas:
+                continue  # Already have delta from input
+
+            node = trace.nodes[i]
+
+            # Constants and sources without deltas have no delta
+            if node.op in (TracedOp.CONST, TracedOp.SOURCE):
+                node_deltas[i] = None
+                continue
+
+            # Compute delta for this operation
+            delta = self._pushforward_op(node, node_deltas, trace)
+            node_deltas[i] = delta
+
+        return node_deltas.get(output_idx)
+
+    def _pushforward_op(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Compute delta for a single operation."""
+
+        try:
+            if node.op == TracedOp.ADD:
+                return self._push_add(node, node_deltas, trace)
+            elif node.op == TracedOp.SUB:
+                return self._push_sub(node, node_deltas, trace)
+            elif node.op == TracedOp.MUL:
+                return self._push_mul(node, node_deltas, trace)
+            elif node.op == TracedOp.DIV:
+                return self._push_div(node, node_deltas, trace)
+            elif node.op == TracedOp.NEG:
+                return self._push_neg(node, node_deltas, trace)
+            elif node.op == TracedOp.POW:
+                return self._push_pow(node, node_deltas, trace)
+            elif node.op == TracedOp.GETITEM:
+                return self._push_getitem(node, node_deltas, trace)
+            elif node.op == TracedOp.LEN:
+                return self._push_len(node, node_deltas, trace)
+            elif node.op == TracedOp.MAX:
+                return self._push_max(node, node_deltas, trace)
+            elif node.op == TracedOp.MIN:
+                return self._push_min(node, node_deltas, trace)
+            elif node.op == TracedOp.SIN:
+                return self._push_sin(node, node_deltas, trace)
+            elif node.op == TracedOp.EXP:
+                return self._push_exp(node, node_deltas, trace)
+            else:
+                return None
+        except Exception:
+            return None
+
+    def _push_add(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a + b) = Δa + Δb"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        # Both numeric: add deltas
+        if left_delta and right_delta:
+            if left_delta.delta_type == right_delta.delta_type == DeltaType.NUMERIC:
+                return TypedDelta(
+                    DeltaType.NUMERIC, left_delta.value + right_delta.value
+                )
+
+        # One delta: pass through
+        if left_delta:
+            return left_delta
+        return right_delta
+
+    def _push_sub(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a - b) = Δa - Δb"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        # Both numeric
+        if left_delta and right_delta:
+            if left_delta.delta_type == right_delta.delta_type == DeltaType.NUMERIC:
+                return TypedDelta(
+                    DeltaType.NUMERIC, left_delta.value - right_delta.value
+                )
+
+        # Only left
+        if left_delta:
+            return left_delta
+
+        # Only right: negate
+        if right_delta and right_delta.delta_type == DeltaType.NUMERIC:
+            return TypedDelta(DeltaType.NUMERIC, -right_delta.value)
+
+        return None
+
+    def _push_mul(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a * b) ≈ b·Δa + a·Δb (linearization)"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        left_val = trace.nodes[left_idx].value
+        right_val = trace.nodes[right_idx].value
+
+        result = 0.0
+
+        # b·Δa term
+        if left_delta and left_delta.delta_type == DeltaType.NUMERIC:
+            if isinstance(right_val, (int, float)):
+                result += right_val * left_delta.value
+
+        # a·Δb term
+        if right_delta and right_delta.delta_type == DeltaType.NUMERIC:
+            if isinstance(left_val, (int, float)):
+                result += left_val * right_delta.value
+
+        if abs(result) < 1e-10:
+            return None
+
+        return TypedDelta(DeltaType.NUMERIC, result)
+
+    def _push_div(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a / b) ≈ (Δa·b - a·Δb) / b²"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        left_val = trace.nodes[left_idx].value
+        right_val = trace.nodes[right_idx].value
+
+        if not isinstance(left_val, (int, float)) or not isinstance(
+            right_val, (int, float)
+        ):
+            return None
+
+        if abs(right_val) < 1e-10:
+            return None
+
+        numerator = 0.0
+
+        if left_delta and left_delta.delta_type == DeltaType.NUMERIC:
+            numerator += left_delta.value * right_val
+
+        if right_delta and right_delta.delta_type == DeltaType.NUMERIC:
+            numerator -= left_val * right_delta.value
+
+        result = numerator / (right_val**2)
+
+        if abs(result) < 1e-10:
+            return None
+
+        return TypedDelta(DeltaType.NUMERIC, result)
+
+    def _push_neg(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(-a) = -Δa"""
+        input_idx = node.inputs[0]
+        input_delta = node_deltas.get(input_idx)
+
+        if input_delta and input_delta.delta_type == DeltaType.NUMERIC:
+            return TypedDelta(DeltaType.NUMERIC, -input_delta.value)
+
+        return None
+
+    def _push_pow(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a^n) ≈ n·a^(n-1)·Δa (for constant n)"""
+        base_idx, exp_idx = node.inputs
+        base_delta = node_deltas.get(base_idx)
+
+        if base_delta is None:
+            return None
+
+        if base_delta.delta_type != DeltaType.NUMERIC:
+            return None
+
+        base_val = trace.nodes[base_idx].value
+        exp_val = trace.nodes[exp_idx].value
+
+        if not isinstance(base_val, (int, float)) or not isinstance(
+            exp_val, (int, float)
+        ):
+            return None
+
+        # Derivative: n * a^(n-1)
+        if abs(base_val) < 1e-10 and exp_val < 1:
+            return None
+
+        derivative = exp_val * (base_val ** (exp_val - 1))
+        result = derivative * base_delta.value
+
+        if abs(result) < 1e-10:
+            return None
+
+        return TypedDelta(DeltaType.NUMERIC, result)
+
+    def _push_getitem(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(a[i]) = Δa[i] if Δa is dict delta"""
+        container_idx, key_idx = node.inputs
+        container_delta = node_deltas.get(container_idx)
+
+        if container_delta is None:
+            return None
+
+        if container_delta.delta_type == DeltaType.DICT:
+            key_val = trace.nodes[key_idx].value
+            if key_val in container_delta.value:
+                old_val, new_val = container_delta.value[key_val]
+                return self.registry.compute_delta(old_val, new_val)
+
+        return None
+
+    def _push_len(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(len(a)) = count(inserts) - count(removes)"""
+        input_idx = node.inputs[0]
+        input_delta = node_deltas.get(input_idx)
+
+        if input_delta is None:
+            return None
+
+        if input_delta.delta_type == DeltaType.LIST:
+            inserts = sum(1 for op in input_delta.value if op[0] == "insert")
+            removes = sum(1 for op in input_delta.value if op[0] == "remove")
+            delta = inserts - removes
+
+            if delta != 0:
+                return TypedDelta(DeltaType.NUMERIC, delta)
+
+        return None
+
+    def _push_max(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(max(a, b)) = Δa if a > b, Δb if b > a, undefined if a == b"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        left_val = trace.nodes[left_idx].value
+        right_val = trace.nodes[right_idx].value
+
+        # If values are equal, derivative is undefined (non-differentiable point)
+        if abs(left_val - right_val) < 1e-10:
+            return None
+
+        # Pass through the delta from the larger input
+        if left_val > right_val:
+            return left_delta
+        else:
+            return right_delta
+
+    def _push_min(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(min(a, b)) = Δa if a < b, Δb if b < a, undefined if a == b"""
+        left_idx, right_idx = node.inputs
+        left_delta = node_deltas.get(left_idx)
+        right_delta = node_deltas.get(right_idx)
+
+        if left_delta is None and right_delta is None:
+            return None
+
+        left_val = trace.nodes[left_idx].value
+        right_val = trace.nodes[right_idx].value
+
+        # If values are equal, derivative is undefined (non-differentiable point)
+        if abs(left_val - right_val) < 1e-10:
+            return None
+
+        # Pass through the delta from the smaller input
+        if left_val < right_val:
+            return left_delta
+        else:
+            return right_delta
+
+    def _push_sin(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(sin(x)) = cos(x)·Δx (Taylor approximation)"""
+        input_idx = node.inputs[0]
+        input_delta = node_deltas.get(input_idx)
+
+        if input_delta is None or input_delta.delta_type != DeltaType.NUMERIC:
+            return None
+
+        input_val = trace.nodes[input_idx].value
+        import math
+
+        derivative = math.cos(input_val)  # d/dx sin(x) = cos(x)
+
+        result = derivative * input_delta.value
+
+        if abs(result) < 1e-10:
+            return None
+
+        return TypedDelta(DeltaType.NUMERIC, result)
+
+    def _push_exp(
+        self,
+        node: TraceNode,
+        node_deltas: Dict[int, Optional[TypedDelta]],
+        trace: ComputationTrace,
+    ) -> Optional[TypedDelta]:
+        """Δ(exp(x)) = exp(x)·Δx (Taylor approximation)"""
+        input_idx = node.inputs[0]
+        input_delta = node_deltas.get(input_idx)
+
+        if input_delta is None or input_delta.delta_type != DeltaType.NUMERIC:
+            return None
+
+        input_val = trace.nodes[input_idx].value
+        import math
+
+        derivative = math.exp(input_val)  # d/dx exp(x) = exp(x)
+
+        result = derivative * input_delta.value
+
+        if abs(result) < 1e-10:
+            return None
+
+        return TypedDelta(DeltaType.NUMERIC, result)
+
+
+# ============================================================================
+# CHANGE EVENT
 # ============================================================================
 
 
 class ChangeType(Enum):
-    """Change types in the delta semiring."""
+    """Type of change that occurred."""
 
-    SOURCE_UPDATE = "source_update"
-    COMPUTED_UPDATE = "computed_update"
-    STRUCTURE_ADD = "structure_add"
-    STRUCTURE_REMOVE = "structure_remove"
-
-    # Legacy aliases
-    SET = "source_update"
-    DELETE = "structure_remove"
+    SOURCE_UPDATE = "source"
+    COMPUTED_UPDATE = "computed"
+    DELETED = "deleted"
 
 
-@dataclass(frozen=True)
-class Delta:
-    """
-    Immutable delta element in the semiring.
-
-    Represents: Δ(key, old, new, t)
-    Identity: Δ(k, v, v, t) where old == new
-    Composition: Δ₁ · Δ₂ = Δ(k, old₁, new₂, t₂)
-    """
+@dataclass(frozen=True, slots=True)
+class Change:
+    """Immutable change event with type-aware delta support."""
 
     key: str
     change_type: ChangeType
     old_value: Any
     new_value: Any
     timestamp: float
-    differential: Optional[Any] = None
-
-    def __post_init__(self):
-        if self.timestamp is None:
-            object.__setattr__(self, "timestamp", time.time())
+    differential: Optional[TypedDelta] = None
 
     def is_identity(self) -> bool:
-        """Check if this is the identity element (no change)."""
         try:
-            # Handle numpy arrays specially
             if isinstance(self.old_value, np.ndarray) or isinstance(
                 self.new_value, np.ndarray
             ):
@@ -83,577 +1451,454 @@ class Delta:
         except (ValueError, TypeError):
             return False
 
-    def compose(self, other: "Delta") -> "Delta":
-        """
-        Sequential composition: Δ₁ · Δ₂
-
-        Preserves transitivity: if Δ₁: v₀→v₁ and Δ₂: v₁→v₂ then Δ₁·Δ₂: v₀→v₂
-        """
+    def compose(self, other: "Change") -> "Change":
         if self.key != other.key:
-            raise ValueError(
-                f"Cannot compose deltas for different keys: {self.key} != {other.key}"
-            )
+            raise ValueError(f"Cannot compose changes for different keys")
 
-        return Delta(
+        return Change(
             key=self.key,
             change_type=self.change_type,
             old_value=self.old_value,
             new_value=other.new_value,
             timestamp=max(self.timestamp, other.timestamp),
+            differential=other.differential,
         )
 
+    @property
+    def is_creation(self) -> bool:
+        return self.old_value is None and self.new_value is not None
 
-class DeltaPool:
-    """Object pool for delta allocation (optimization)."""
+    @property
+    def is_deletion(self) -> bool:
+        return self.change_type == ChangeType.DELETED
 
-    _pool: List[Delta] = []
-    _lock: threading.Lock = threading.Lock()
-    _MAX_POOL_SIZE: int = 1000
+    @property
+    def is_update(self) -> bool:
+        return not self.is_creation and not self.is_deletion
 
-    @classmethod
-    def acquire(
-        cls,
-        key: str,
-        change_type: ChangeType,
-        old_value: Any,
-        new_value: Any,
-        timestamp: Optional[float] = None,
-    ) -> Delta:
-        """Acquire delta from pool or create new."""
-        # Since Delta is frozen, create new instance
-        return Delta(
-            key=key,
-            change_type=change_type,
-            old_value=old_value,
-            new_value=new_value,
-            timestamp=timestamp if timestamp is not None else time.time(),
-        )
-
-    @classmethod
-    def release(cls, delta: Delta) -> None:
-        """Return delta to pool (no-op for frozen dataclasses)."""
-        pass
-
-
-atexit.register(lambda: DeltaPool._pool.clear())
+    def __repr__(self) -> str:
+        if self.is_creation:
+            return f"Change({self.key}: created = {self.new_value!r})"
+        elif self.is_deletion:
+            return f"Change({self.key}: deleted)"
+        else:
+            return f"Change({self.key}: {self.old_value!r} → {self.new_value!r})"
 
 
 # ============================================================================
-# GRAPH TOPOLOGY - Structural Classification
+# GRAPH TOPOLOGY
 # ============================================================================
 
 
-class GraphTopology(Enum):
-    """
-    Topology classification for optimal propagation:
-    - LINEAR: O(depth) - simple chains
-    - TREE: O(affected) - no diamonds
-    - DAG: O(V+E) - general case
-    """
-
-    LINEAR = "linear"
-    TREE = "tree"
-    DAG = "dag"
-
-
-class DependencyGraph:
-    """
-    Directed acyclic graph for dependency tracking.
-
-    Invariant: No cycles (enforced at add_dependency)
-    Structure: Forward edges (dependents) + reverse edges (dependencies)
-    """
-
+class _DependencyGraph:
     def __init__(self):
-        self._graph: Dict[str, Set[str]] = defaultdict(set)  # key → dependents
-        self._reverse_graph: Dict[str, Set[str]] = defaultdict(
-            set
-        )  # key → dependencies
-        self._indegrees: Dict[str, int] = defaultdict(int)
+        self._forward: Dict[str, Set[str]] = defaultdict(set)
+        self._reverse: Dict[str, Set[str]] = defaultdict(set)
 
-    def add_dependency(self, dependent: str, dependency: str) -> None:
-        """Add dependency edge: dependent ← dependency."""
-        if dependent not in self._graph[dependency]:
-            self._graph[dependency].add(dependent)
-            self._reverse_graph[dependent].add(dependency)
-            self._indegrees[dependent] += 1
+    def add_edge(self, source: str, dependent: str) -> None:
+        if dependent not in self._forward[source]:
+            self._forward[source].add(dependent)
+            self._reverse[dependent].add(source)
 
-    def remove_dependency(self, dependent: str, dependency: str) -> None:
-        """Remove dependency edge."""
-        if dependent in self._graph[dependency]:
-            self._graph[dependency].remove(dependent)
-            self._reverse_graph[dependent].remove(dependency)
-            self._indegrees[dependent] -= 1
+    def remove_edge(self, source: str, dependent: str) -> None:
+        if dependent in self._forward[source]:
+            self._forward[source].discard(dependent)
+            self._reverse[dependent].discard(source)
 
     def get_dependents(self, key: str) -> Set[str]:
-        """Get immediate dependents of key."""
-        return self._graph[key].copy()
+        return self._forward[key].copy()
 
     def get_dependencies(self, key: str) -> Set[str]:
-        """Get immediate dependencies of key."""
-        return self._reverse_graph[key].copy()
+        return self._reverse[key].copy()
 
-    def classify_topology(self, root: str) -> GraphTopology:
-        """
-        Classify subgraph topology starting from root.
+    def get_all_dependents(self, key: str) -> Set[str]:
+        """Get all transitive dependents of a key."""
+        affected = set()
+        to_visit = {key}
 
-        LINEAR: Every node has ≤1 in-degree and ≤1 out-degree
-        TREE: Every node has ≤1 in-degree (no diamonds)
-        DAG: General case
-        """
-        visited = set()
-        max_indegree = 0
-        max_outdegree = 0
+        while to_visit:
+            next_level = set()
+            for node in to_visit:
+                for dep in self._forward.get(node, set()):
+                    if dep not in affected:
+                        affected.add(dep)
+                        next_level.add(dep)
+            to_visit = next_level
 
-        queue = deque([root])
-        while queue:
-            current = queue.popleft()
-            if current in visited:
-                continue
-            visited.add(current)
+        return affected
 
-            dependents = self._graph[current]
-            outdegree = len(dependents)
-            max_outdegree = max(max_outdegree, outdegree)
-
-            for dep in dependents:
-                indegree = len(self._reverse_graph[dep])
-                max_indegree = max(max_indegree, indegree)
-                if dep not in visited:
-                    queue.append(dep)
-
-        # Classification
-        if max_indegree <= 1 and max_outdegree <= 1:
-            return GraphTopology.LINEAR
-        elif max_indegree <= 1:
-            return GraphTopology.TREE
-        else:
-            return GraphTopology.DAG
-
-    def propagate_linear(self, root: str, affected: Set[str]) -> List[str]:
-        """O(depth) propagation for linear chains."""
-        result = []
-
-        # Start from first dependent of root
-        root_deps = self._graph[root]
-        if not root_deps:
-            return result
-
-        current = next(iter(root_deps))
-
-        while current and current in affected:
-            result.append(current)
-            dependents = self._graph[current]
-
-            if len(dependents) == 1:
-                current = next(iter(dependents))
-            else:
-                break
-
-        return result
-
-    def propagate_tree(self, root: str, affected: Set[str]) -> List[str]:
-        """O(affected) DFS propagation for trees."""
-        result = []
-        visited = set()
-
-        def dfs(node: str):
-            if node in visited or node not in affected:
-                return
-            visited.add(node)
-            # Don't add root to result, only its dependents
-            if node != root:
-                result.append(node)
-
-            for dependent in self._graph[node]:
-                dfs(dependent)
-
-        # Start from root's dependents
-        for dependent in self._graph[root]:
-            dfs(dependent)
-
-        return result
-
-    def topological_sort(self, affected_keys: Set[str]) -> List[str]:
-        """
-        O(V+E) Kahn's algorithm for DAG propagation.
-
-        Returns keys in dependency order (dependencies before dependents).
-        """
-        if not affected_keys:
+    def topological_sort(self, keys: Set[str]) -> List[str]:
+        """Sort keys in topological order."""
+        if not keys:
             return []
 
-        # Calculate subgraph indegrees
-        subgraph_indegrees = {}
-        for key in affected_keys:
-            indegree = sum(
-                1 for dep in self._reverse_graph[key] if dep in affected_keys
-            )
-            subgraph_indegrees[key] = indegree
+        in_degree = {}
+        for key in keys:
+            degree = sum(1 for dep in self._reverse.get(key, set()) if dep in keys)
+            in_degree[key] = degree
 
-        # Start with zero indegree nodes
-        queue = deque([key for key in affected_keys if subgraph_indegrees[key] == 0])
+        queue = deque([k for k in keys if in_degree[k] == 0])
         result = []
 
         while queue:
             current = queue.popleft()
             result.append(current)
 
-            for dependent in self._graph[current]:
-                if dependent in affected_keys:
-                    subgraph_indegrees[dependent] -= 1
-                    if subgraph_indegrees[dependent] == 0:
+            for dependent in self._forward.get(current, set()):
+                if dependent in keys:
+                    in_degree[dependent] -= 1
+                    if in_degree[dependent] == 0:
                         queue.append(dependent)
 
         return result
 
 
 # ============================================================================
-# COMPUTED VALUES - Lazy Evaluation with Dependency Tracking
+# COMPUTED VALUE WITH AUTOMATIC DIFFERENTIATION
 # ============================================================================
 
 
-class ComputedValue(ABC):
-    """
-    Abstract computed value with lazy evaluation.
+class _ComputedValue:
+    """Base class for computed values."""
 
-    Comonad operations:
-    - extract (get): ε: Obs[A] → A
-    - invalidate: marks for recomputation
-    """
-
-    def __init__(self, key: str, store: "DeltaKVStore"):
+    def __init__(self, key: str, store: "ReactiveStore"):
         self.key = key
         self._store = store
-        self._value: Optional[Any] = None
+        self._cached_value: Any = None
         self._is_dirty = True
         self._dependencies: Set[str] = set()
         self._last_computed = 0.0
         self._last_error: Optional[Exception] = None
-
-    @abstractmethod
-    def _compute(self) -> Any:
-        """Compute function (implemented by subclasses)."""
-        pass
+        self._trace: Optional[ComputationTrace] = None
+        self._output_idx: Optional[int] = None
 
     def get(self) -> Any:
-        """
-        Extract value (comonad extract operation).
-
-        Lazy evaluation: only recomputes when dirty.
-        Cycle detection: uses thread-local stack.
-        """
-        # Fast path: return cached value if clean
+        """Get the current value, computing if necessary."""
         if not self._is_dirty and self._last_error is None:
-            return self._value
+            return self._cached_value
 
-        # Re-raise cached error if present
         if self._last_error is not None and not self._is_dirty:
             raise self._last_error
 
-        # Cycle detection
-        if not hasattr(self._store._tracking_context, "computing_stack"):
-            self._store._tracking_context.computing_stack = set()
+        ctx = self._store._ctx
+        if not hasattr(ctx, "computing_stack"):
+            ctx.computing_stack = set()
 
-        stack = self._store._tracking_context.computing_stack
+        if self.key in ctx.computing_stack:
+            raise CircularDependencyError(
+                f"Circular dependency detected involving '{self.key}'. "
+                f"Chain: {' → '.join(ctx.computing_stack)} → {self.key}"
+            )
 
-        if self.key in stack:
-            # Cycle detected - return stale value
-            self._is_dirty = False
-            return self._value
-
-        stack.add(self.key)
+        ctx.computing_stack.add(self.key)
         try:
             self._recompute()
-            return self._value
+            return self._cached_value
         finally:
-            stack.discard(self.key)
+            ctx.computing_stack.discard(self.key)
 
     def _recompute(self) -> None:
-        """Recompute value with dependency tracking."""
-        accessed_keys: Set[str] = set()
+        """Recompute the value and update dependencies."""
+        accessed = set()
 
-        # Set up tracking context
-        prev_accessed = getattr(self._store._tracking_context, "accessed_keys", None)
-        self._store._tracking_context.accessed_keys = accessed_keys
+        ctx = self._store._ctx
+        prev_tracking = getattr(ctx, "accessed_keys", None)
+        ctx.accessed_keys = accessed
 
-        old_value = self._value
         try:
-            self._value = self._compute()
+            self._cached_value = self._compute()
             self._last_error = None
             self._is_dirty = False
             self._last_computed = time.time()
-
-            # Don't notify here - let propagation layer handle it
-            # This prevents double notifications when called from _process_direct_dependents
         except Exception as e:
-            self._last_error = ComputationError(
-                f"Computation error in '{self.key}': {e}"
-            )
+            self._last_error = ComputationError(f"Error in '{self.key}': {e}")
             self._is_dirty = False
             raise self._last_error
         finally:
-            # Restore tracking context
-            if prev_accessed is not None:
-                self._store._tracking_context.accessed_keys = prev_accessed
-            elif hasattr(self._store._tracking_context, "accessed_keys"):
-                delattr(self._store._tracking_context, "accessed_keys")
+            if prev_tracking is not None:
+                ctx.accessed_keys = prev_tracking
+            elif hasattr(ctx, "accessed_keys"):
+                delattr(ctx, "accessed_keys")
 
-            # Update dependencies
-            if accessed_keys:
-                self._update_dependencies(accessed_keys)
+            if accessed:
+                self._update_dependencies(accessed)
+
+    def _compute(self) -> Any:
+        """Override in subclasses."""
+        raise NotImplementedError
 
     def _update_dependencies(self, new_deps: Set[str]) -> None:
-        """Update dependency graph with discovered dependencies."""
+        """Update dependency graph."""
         old_deps = self._dependencies
 
         for dep in old_deps - new_deps:
-            self._store._dep_graph.remove_dependency(self.key, dep)
+            self._store._graph.remove_edge(dep, self.key)
 
         for dep in new_deps - old_deps:
-            self._store._dep_graph.add_dependency(self.key, dep)
+            self._store._graph.add_edge(dep, self.key)
 
         self._dependencies = new_deps
 
     def invalidate(self) -> None:
-        """Mark dirty (triggers recomputation on next access)."""
+        """Mark as needing recomputation."""
         self._is_dirty = True
         self._last_error = None
 
+    def try_incremental_update(self, triggering_change: Change) -> Optional[Any]:
+        """Try to update incrementally using AD."""
+        if self._trace is None or self._output_idx is None:
+            return None
 
-class AutomaticComputedValue(ComputedValue):
-    """Computed value with automatic dependency discovery."""
+        if triggering_change.differential is None:
+            return None
 
-    def __init__(
-        self, key: str, compute_func: Callable[[], Any], store: "DeltaKVStore"
-    ):
+        try:
+            # Collect deltas for the triggering change
+            input_deltas = {triggering_change.key: triggering_change.differential}
+
+            # Push forward through computation trace
+            output_delta = self._store._ad_engine.pushforward(
+                self._trace, input_deltas, self._output_idx
+            )
+
+            if (
+                output_delta is not None
+                and not self._store._delta_registry.is_identity(output_delta)
+            ):
+                new_value = self._store._delta_registry.apply_delta(
+                    self._cached_value, output_delta
+                )
+                # Update trace to reflect new state for future AD
+                for node in self._trace.nodes:
+                    if node.source_key:
+                        node.value = self._store.get(node.source_key)
+                return new_value
+        except Exception as e:
+            logging.debug(f"Exception during AD for '{self.key}': {e}")
+            pass
+
+        return None
+
+
+class _AutoComputedValue(_ComputedValue):
+    """Computed value with automatic dependency tracking and AD."""
+
+    def __init__(self, key: str, func: Callable, store: "ReactiveStore"):
         super().__init__(key, store)
-        self._compute_func = compute_func
+        self._func = func
 
     def _compute(self) -> Any:
-        return self._compute_func()
+        # Create trace for this computation
+        trace = ComputationTrace()
+
+        # Wrap store access to record trace
+        ctx = self._store._ctx
+        prev_trace = getattr(ctx, "active_trace", None)
+        ctx.active_trace = trace
+
+        try:
+            result = self._func()
+
+            # Extract final value if traced
+            if isinstance(result, TracedValue):
+                self._trace = trace
+                self._output_idx = result.trace_idx
+                return result.value
+            else:
+                # Computation didn't use traced values
+                self._trace = None
+                self._output_idx = None
+                return result
+        finally:
+            if prev_trace is not None:
+                ctx.active_trace = prev_trace
+            elif hasattr(ctx, "active_trace"):
+                delattr(ctx, "active_trace")
 
 
-class ExplicitComputedValue(ComputedValue):
-    """Computed value with explicit dependencies (optimized)."""
+class _ExplicitComputedValue(_ComputedValue):
+    """Computed value with explicit dependencies."""
 
     def __init__(
-        self,
-        key: str,
-        dependencies: List[str],
-        compute_func: Callable,
-        store: "DeltaKVStore",
+        self, key: str, deps: List[str], func: Callable, store: "ReactiveStore"
     ):
         super().__init__(key, store)
-        self._explicit_deps = dependencies
-        self._compute_func = compute_func
+        self._deps = deps
+        self._func = func
 
-        # Register dependencies immediately
-        for dep in dependencies:
-            self._store._dep_graph.add_dependency(key, dep)
-            self._dependencies.add(dep)
+        self._dependencies = set(deps)
+        for dep in deps:
+            store._graph.add_edge(dep, key)
 
     def _compute(self) -> Any:
-        """Compute with explicit dependencies passed as arguments."""
-        args = [self._store.get(dep) for dep in self._explicit_deps]
-        result = self._compute_func(*args)
-        return result if result is not None else self._value
+        # Create trace
+        trace = ComputationTrace()
+
+        ctx = self._store._ctx
+        prev_trace = getattr(ctx, "active_trace", None)
+        ctx.active_trace = trace
+
+        try:
+            args = [self._store.get(dep) for dep in self._deps]
+            # Unwrap TracedValues for the function call
+            unwrapped_args = [
+                arg.value if isinstance(arg, TracedValue) else arg for arg in args
+            ]
+            result = self._func(*unwrapped_args)
+
+            if isinstance(result, TracedValue):
+                self._trace = trace
+                self._output_idx = result.trace_idx
+                return result.value
+            else:
+                self._trace = None
+                self._output_idx = None
+                return result if result is not None else self._cached_value
+        finally:
+            if prev_trace is not None:
+                ctx.active_trace = prev_trace
+            elif hasattr(ctx, "active_trace"):
+                delattr(ctx, "active_trace")
 
     def _update_dependencies(self, new_deps: Set[str]) -> None:
-        """Skip dynamic updates for explicit dependencies."""
+        # Dependencies are explicit, don't update
         pass
 
 
-class FeedbackComputedValue(ComputedValue):
-    """Feedback value with evolving state."""
-
-    def __init__(
-        self,
-        key: str,
-        fn: Callable,
-        input_key: str,
-        initial_state: Any,
-        store: "DeltaKVStore",
-    ):
-        super().__init__(key, store)
-        self._fn = fn
-        self._input_key = input_key
-        self._initial_state = initial_state
-
-        self._store._dep_graph.add_dependency(key, input_key)
-        self._dependencies.add(input_key)
-
-    def invalidate(self) -> None:
-        """Feedback values always recompute."""
-        pass
-
-    def _compute(self) -> Any:
-        return self._store._compute_feedback_fn(self.key, self._fn, self._input_key)
-
-    def get(self) -> Any:
-        return self._store._compute_feedback_fn(self.key, self._fn, self._input_key)
-
-
 # ============================================================================
-# DELTAKV STORE - The Reactive Category
+# MAIN STORE
 # ============================================================================
 
 
-class DeltaKVStore:
+class ReactiveStore:
     """
-    Category-theoretic reactive store.
+    Reactive store with automatic differentiation over delta algebras.
 
-    Mathematical Structure:
-    - Objects: Observable values
-    - Morphisms: Computed transformations
-    - Composition: Dependency chains
-    - Identity: Source observables
-
-    Propagation: Topology-aware O(depth) to O(V+E)
-    Subscriptions: Unified monoid structure
+    Key Innovation: Computations are traced and differentiated automatically.
+    You only define delta algebra for primitive types.
     """
 
-    _MAX_CHANGE_LOG_SIZE = 10000
+    _MAX_HISTORY = 10000
 
     def __init__(self):
-        self._data: Dict[str, Any] = {}
-        self._computed: Dict[str, ComputedValue] = {}
-        self._dep_graph = DependencyGraph()
+        self._values: Dict[str, Any] = {}
+        self._computed: Dict[str, _ComputedValue] = {}
+        self._objects: Dict[str, Any] = {}  # Keep references to observables
+        self._graph = _DependencyGraph()
+
+        self._delta_registry = DeltaRegistry()
+        self._ad_engine = AutoDiffEngine(self._delta_registry)
+
         self._observers: Dict[str, List[Callable]] = defaultdict(list)
         self._global_observers: weakref.WeakSet = weakref.WeakSet()
+
         self._lock = threading.RLock()
-        self._change_log: List[Delta] = []
+        self._ctx = threading.local()
+
         self._batch_depth = 0
-        self._pending_batch_deltas: List[Delta] = []
+        self._pending_changes: List[Change] = []
+        self._history: deque[Change] = deque(maxlen=self._MAX_HISTORY)
 
-        # Thread-local tracking
-        self._tracking_context = threading.local()
+        # Compatibility with Observable interface
+        self._kv = self
 
-        # Feedback state
-        self._feedback_states: Dict[str, Any] = {}
-
-        # Objects for compatibility
-        self._objects: Dict[str, Any] = {}
-        self._stored_nodes: Dict[str, Dict] = {}
-
-        atexit.register(self._atexit_cleanup)
+        atexit.register(self._cleanup)
 
     # ========================================================================
-    # CORE OPERATIONS - The Observable Comonad
+    # COMPATIBILITY PROPERTIES
     # ========================================================================
 
-    def get(self, key: str) -> Any:
-        """
-        Extract operation: ε: Obs[A] → A
+    @property
+    def _data(self):
+        """Compatibility property for observable.py Store interface."""
+        return self._values
 
-        Pure comonad extract - no side effects.
-        """
+    @property
+    def _dep_graph(self):
+        """Compatibility property for test_delta_store.py interface."""
+        return self._graph
+
+    # ========================================================================
+    # CORE API
+    # ========================================================================
+
+    def __getitem__(self, key: str) -> Any:
         with self._lock:
-            return self._get_raw(key)
+            return self._get_internal(key)
 
-    def _get_raw(self, key: str) -> Any:
-        """Internal get with dependency tracking."""
-        # Track access for dependency discovery
-        if hasattr(self._tracking_context, "accessed_keys"):
-            self._tracking_context.accessed_keys.add(key)
+    def __setitem__(self, key: str, value: Any) -> None:
+        with self._lock:
+            self._set_internal(key, value)
 
-        # Computed values
-        if key in self._computed:
-            computed = self._computed[key]
+    def __delitem__(self, key: str) -> None:
+        with self._lock:
+            self._delete_internal(key)
 
-            # Cycle detection
-            if hasattr(self._tracking_context, "computing_stack"):
-                if key in self._tracking_context.computing_stack:
-                    return computed._value
+    def __contains__(self, key: str) -> bool:
+        with self._lock:
+            return key in self._values or key in self._computed
 
-            return computed.get()
-
-        # Source values
-        if key in self._data:
-            return self._data[key]
-
-        # Objects (compatibility)
-        if key in self._objects:
-            return self._objects[key].value
-
-        raise KeyError(f"Key not found: {key}")
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
     def set(self, key: str, value: Any) -> None:
-        """
-        Set operation - emits delta for ANY change.
+        self[key] = value
 
-        Critical: Always emits delta (event algebra).
-        Significance testing happens in propagation layer.
-        """
-        with self._lock:
-            # Check if this key is being set from within its own notification (circular dependency)
-            if hasattr(self._tracking_context, "notifying_keys"):
-                if key in self._tracking_context.notifying_keys:
-                    raise RuntimeError(
-                        f"Circular dependency detected: key '{key}' is being modified from within its own notification"
-                    )
-
-            old_value = self._data.get(key)
-
-            # Update value
-            self._data[key] = value
-
-            # Create and emit delta (always, even if value unchanged)
-            # This preserves event semantics: every set() is an event
-            delta = DeltaPool.acquire(key, ChangeType.SET, old_value, value, None)
-            self._propagate_change(delta)
-
-    def delete(self, key: str) -> bool:
-        """Delete key from store."""
-        with self._lock:
-            if key not in self._data:
-                return False
-
-            old_value = self._data[key]
-            del self._data[key]
-
-            delta = DeltaPool.acquire(key, ChangeType.DELETE, old_value, None, None)
-            self._propagate_change(delta)
-            return True
+    def delete(self, key: str) -> None:
+        del self[key]
 
     # ========================================================================
-    # COMPUTED VALUES - The Derived Morphisms
+    # COMPUTED VALUES WITH AUTOMATIC DIFFERENTIATION
     # ========================================================================
 
     def computed(
-        self,
-        key: str,
-        compute_func: Callable[[], T],
-        deps: Optional[List[str]] = None,
-        is_simple_map: bool = False,
+        self, key: str, func: Callable, deps: Optional[List[str]] = None, **kwargs
     ) -> None:
         """
-        Define computed value (morphism in reactive category).
+        Create a computed value with automatic incremental updates.
 
-        Auto-discovery: Tracks dependencies during first computation
-        Explicit: Uses provided dependency list (more efficient)
+        Args:
+            key: Name for the computed value
+            func: Computation function
+            deps: Optional explicit dependencies (for optimization)
+
+        Examples:
+            # Automatic dependency tracking AND automatic delta propagation!
+            store.computed('sum', lambda: store['x'] + store['y'])
+
+            # The store will:
+            # 1. Trace the computation on first run
+            # 2. Record operations: x → load, y → load, x+y → add
+            # 3. On update: push Δx forward: Δ(x+y) = Δx
+            # 4. Apply delta: sum' = sum ⊕ Δsum
+
+            # Complex example - still automatic!
+            store.computed('z', lambda: 2 * store['x']**2 + 3 * store['y'])
+            # Δz = 2·2x·Δx + 3·Δy = 4x·Δx + 3·Δy (computed automatically!)
         """
         with self._lock:
-            if deps is not None and len(deps) > 0:
-                computed_val = ExplicitComputedValue(key, deps, compute_func, self)
+            # Validate that explicit dependencies exist
+            if deps:
+                for dep in deps:
+                    if dep not in self._values and dep not in self._computed:
+                        raise KeyError(f"Dependency '{dep}' does not exist")
+
+            if deps:
+                computed = _ExplicitComputedValue(key, deps, func, self)
             else:
-                computed_val = AutomaticComputedValue(key, compute_func, self)
+                computed = _AutoComputedValue(key, func, self)
 
-            computed_val._is_simple_map = is_simple_map
-            self._computed[key] = computed_val
+            self._computed[key] = computed
 
     # ========================================================================
-    # SUBSCRIPTION - The Monoid (Sub, ⊕, ε)
+    # SUBSCRIPTION
     # ========================================================================
 
-    def subscribe(
-        self, key: str, callback: Callable[[Delta], None]
-    ) -> Callable[[], None]:
-        """
-        Subscribe operation: σ: Obs × Callback → Sub
-
-        Unified subscription mechanism (single monoid).
-        """
+    def on(self, key: str, callback: Callable[[Change], None]) -> Callable[[], None]:
+        """Subscribe to changes on a key."""
         with self._lock:
             self._observers[key].append(callback)
 
@@ -664,8 +1909,8 @@ class DeltaKVStore:
 
             return unsubscribe
 
-    def subscribe_all(self, callback: Callable[[Delta], None]) -> Callable[[], None]:
-        """Subscribe to all changes."""
+    def on_any(self, callback: Callable[[Change], None]) -> Callable[[], None]:
+        """Subscribe to all changes in the store."""
         with self._lock:
             self._global_observers.add(callback)
 
@@ -676,517 +1921,468 @@ class DeltaKVStore:
             return unsubscribe
 
     # ========================================================================
-    # PROPAGATION - The Semiring (Δ, +, 0, ·, 1)
-    # ========================================================================
-
-    def _propagate_change(self, delta: Delta) -> None:
-        """
-        Propagate change through dependency graph.
-
-        Batch mode: Accumulates deltas for fusion
-        Immediate mode: Propagates with topology-aware dispatch
-        """
-        if self._batch_depth > 0:
-            # Batch mode: accumulate for fusion
-            self._pending_batch_deltas.append(delta)
-            return
-
-        # Immediate mode
-        self._propagate_change_immediately(delta)
-
-    def _propagate_change_immediately(self, delta: Delta) -> None:
-        """
-        Immediate propagation with topology-aware dispatch.
-
-        Complexity: O(depth) for linear, O(affected) for tree, O(V+E) for DAG
-        """
-        # Skip identity deltas (no actual change)
-        if delta.is_identity():
-            return
-
-        # Log change
-        self._log_change(delta)
-
-        # Process direct dependents
-        direct_deltas = self._process_direct_dependents(delta.key)
-
-        # Notify observers
-        self._notify_observers(delta)
-        for d in direct_deltas:
-            self._notify_observers(d)
-            DeltaPool.release(d)
-
-        # Process transitive dependents (topology-aware)
-        self._process_transitive_dependents(delta.key, direct_deltas)
-
-    def _process_direct_dependents(self, changed_key: str) -> List[Delta]:
-        """Process immediate dependents of changed key."""
-        deltas = []
-
-        if changed_key not in self._dep_graph._graph:
-            return deltas
-
-        for dependent_key in self._dep_graph._graph[changed_key]:
-            if dependent_key not in self._computed:
-                continue
-
-            computed_val = self._computed[dependent_key]
-
-            # Handle feedback values specially
-            if isinstance(computed_val, FeedbackComputedValue):
-                computed_val.invalidate()
-                delta = DeltaPool.acquire(
-                    dependent_key, ChangeType.COMPUTED_UPDATE, None, None, None
-                )
-                deltas.append(delta)
-            else:
-                # Just invalidate - will be recomputed by transitive processing in topological order
-                computed_val.invalidate()
-
-        return deltas
-
-    def _process_transitive_dependents(
-        self, changed_key: str, direct_deltas: List[Delta]
-    ) -> None:
-        """
-        Process transitive dependents with topology-aware dispatch.
-
-        Optimization: Uses graph structure for algorithmic efficiency.
-        """
-        # Find all affected keys
-        affected_keys = self._get_transitive_dependents(changed_key)
-        if not affected_keys:
-            return
-
-        # Include direct dependents in recomputation (they were only invalidated, not recomputed)
-        # We need to recompute everything in topological order for consistency
-        processed_keys = set()
-        remaining = affected_keys
-        if not remaining:
-            return
-
-        # Classify topology and dispatch
-        topology = self._dep_graph.classify_topology(changed_key)
-
-        if topology == GraphTopology.LINEAR:
-            propagation_order = self._dep_graph.propagate_linear(changed_key, remaining)
-        elif topology == GraphTopology.TREE:
-            propagation_order = self._dep_graph.propagate_tree(changed_key, remaining)
-        else:
-            propagation_order = self._dep_graph.topological_sort(remaining)
-
-        # Process in two passes to ensure correct propagation order
-        # First pass: invalidate all nodes and save old values
-        old_values = {}
-        for key in propagation_order:
-            if key not in self._computed or key in processed_keys:
-                continue
-            computed_val = self._computed[key]
-            if computed_val._value is not None:
-                old_values[key] = computed_val._value
-            computed_val.invalidate()
-
-        # Second pass: recompute in topological order (dependencies computed before dependents)
-        deltas = []
-        for key in propagation_order:
-            if key not in self._computed or key not in old_values:
-                continue
-
-            computed_val = self._computed[key]
-            new_val = computed_val.get()
-            old_val = old_values[key]
-
-            # Create delta for notification if value changed
-            try:
-                if isinstance(old_val, np.ndarray) or isinstance(new_val, np.ndarray):
-                    if type(old_val) != type(new_val):
-                        value_changed = True
-                    else:
-                        value_changed = not np.array_equal(old_val, new_val)
-                else:
-                    value_changed = old_val != new_val
-            except (ValueError, TypeError):
-                value_changed = old_val != new_val
-
-            if value_changed:
-                delta = DeltaPool.acquire(
-                    key, ChangeType.COMPUTED_UPDATE, old_val, new_val, None
-                )
-                deltas.append(delta)
-
-        # Notify and cleanup
-        for d in deltas:
-            self._notify_observers(d)
-            DeltaPool.release(d)
-
-    def _get_transitive_dependents(self, key: str) -> Set[str]:
-        """Get all transitive dependents via BFS."""
-        all_affected = set()
-        current_level = {key}
-
-        while current_level:
-            next_level = set()
-            for node in current_level:
-                for dep in self._dep_graph.get_dependents(node):
-                    if dep not in all_affected:
-                        all_affected.add(dep)
-                        next_level.add(dep)
-            current_level = next_level
-
-        return all_affected
-
-    def _notify_observers(self, delta: Delta) -> None:
-        """Notify subscribers (subscription monoid composition)."""
-        # Track which keys are being notified to detect circular dependencies
-        if not hasattr(self._tracking_context, "notifying_keys"):
-            self._tracking_context.notifying_keys = set()
-
-        self._tracking_context.notifying_keys.add(delta.key)
-
-        # Key-specific observers
-        for observer in self._observers[delta.key]:
-            observer(delta)
-
-        # Global observers
-        for observer in self._global_observers:
-            observer(delta)
-
-        self._tracking_context.notifying_keys.remove(delta.key)
-
-        # Clean up if empty
-        if not self._tracking_context.notifying_keys:
-            delattr(self._tracking_context, "notifying_keys")
-
-    def _log_change(self, delta: Delta) -> None:
-        """Log change with bounded size."""
-        self._change_log.append(delta)
-        if len(self._change_log) > self._MAX_CHANGE_LOG_SIZE:
-            excess = len(self._change_log) - self._MAX_CHANGE_LOG_SIZE
-            self._change_log = self._change_log[excess:]
-
-    # ========================================================================
-    # BATCH OPERATIONS - Delta Fusion
+    # BATCHING
     # ========================================================================
 
     def batch(self) -> "BatchContext":
-        """
-        Start batch operation.
-
-        Batches accumulate deltas and fuse them on commit.
-        Fusion: Multiple deltas to same key → single delta
-        """
+        """Batch multiple updates for efficiency."""
         return BatchContext(self)
 
-    def _fuse_deltas(self, deltas: List[Delta]) -> List[Delta]:
-        """
-        Fuse deltas by key (delta semiring composition).
+    # ========================================================================
+    # INTERNAL IMPLEMENTATION
+    # ========================================================================
 
-        Fusion law: Δ₁ · Δ₂ = Δ(k, old₁, new₂, max(t₁,t₂))
-        Result: One delta per key
-        """
-        if not deltas:
-            return []
+    def _get_internal(self, key: str) -> Any:
+        """Internal get with tracing support."""
+        ctx = self._ctx
 
-        # Group by key
-        by_key = defaultdict(list)
-        for delta in deltas:
-            by_key[delta.key].append(delta)
+        # Track dependency for computed values
+        if hasattr(ctx, "accessed_keys"):
+            ctx.accessed_keys.add(key)
 
-        # Fuse each key group
-        fused = []
-        for key, key_deltas in by_key.items():
-            if len(key_deltas) == 1:
-                fused.append(key_deltas[0])
+        # Get the value
+        if key in self._computed:
+            computed = self._computed[key]
+            if hasattr(ctx, "computing_stack") and key in ctx.computing_stack:
+                value = computed._cached_value
             else:
-                # Compose all deltas for this key
-                result = key_deltas[0]
-                for d in key_deltas[1:]:
-                    result = result.compose(d)
-                fused.append(result)
+                value = computed.get()
+        elif key in self._values:
+            value = self._values[key]
+            # Special handling for feedback values - always recompute
+            if callable(value) and hasattr(value, "_key") and value._key == key:
+                value = value()  # Call feedback function
+        else:
+            raise KeyError(f"Key not found: {key}")
 
-        return fused
+        # Wrap in TracedValue if we're tracing
+        if hasattr(ctx, "active_trace"):
+            trace = ctx.active_trace
+            idx = trace.add_source(key, value)
+            return TracedValue(value, idx, trace)
 
-    # ========================================================================
-    # FEEDBACK LOOPS
-    # ========================================================================
+        return value
 
-    def feedback(
-        self,
-        key: str,
-        fn: Callable,
-        input_key: str,
-        initial_state: Any = None,
-        **kwargs,
+    def _set_internal(
+        self, key: str, value: Any, differential: Optional[TypedDelta] = None
     ) -> None:
-        """Create feedback loop with evolving state."""
-        if key not in self._feedback_states:
-            self._feedback_states[key] = (
-                initial_state if initial_state is not None else 0
+        """Internal set with automatic delta computation."""
+        if key in self._computed:
+            raise ValueError(f"Cannot update computed value '{key}'")
+
+        ctx = self._ctx
+        notifying = getattr(ctx, "notifying_keys", None)
+        if notifying and key in notifying:
+            raise CircularDependencyError(
+                f"Cannot modify '{key}' from within its own notification"
             )
 
-        feedback_computed = FeedbackComputedValue(
-            key, fn, input_key, initial_state, self
+        old_value = self._values.get(key)
+        self._values[key] = value
+
+        if differential is None and old_value is not None:
+            differential = self._delta_registry.compute_delta(old_value, value)
+
+        change = Change(
+            key=key,
+            change_type=ChangeType.SOURCE_UPDATE,
+            old_value=old_value,
+            new_value=value,
+            timestamp=time.time(),
+            differential=differential,
         )
-        self._computed[key] = feedback_computed
 
-    def _compute_feedback_fn(self, key: str, fn: Callable, input_key: str) -> Any:
-        """Compute feedback function with state evolution."""
-        state = self._feedback_states[key]
-        input_val = self.get(input_key)
-        new_state, output = fn(state, input_val)
-        self._feedback_states[key] = new_state
-        return output
+        self._propagate(change)
 
-    # ========================================================================
-    # COMPATIBILITY ALIASES
-    # ========================================================================
+    def _delete_internal(self, key: str) -> None:
+        if key not in self._values:
+            raise KeyError(f"Key not found: {key}")
 
-    def source(self, key: str, value: Any) -> None:
-        """Alias for set."""
-        self.set(key, value)
+        old_value = self._values[key]
+        del self._values[key]
 
-    def update(self, key: str, value: Any) -> None:
-        """Update (only for source values)."""
-        if key in self._computed:
-            raise ValueError(f"Cannot update derived value '{key}'")
-        self.set(key, value)
+        change = Change(
+            key=key,
+            change_type=ChangeType.DELETED,
+            old_value=old_value,
+            new_value=None,
+            timestamp=time.time(),
+        )
 
-    def derive(
-        self,
-        key: str,
-        fn: Callable,
-        deps: List[str],
-        incremental_fn: Optional[Callable] = None,
-    ) -> None:
-        """Alias for computed with explicit dependencies."""
-        for dep in deps:
-            if dep not in self._data and dep not in self._computed:
-                raise KeyError(f"Dependency key '{dep}' does not exist")
-        self.computed(key, fn, deps)
+        self._propagate(change)
 
-    def observe(
-        self, key: str, callback: Callable[[Delta], None]
-    ) -> Callable[[], None]:
-        """Alias for subscribe."""
-        return self.subscribe(key, callback)
+    def _propagate_change(self, change: Change) -> None:
+        """Propagate a change (used by Observable for untracked updates)."""
+        ctx = self._ctx
+        notifying = getattr(ctx, "notifying_keys", None)
+        if notifying and change.key in notifying:
+            raise CircularDependencyError(
+                f"Cannot modify '{change.key}' from within its own notification"
+            )
 
-    def product(self, key: str, deps: List[str]) -> None:
-        """Create product (tensor) from multiple dependencies."""
-        if not deps:
-            raise ValueError("Product requires at least one dependency")
+        self._propagate(change)
 
-        for dep in deps:
-            if dep not in self._data and dep not in self._computed:
-                raise KeyError(f"Dependency key '{dep}' does not exist")
+    def _propagate(self, change: Change) -> None:
+        if self._batch_depth > 0:
+            self._pending_changes.append(change)
+            return
 
-        # Create function that returns tuple of dependencies
-        def product_fn(*args):
-            return tuple(args) if len(args) > 1 else args[0]
+        self._propagate_immediate(change)
 
-        self.computed(key, product_fn, deps)
+    def _propagate_immediate(self, change: Change) -> None:
+        """Immediate propagation with AD-based incremental computation."""
+        if change.is_identity():
+            return
+
+        self._history.append(change)
+
+        ctx = self._ctx
+        prev_change = getattr(ctx, "current_change", None)
+        ctx.current_change = change
+
+        try:
+            affected = self._graph.get_all_dependents(change.key)
+
+            if not affected:
+                self._notify(change)
+                return
+
+            # Save old values
+            old_values = {}
+            for key in affected:
+                if key in self._computed:
+                    computed = self._computed[key]
+                    old_values[key] = computed._cached_value
+                    computed.invalidate()
+
+            # Topologically sort affected nodes
+            order = self._graph.topological_sort(affected)
+
+            changes = [change]
+
+            # Update each affected node
+            for key in order:
+                if key not in self._computed:
+                    continue
+
+                computed = self._computed[key]
+                old_value = old_values.get(key)
+
+                # Try incremental update with AD
+                new_value = computed.try_incremental_update(change)
+
+                if new_value is None:
+                    # Fallback to full recomputation
+                    logging.debug(f"AD failed for '{key}', falling back to recompute")
+                    new_value = computed.get()
+                else:
+                    # Incremental update succeeded!
+                    computed._cached_value = new_value
+                    computed._is_dirty = False
+                    computed._last_computed = time.time()
+
+                # Check if value actually changed
+                if old_value is None or not self._values_equal(old_value, new_value):
+                    output_delta = self._delta_registry.compute_delta(
+                        old_value, new_value
+                    )
+
+                    output_change = Change(
+                        key=key,
+                        change_type=ChangeType.COMPUTED_UPDATE,
+                        old_value=old_value,
+                        new_value=new_value,
+                        timestamp=time.time(),
+                        differential=output_delta,
+                    )
+
+                    # Additional check: don't propagate if change is identity
+                    if not output_change.is_identity():
+                        changes.append(output_change)
+
+                        # Update the change for subsequent propagation
+                        change = output_change
+
+            # Notify all observers
+            for c in changes:
+                self._notify(c)
+        finally:
+            if prev_change is not None:
+                ctx.current_change = prev_change
+            elif hasattr(ctx, "current_change"):
+                delattr(ctx, "current_change")
+
+    def _notify(self, change: Change) -> None:
+        ctx = self._ctx
+
+        if not hasattr(ctx, "notifying_keys"):
+            ctx.notifying_keys = set()
+
+        ctx.notifying_keys.add(change.key)
+
+        try:
+            for callback in self._observers.get(change.key, []):
+                try:
+                    callback(change)
+                except CircularDependencyError:
+                    raise  # Don't catch circular dependency errors
+                except Exception:
+                    pass
+
+            for callback in list(self._global_observers):
+                try:
+                    callback(change)
+                except Exception:
+                    pass
+        finally:
+            ctx.notifying_keys.discard(change.key)
+            if not ctx.notifying_keys:
+                delattr(ctx, "notifying_keys")
+
+    def _values_equal(self, a: Any, b: Any) -> bool:
+        try:
+            if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
+                if type(a) != type(b):
+                    return False
+                return np.array_equal(a, b)
+            return a == b
+        except (ValueError, TypeError):
+            return False
+
+    def _merge_changes(self, changes: List[Change]) -> List[Change]:
+        if not changes:
+            return []
+
+        by_key = defaultdict(list)
+        for change in changes:
+            by_key[change.key].append(change)
+
+        merged = []
+        for key, key_changes in by_key.items():
+            if len(key_changes) == 1:
+                merged.append(key_changes[0])
+            else:
+                result = key_changes[0]
+                for c in key_changes[1:]:
+                    result = result.compose(c)
+                merged.append(result)
+
+        return merged
 
     # ========================================================================
     # UTILITY METHODS
     # ========================================================================
 
     def keys(self) -> List[str]:
-        """Get all keys."""
         with self._lock:
-            return list(self._data.keys()) + list(self._computed.keys())
+            return list(self._values.keys()) + list(self._computed.keys())
 
-    def clear(self) -> None:
-        """Clear all data."""
+    def items(self) -> List[tuple]:
         with self._lock:
-            keys = list(self._data.keys()) + list(self._computed.keys())
-        for key in keys:
-            self.delete(key)
+            result = [(k, v) for k, v in self._values.items()]
+            for k, c in self._computed.items():
+                try:
+                    result.append((k, c.get()))
+                except Exception:
+                    pass
+            return result
+
+    def snapshot(self) -> Dict[str, Any]:
+        with self._lock:
+            result = dict(self._values)
+            for key, computed in self._computed.items():
+                try:
+                    result[key] = computed.get()
+                except Exception:
+                    pass
+            return result
 
     def stats(self) -> Dict[str, Any]:
-        """Get store statistics."""
         with self._lock:
-            total_objects = len(self._data) + len(self._computed)
-            identity_morphisms = len(self._data)
-            composition_morphisms = len(self._computed)
+            traced_count = sum(
+                1 for c in self._computed.values() if c._trace is not None
+            )
             return {
-                "total_keys": total_objects,
-                "data_keys": len(self._data),
+                "total_keys": len(self._values) + len(self._computed),
+                "source_keys": len(self._values),
                 "computed_keys": len(self._computed),
-                "total_objects": total_objects,
-                "identity_morphisms": identity_morphisms,
-                "composition_morphisms": composition_morphisms,
-                "total_observers": sum(len(obs) for obs in self._observers.values())
-                + len(self._global_observers),
-                "change_log_size": len(self._change_log),
+                "traced_computations": traced_count,
+                "observers": sum(len(obs) for obs in self._observers.values()),
+                "global_observers": len(self._global_observers),
+                "history_size": len(self._history),
                 "total_dependencies": sum(
-                    len(deps) for deps in self._dep_graph._graph.values()
+                    len(deps) for deps in self._graph._forward.values()
                 ),
             }
 
-    def get_gtcp_metrics(self, key: str) -> Any:
-        """Get GTCP (Generalized Temporal Contraction Principle) metrics for a feedback node."""
-        return GTCPMetrics(magnitude_norms=[], contraction_factor=0.5)
-
-    def snapshot(self) -> Dict[str, Any]:
-        """Create immutable snapshot."""
-        return self.freeze()
-
-    def freeze(self) -> Dict[str, Any]:
-        """Freeze store state."""
-        nodes = {}
-        for key, value in self._data.items():
-            nodes[key] = {
-                "value": value,
-                "type": "source",
-                "deps": [],
-                "dependents": list(self._dep_graph._reverse_graph.get(key, set())),
-            }
-
-        for key, computed in self._computed.items():
-            if isinstance(computed, FeedbackComputedValue):
-                deps = [computed._input_key]
-            else:
-                deps = list(computed._dependencies)
-
-            nodes[key] = {
-                "value": computed.get(),
-                "type": "derived",
-                "deps": deps,
-                "dependents": list(self._dep_graph._reverse_graph.get(key, set())),
-            }
-
-        return {
-            "nodes": nodes,
-            "generation": 0,
-            "feedback_state": self._feedback_states.copy(),
-        }
-
-    # ========================================================================
-    # RESOURCE MANAGEMENT
-    # ========================================================================
+    def history(self, limit: int = 100) -> List[Change]:
+        with self._lock:
+            return list(self._history)[-limit:]
 
     def close(self) -> None:
-        """Close and cleanup."""
         with self._lock:
-            self._cleanup_resources()
+            self._cleanup()
+
+    def _cleanup(self) -> None:
+        try:
+            self._observers.clear()
+            self._global_observers.clear()
+            self._history.clear()
+
+            for computed in list(self._computed.values()):
+                for dep in list(computed._dependencies):
+                    self._graph.remove_edge(dep, computed.key)
+
+            self._computed.clear()
+            self._values.clear()
+
+            self._graph._forward.clear()
+            self._graph._reverse.clear()
+        except Exception:
+            pass
 
     def __del__(self) -> None:
-        """Destructor cleanup."""
         try:
-            self._cleanup_resources()
-        except:
+            self._cleanup()
+        except Exception:
             pass
 
-    def _cleanup_resources(self) -> None:
-        """Clean up all resources."""
-        self._observers.clear()
-        self._global_observers.clear()
-        self._change_log.clear()
+    def __repr__(self) -> str:
+        return f"ReactiveStore(keys={len(self.keys())})"
 
-        for computed_val in self._computed.values():
-            for dep in computed_val._dependencies:
-                self._dep_graph.remove_dependency(computed_val.key, dep)
+    # ========================================================================
+    # COMPATIBILITY ALIASES
+    # ========================================================================
 
-        self._computed.clear()
-        self._feedback_states.clear()
-        self._data.clear()
-        self._objects.clear()
-        self._stored_nodes.clear()
+    def source(self, key: str, value: Any) -> None:
+        """Set a source value (alias for set)."""
+        self.set(key, value)
 
-        self._dep_graph._graph.clear()
-        self._dep_graph._reverse_graph.clear()
-        self._dep_graph._indegrees.clear()
+    def observe(
+        self, key: str, callback: Callable[[Change], None]
+    ) -> Callable[[], None]:
+        """Subscribe to changes (alias for on)."""
+        return self.on(key, callback)
 
-    def _atexit_cleanup(self) -> None:
-        """Cleanup on exit."""
-        try:
-            self._cleanup_resources()
-        except:
+    def subscribe(self, key: str, callback: Callable) -> Callable[[], None]:
+        """Subscribe to changes (supports both Change and TypedDelta callbacks)."""
+
+        def wrapped_callback(change: Change):
+            # For Observable compatibility, pass the Change object
+            # Observable's on_delta expects delta.new_value, and Change has new_value
+            callback(change)
+
+        return self.on(key, wrapped_callback)
+
+    def derive(self, key: str, fn: Callable, deps: Optional[List[str]] = None) -> None:
+        """Create a derived/computed value (alias for computed)."""
+        self.computed(key, fn, deps)
+
+    def product(self, key: str, sources: List[str]) -> None:
+        """Create a product (tuple) of multiple sources."""
+
+        def product_fn(*args):
+            return tuple(args)
+
+        self.computed(key, product_fn, sources)
+
+    def feedback(
+        self, key: str, fn: Callable, input_key: str, initial_state: Any
+    ) -> None:
+        """Create a feedback loop with stateful computation."""
+        state_key = f"{key}_state"
+
+        # Initialize state
+        self._values[state_key] = initial_state
+
+        # Store feedback function and keys
+        self._values[key] = None  # Placeholder
+
+        # Create a special value that recomputes on each access
+        class FeedbackValue:
+            def __init__(self, store, key, state_key, input_key, fn):
+                self._store = store
+                self._key = key
+                self._state_key = state_key
+                self._input_key = input_key
+                self._fn = fn
+
+            def __call__(self):
+                # Get current values, evaluating feedbacks if needed
+                current_input = self._store.get(self._input_key)
+                current_state = self._store._values.get(self._state_key)
+
+                if current_input is None or current_state is None:
+                    return None
+
+                new_state, output = self._fn(current_state, current_input)
+                self._store._values[self._state_key] = new_state
+                return output
+
+        feedback_val = FeedbackValue(self, key, state_key, input_key, fn)
+        self._values[key] = feedback_val
+
+        # Make feedback reactive to input changes
+        def on_input_change(_):
+            # When input changes, invalidate the cached output
+            # Next access will recompute
             pass
+
+        self.on(input_key, on_input_change)
+
+
+# ============================================================================
+# BATCH CONTEXT
+# ============================================================================
 
 
 class BatchContext:
-    """
-    Batch context for atomic updates with delta fusion.
-
-    Accumulates deltas during batch, fuses on exit.
-    """
-
-    def __init__(self, store: DeltaKVStore):
+    def __init__(self, store: ReactiveStore):
         self._store = store
 
     def __enter__(self):
         self._store._batch_depth += 1
         if self._store._batch_depth == 1:
-            self._store._pending_batch_deltas = []
+            self._store._pending_changes = []
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self._store._batch_depth -= 1
 
         if self._store._batch_depth == 0:
-            pending = self._store._pending_batch_deltas
+            pending = self._store._pending_changes
             if pending:
-                # Fuse deltas (delta semiring composition)
-                fused = self._store._fuse_deltas(pending)
+                merged = self._store._merge_changes(pending)
 
-                # Propagate fused deltas
-                for delta in fused:
-                    self._store._propagate_change_immediately(delta)
-                    DeltaPool.release(delta)
+                for change in merged:
+                    self._store._propagate_immediate(change)
 
-                self._store._pending_batch_deltas.clear()
+                self._store._pending_changes = []
 
         return False
 
 
 # ============================================================================
-# COMPATIBILITY CLASSES
+# PUBLIC API EXPORTS
 # ============================================================================
 
 
-class CircularDependencyError(Exception):
-    """Circular dependency error."""
+__all__ = [
+    "ReactiveStore",
+    "Store",
+    "Change",
+    "ChangeType",
+    "BatchContext",
+    "CircularDependencyError",
+    "ComputationError",
+    "TypedDelta",
+    "DeltaType",
+    "DeltaRegistry",
+    "TracedValue",
+    "AutoDiffEngine",
+    "TracedOp",
+    "ComputationTrace",
+]
 
-    pass
-
-
-class ComputationError(Exception):
-    """Computation error."""
-
-    pass
-
-
-class ChangeSignificanceTester:
-    """Stub for compatibility."""
-
-    @staticmethod
-    def is_significant_change(old_value: Any, new_value: Any) -> bool:
-        """Check if change is significant (deprecated - always returns True)."""
-        try:
-            return old_value != new_value
-        except (ValueError, TypeError):
-            return True
-
-
-class MorphismType(Enum):
-    """Morphism types."""
-
-    IDENTITY = "identity"
-    DERIVED = "derived"
-    FEEDBACK = "feedback"
-
-
-class GTCPMetrics:
-    """Stub for compatibility."""
-
-    def __init__(self, magnitude_norms: List[float], contraction_factor: float):
-        self.magnitude_norms = magnitude_norms
-        self._contraction_factor = contraction_factor
-
-    def contraction_factor(self) -> float:
-        return self._contraction_factor
-
-
-# Aliases
-ReactiveStore = DeltaKVStore
-Change = Delta
+# Alias for backward compatibility
+Store = ReactiveStore

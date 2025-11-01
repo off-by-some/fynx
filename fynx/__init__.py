@@ -5,17 +5,14 @@ A high-performance reactive key-value store that uses delta-based change detecti
 and only propagates changes to affected nodes.
 """
 
-# Import ReactiveStore from delta_kv_store.py (the backend implementation)
+# Import ReactiveStore and Store from delta_kv_store.py (the backend implementation)
 from .delta_kv_store import (
-    ChangeSignificanceTester,
+    Change,
     ChangeType,
     CircularDependencyError,
     ComputationError,
-    Delta,
-    GTCPMetrics,
-    MorphismType,
-    ReactiveStore,
 )
+from .delta_kv_store import Store as ReactiveStore  # Rename to avoid conflict
 
 # Import core classes from observable.py (the Observable API)
 from .observable import (
@@ -37,13 +34,11 @@ from .observable import (
     transaction,
 )
 
-# Import Store from store.py (the metaclass-based Store with automatic attribute access)
-from .store import Store
-
 # Backward compatibility alias
 observable = global_observable
 
-# Import Store classes from store.py
+# Import Store classes from store.py (metaclass-based Store with automatic attribute access)
+from .store import Store as Store  # Metaclass-based Store (main Store class)
 from .store import (
     StoreMeta,
     StoreSnapshot,
@@ -68,7 +63,8 @@ __all__ = [
     "ConditionalObservable",
     "StreamMerge",
     # Store classes
-    "Store",
+    "Store",  # Metaclass-based Store for class attribute syntax
+    "ReactiveStore",  # Backend implementation
     "StoreMeta",
     "StoreSnapshot",
     "Subscriptable",
@@ -85,14 +81,9 @@ __all__ = [
     "ConditionNotMet",
     "ReactiveFunctionError",
     # Backend implementation
-    "ReactiveStore",
     "ChangeType",
-    "Delta",
     "CircularDependencyError",
     "ComputationError",
-    "ChangeSignificanceTester",
-    "MorphismType",
-    "GTCPMetrics",
     # Sentinel
     "NULL_EVENT",
     # Testing utilities (internal use)

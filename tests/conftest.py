@@ -4,7 +4,8 @@ Shared pytest fixtures and configuration for FynX tests.
 
 import pytest
 
-from fynx import Store, _reset_global_store
+from fynx import Store
+from fynx.observable import _reset_global_store
 
 
 @pytest.fixture(autouse=True)

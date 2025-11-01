@@ -8,6 +8,7 @@ following FynX testing conventions with clear separation of concerns and descrip
 import pytest
 
 from fynx import observable, transaction
+from fynx.delta_kv_store import CircularDependencyError
 
 
 class TestObservableCreation:
@@ -283,8 +284,8 @@ class TestObservableCircularDependencyDetection:
 
         counter.subscribe(increment_on_change)
 
-        # Act & Assert - Should raise RuntimeError
-        with pytest.raises(RuntimeError, match="Circular dependency detected"):
+        # Act & Assert - Should raise CircularDependencyError
+        with pytest.raises(CircularDependencyError):
             counter.set(5)
 
     def test_circular_dependency_detection_works_with_multiple_subscribers(self):
@@ -302,8 +303,8 @@ class TestObservableCircularDependencyDetection:
         counter.subscribe(safe_subscriber)
         counter.subscribe(circular_subscriber)
 
-        # Act & Assert - Should raise RuntimeError
-        with pytest.raises(RuntimeError, match="Circular dependency detected"):
+        # Act & Assert - Should raise CircularDependencyError
+        with pytest.raises(CircularDependencyError):
             counter.set(5)
 
         # Safe subscribers are called before circular dependency is detected
@@ -373,17 +374,23 @@ class TestObservableTransactions:
         # Assert - Multiple notifications
         assert notifications == [1, 2, 3]
 
-        # Reset for transaction test
-        notifications.clear()
+        # Reset for transaction test with new observable
+        counter2 = observable(0)
+        notifications2 = []
+
+        def track_notifications2(new_value):
+            notifications2.append(new_value)
+
+        counter2.subscribe(track_notifications2)
 
         # Act - With transaction (batch fusion coalesces deltas to same key)
         with transaction():
-            counter.set(1)
-            counter.set(2)
-            counter.set(3)
+            counter2.set(1)
+            counter2.set(2)
+            counter2.set(3)
 
         # Assert - Batch fusion reduces multiple deltas to same key to single delta
-        assert notifications == [3]
+        assert notifications2 == [3]
 
     def test_transaction_ensures_atomic_updates(self):
         """Transaction should ensure atomic updates prevent intermediate inconsistent states."""

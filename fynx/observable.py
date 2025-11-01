@@ -18,7 +18,7 @@ import atexit
 import threading
 from typing import Any, Callable, List, Optional, TypeVar, Union
 
-from .delta_kv_store import ChangeType, Delta, ReactiveStore
+from .delta_kv_store import Change, ChangeType, ReactiveStore, TypedDelta
 
 T = TypeVar("T")
 
@@ -117,7 +117,7 @@ class Observable:
 
             # Always propagate through store for consistency
             # This ensures batching works correctly and subscribers are notified
-            delta = Delta(
+            delta = Change(
                 key=self._key,
                 change_type=ChangeType.SOURCE_UPDATE,
                 old_value=old_value,
@@ -176,11 +176,11 @@ class Observable:
             self._track()
 
         # Unified subscription through store
-        def on_delta(delta: Delta):
-            if delta.new_value is not NULL_EVENT:
-                callback(delta.new_value)
+        def on_change(change):
+            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
+                callback(change.new_value)
 
-        unsubscribe = self._store._kv.subscribe(self._key, on_delta)
+        unsubscribe = self._store._kv.subscribe(self._key, on_change)
 
         if call_immediately:
             try:
@@ -309,6 +309,10 @@ class SimpleMapObservable(Observable):
     @property
     def value(self) -> Any:
         """Compute transformed value via fusion."""
+        if self._is_tracked:
+            # When tracked, use store's computed value
+            return self._store._kv.get(self._key)
+
         source_val = self._source.value
 
         if not self._transform_chain:
@@ -361,11 +365,11 @@ class SimpleMapObservable(Observable):
         if force_track:
             self._track()
 
-        def on_delta(delta: Delta):
-            if delta.new_value is not NULL_EVENT:
-                callback(delta.new_value)
+        def on_change(change):
+            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
+                callback(change.new_value)
 
-        unsubscribe = self._store._kv.subscribe(self._key, on_delta)
+        unsubscribe = self._store._kv.subscribe(self._key, on_change)
 
         if call_immediately:
             try:
@@ -471,6 +475,17 @@ class ComputedObservable(Observable):
 
         values = [src.value for src in self._sources]
 
+        # Handle StreamMerge: if single value is a tuple from StreamMerge, unpack it
+        if (
+            len(values) == 1
+            and isinstance(values[0], tuple)
+            and len(self._sources) == 1
+        ):
+            from .observable import StreamMerge
+
+            if isinstance(self._sources[0], StreamMerge):
+                values = values[0]  # Unpack the tuple
+
         result = values[0] if len(values) == 1 else values
         for i, transform in enumerate(self._transform_chain):
             if i == 0 and len(values) > 1:
@@ -497,6 +512,17 @@ class ComputedObservable(Observable):
         source_keys = [src._key for src in self._sources]
 
         def compute_fn(*args):
+            # Handle StreamMerge: if single arg is a tuple from StreamMerge, unpack it
+            if (
+                len(args) == 1
+                and isinstance(args[0], tuple)
+                and len(self._sources) == 1
+            ):
+                from .observable import StreamMerge
+
+                if isinstance(self._sources[0], StreamMerge):
+                    args = args[0]  # Unpack the tuple
+
             result = args[0] if len(args) == 1 else args
             for i, transform in enumerate(self._transform_chain):
                 if i == 0 and len(args) > 1:
@@ -522,11 +548,11 @@ class ComputedObservable(Observable):
 
         self._materialize()
 
-        def on_delta(delta: Delta):
-            if delta.new_value is not NULL_EVENT:
-                callback(delta.new_value)
+        def on_change(change):
+            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
+                callback(change.new_value)
 
-        unsubscribe = self._store._kv.subscribe(self._computed_key, on_delta)
+        unsubscribe = self._store._kv.subscribe(self._computed_key, on_change)
 
         if call_immediately:
             try:
@@ -810,18 +836,8 @@ class StreamMerge(Observable):
 
     def __rshift__(self, transform: Callable) -> ComputedObservable:
         """Transform merged stream: (a, b) >> f → f(a, b)"""
-
-        def flatten_sources(sources):
-            flattened = []
-            for src in sources:
-                if isinstance(src, StreamMerge):
-                    flattened.extend(flatten_sources(src._sources))
-                else:
-                    flattened.append(src)
-            return flattened
-
-        flattened_sources = flatten_sources(self._sources)
-        return ComputedObservable(self._store, flattened_sources, transform)
+        # Don't flatten - depend on the StreamMerge itself
+        return ComputedObservable(self._store, [self], transform)
 
 
 # ============================================================================
@@ -857,14 +873,26 @@ class Store:
 
     def _get_or_create_stream(self, sources: tuple) -> StreamMerge:
         """Get cached stream or create new."""
-        cache_key = tuple(id(src) for src in sources)
+
+        # Flatten nested StreamMerges
+        def flatten_sources(srcs):
+            flattened = []
+            for src in srcs:
+                if isinstance(src, StreamMerge):
+                    flattened.extend(flatten_sources(src._sources))
+                else:
+                    flattened.append(src)
+            return flattened
+
+        flattened_sources = flatten_sources(sources)
+        cache_key = tuple(id(src) for src in flattened_sources)
 
         if cache_key not in self._stream_cache:
             if len(self._stream_cache) >= self._MAX_STREAM_CACHE_SIZE:
                 oldest_key = next(iter(self._stream_cache))
                 del self._stream_cache[oldest_key]
 
-            self._stream_cache[cache_key] = StreamMerge(self, list(sources))
+            self._stream_cache[cache_key] = StreamMerge(self, flattened_sources)
 
         return self._stream_cache[cache_key]
 
