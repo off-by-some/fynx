@@ -1,0 +1,2741 @@
+FynX Particle Physics - Terminal Art
+Enhanced with glow, trails, atmosphere & reactive magic
+
+Rendering component: h1
+Box: x=0, y=0, w=80, h=1
+Content: 'TESTING THE NEW TUI SYSTEM'
+Children: 1
+Got root: <class 'scripts.benchmarks.fynx_tui.tui.h1'>
+Rendering component: h1
+Box: x=0, y=0, w=80, h=1
+Content: 'TESTING THE NEW TUI SYSTEM'
+Children: 1
+Rendered: <class 'rich.text.Text'>, content: 'TESTING THE NEW TUI SYSTEM
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 1
+Got root: <class 'scripts.benchmarks.fynx_tui.tui.h1'>
+Rendering component: h1
+Box: x=0, y=0, w=80, h=1
+Content: 'TESTING THE NEW TUI SYSTEM'
+Children: 1
+Rendered: <class 'rich.text.Text'>, content: 'TESTING THE NEW TUI SYSTEM
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 2
+Got root: <class 'scripts.benchmarks.fynx_tui.tui.h1'>
+Rendering component: h1
+Box: x=0, y=0, w=80, h=1
+Content: 'TESTING THE NEW TUI SYSTEM'
+Children: 1
+Rendered: <class 'rich.text.Text'>, content: 'TESTING THE NEW TUI SYSTEM
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 3
+TESTING THE NEW TUI SYSTEM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Simple test done, now trying full demo...
+Dashboard called
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 1
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 2
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 3
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 4
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 5
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 6
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 7
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 8
+Dashboard called
+Got root: <class '__main__.Box'>
+
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 9
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 10
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 11
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 12
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 13
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 14
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 15
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 16
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 17
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 18
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 19
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 20
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 21
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 22
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 23
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 24
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 25
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 26
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 27
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 28
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 29
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 30
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 31
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 32
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 33
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 34
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 35
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 36
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 37
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 38
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 39
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 40
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 41
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 42
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 43
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 44
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 45
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 46
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 47
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 48
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 49
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 50
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 51
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 52
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 53
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 54
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 55
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 56
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 57
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 58
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 59
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 60
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 61
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 62
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 63
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 64
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 65
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 66
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 67
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 68
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 69
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 70
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 71
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 72
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 73
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 74
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 75
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 76
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 77
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 78
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box
+Box: x=0, y=0, w=80, h=1
+Content: 'FynX Particle Physics - Terminal Art'
+Children: 0
+Rendered: <class 'rich.text.Text'>, content:
+'└──────────────────────────────────────────────────────────────────────────────
+┘\n  FynX Particle Physics - Terminal Art
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+\n
+'
+Render count: 79
+Dashboard called
+Got root: <class '__main__.Box'>
+Rendering component: Box

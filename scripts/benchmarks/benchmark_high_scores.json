@@ -1,12 +1,12 @@
 {
   "Observable Creation": {
     "FynX": {
-      "ops_per_second": 488709.19472962647,
-      "timestamp": "2025-10-28T20:45:11.734833"
+      "ops_per_second": 496704.67409007763,
+      "timestamp": "2025-11-01T00:08:38.707878"
     },
     "RxPY": {
-      "ops_per_second": 134432.31787481657,
-      "timestamp": "2025-10-28T20:45:11.735345"
+      "ops_per_second": 135324.49028938622,
+      "timestamp": "2025-11-01T00:08:38.713110"
     }
   },
   "Individual Updates": {
@@ -15,8 +15,8 @@
       "timestamp": "2025-10-28T20:45:13.628240"
     },
     "RxPY": {
-      "ops_per_second": 139251.4160268867,
-      "timestamp": "2025-10-28T20:45:13.628672"
+      "ops_per_second": 145144.62251475264,
+      "timestamp": "2025-11-01T00:08:46.391630"
     }
   },
   "BehaviorSubject Creation": {
@@ -39,8 +39,8 @@
       "timestamp": "2025-10-28T20:45:23.113255"
     },
     "RxPY": {
-      "ops_per_second": 263645.14238356607,
-      "timestamp": "2025-10-28T21:24:48.833732"
+      "ops_per_second": 302608.89504865,
+      "timestamp": "2025-11-01T00:08:56.654589"
     }
   },
   "Conditional Reactivity": {
@@ -85,12 +85,12 @@
   },
   "Filter Operation": {
     "FynX": {
-      "ops_per_second": 10505.249794431324,
-      "timestamp": "2025-10-28T20:46:04.813700"
+      "ops_per_second": 11145.720998715968,
+      "timestamp": "2025-11-01T00:09:35.716043"
     },
     "RxPY": {
-      "ops_per_second": 310791.79969723057,
-      "timestamp": "2025-10-28T20:25:07.650702"
+      "ops_per_second": 322514.75284135964,
+      "timestamp": "2025-11-01T00:09:35.716524"
     }
   },
   "Distinct Until Changed": {
@@ -115,12 +115,12 @@
   },
   "Reactive Fan-out": {
     "FynX": {
-      "ops_per_second": 233811.4334658107,
-      "timestamp": "2025-10-28T20:39:55.796141"
+      "ops_per_second": 238421.27733970142,
+      "timestamp": "2025-11-01T00:10:00.349430"
     },
     "RxPY": {
-      "ops_per_second": 11769.349797751369,
-      "timestamp": "2025-10-28T20:39:55.801176"
+      "ops_per_second": 11884.448966180735,
+      "timestamp": "2025-11-01T00:10:00.354730"
     }
   },
   "Stream Merge": {
@@ -165,8 +165,8 @@
   },
   "Diamond Dependency": {
     "FynX": {
-      "ops_per_second": 10428.31032020261,
-      "timestamp": "2025-10-28T21:08:26.921101"
+      "ops_per_second": 10998.126306594704,
+      "timestamp": "2025-11-01T00:10:50.736820"
     },
     "RxPY": {
       "ops_per_second": 93608.61168076552,

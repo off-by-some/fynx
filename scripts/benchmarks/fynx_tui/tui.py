@@ -40,6 +40,10 @@ class Component(ABC):
         """Transform props into Rich renderables"""
         pass
 
+    def __rich_console__(self, console, options):
+        """Rich console protocol - delegate to render()"""
+        yield from console.render(self.render(), options)
+
     def __call__(self, **new_props) -> "Component":
         """Create new instance with updated props (immutable pattern)"""
         return self.__class__(**{**self.props, **new_props})
