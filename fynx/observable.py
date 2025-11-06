@@ -1056,12 +1056,16 @@ class Store:
 # ============================================================================
 
 
-def reactive(*dependencies, autorun=None):
+def reactive(*dependencies, call_immediately=False):
     """
     Decorator for reactive functions.
 
     Creates functions that automatically run when dependencies change.
     Functions receive values (not Change objects) for compatibility.
+
+    By default, reactive functions do NOT fire immediately when created.
+    They only fire when dependencies change (pullback semantics).
+    Set call_immediately=True to fire with current values on decoration.
 
     Example:
         @reactive(obs1, obs2)
@@ -1074,12 +1078,8 @@ def reactive(*dependencies, autorun=None):
 
         for dep in dependencies:
             # Access subscribe directly - AttributeError will propagate if not Observable
-            call_now = (
-                True if autorun is True else (False if autorun is False else True)
-            )
-
             # Subscribe with standard value callbacks (not Change objects)
-            unsubscribers.append(dep.subscribe(func, call_immediately=call_now))
+            unsubscribers.append(dep.subscribe(func, call_immediately=call_immediately))
 
         wrapper_unsubscribed = False
 

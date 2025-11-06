@@ -124,17 +124,16 @@ class TestReactiveDecoratorWithConditionals:
         def on_high_score(is_high):
             notifications.append(f"high_score_{is_high}")
 
-        # Initial state - reactive decorator calls immediately for computed observables
-        assert notifications == ["high_score_False"]
+        # Initial state - no immediate execution (pullback semantics)
+        assert notifications == []
 
-        # Change to trigger condition
+        # Change to trigger condition - first emission
         scores.set(95)
-        assert notifications == ["high_score_False", "high_score_True"]
+        assert notifications == ["high_score_True"]
 
         # Change back
         scores.set(87)
         assert notifications == [
-            "high_score_False",
             "high_score_True",
             "high_score_False",
         ]
