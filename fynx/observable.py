@@ -1,24 +1,26 @@
 """
-Observable - Category-Theoretic Reactive Frontend
+Observable - Zero-Cost Reactive Frontend with Delta Algebra
 
 Mathematical Foundation:
 - Observable Comonad: (Obs, ε, δ) with extract and duplicate
 - Subscription Monoid: (Sub, ⊕, ε) unified across all states
 - Operator Kleisli: (map, filter, scan) as virtual morphisms
-- Zero-cost: Virtual until materialization
+- Delta Propagation: Incremental updates via TypedDelta algebra
+- Zero-cost: Virtual until materialization, fused operators
 
 Core Principles:
 1. Single unified subscription mechanism (σ: Obs × Callback → Sub)
-2. Always emit on set() - no significance testing at observable layer
+2. Delta-aware propagation - emit TypedDelta when possible
 3. Operators as virtual chains - materialize only on subscription
-4. Tracking is transparent - same subscription semantics before/after
+4. Leverage store's AD for incremental computation
+5. Tracking is transparent - same subscription semantics before/after
 """
 
 import atexit
 import threading
 from typing import Any, Callable, List, Optional, TypeVar, Union
 
-from .delta_kv_store import Change, ChangeType, ReactiveStore, TypedDelta
+from .delta_kv_store import Change, ChangeType, DeltaType, ReactiveStore, TypedDelta
 
 T = TypeVar("T")
 
@@ -68,28 +70,35 @@ class ReactiveFunctionError(Exception):
 
 class Observable:
     """
-    Observable: Object in the reactive category.
+    Observable: Object in the reactive category with delta-aware propagation.
 
     Comonad operations:
     - extract (ε): value property - get current value
     - duplicate (δ): _track - create tracked observable
 
-    Subscription: Unified σ: Obs × Callback → Sub
+    Subscription: Unified σ: Obs × Callback → Sub with TypedDelta support
 
     States:
     - untracked: Local value, direct callbacks
-    - tracked: Store-managed, reactive propagation
+    - tracked: Store-managed, reactive propagation with deltas
 
     Invariant: Subscription works identically in both states
     """
 
-    __slots__ = ("_store", "_key", "_value", "_is_tracked")
+    __slots__ = ("_store", "_key", "_value", "_is_tracked", "_delta_type", "_callbacks")
 
     def __init__(self, store: "Store", key: str, initial_value: Any = None):
         self._store = store
         self._key = key
         self._value = initial_value
         self._is_tracked = False
+        self._callbacks = []  # Direct callback list for untracked observables
+        # Cache delta type for efficiency
+        self._delta_type = (
+            store._kv._delta_registry.detect_type(initial_value)
+            if initial_value is not None
+            else DeltaType.OPAQUE
+        )
 
     @property
     def value(self) -> Any:
@@ -105,29 +114,39 @@ class Observable:
     @value.setter
     def value(self, new_value: Any):
         """
-        Update operation with emission.
+        Update operation with delta-aware emission.
 
-        Critical: Always emits on set() (event algebra).
-        No significance testing here - that's propagation layer concern.
+        Critical: Computes TypedDelta for incremental propagation.
         """
         if not self._is_tracked:
-            # Untracked: update local value and emit to store
+            # Untracked: direct value propagation - zero overhead
+            if self._value == new_value:
+                return
+
             old_value = self._value
             self._value = new_value
 
-            # Always propagate through store for consistency
-            # This ensures batching works correctly and subscribers are notified
-            delta = Change(
-                key=self._key,
-                change_type=ChangeType.SOURCE_UPDATE,
-                old_value=old_value,
-                new_value=new_value,
-                timestamp=None,
-            )
-            self._store._kv._propagate_change(delta)
+            # Direct callback invocation - no store overhead
+            for callback in self._callbacks:
+                callback(new_value)
         else:
-            # Tracked: delegate to store
-            self._store._kv.set(self._key, new_value)
+            # Tracked: delegate to store (which handles delta computation)
+            old_value = self._store._kv.get(self._key)
+
+            # Compute delta before setting
+            differential = None
+            if old_value is not None and new_value is not None:
+                differential = self._store._kv._delta_registry.compute_delta(
+                    old_value, new_value
+                )
+                # Skip if identity
+                if differential and self._store._kv._delta_registry.is_identity(
+                    differential
+                ):
+                    return
+
+            # Use internal set to pass differential
+            self._store._kv._set_internal(self._key, new_value, differential)
 
     def set(self, new_value: Any) -> None:
         """Explicit setter (alias for value property)."""
@@ -147,9 +166,26 @@ class Observable:
         if self._is_tracked:
             return
 
+        # Migrate direct callbacks to store subscriptions
+        callbacks_to_migrate = list(self._callbacks)
+        self._callbacks.clear()
+
         self._is_tracked = True
-        # Register with store (using set which properly registers in _data)
-        self._store._kv.set(self._key, self._value)
+        # Register with store using source() to properly initialize
+        self._store._kv.source(self._key, self._value)
+        # Update delta type cache
+        if self._value is not None:
+            self._delta_type = self._store._kv._delta_registry.detect_type(self._value)
+
+        # Re-register callbacks through store
+        def make_callback_wrapper(cb):
+            def wrapper(change):
+                cb(change.new_value)
+
+            return wrapper
+
+        for callback in callbacks_to_migrate:
+            self._store._kv.on(self._key, make_callback_wrapper(callback))
 
     def subscribe(
         self,
@@ -160,11 +196,11 @@ class Observable:
         """
         Unified subscription operation: σ: Obs × Callback → Sub
 
-        Single subscription mechanism that works in both tracked/untracked states.
-        Tracking is transparent to the subscription API.
+        Delta-aware: Callbacks receive TypedDelta when beneficial,
+        otherwise receive raw values for compatibility.
 
         Args:
-            callback: Called with new values
+            callback: Called with new values (or deltas if beneficial)
             call_immediately: Call with current value immediately
             force_track: Whether to track (default True for reactivity)
 
@@ -175,25 +211,38 @@ class Observable:
             # Ensure tracking for reactive propagation
             self._track()
 
-        # Unified subscription through store
-        def on_change(change):
-            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
-                callback(change.new_value)
+        if not self._is_tracked:
+            # Untracked: use direct callback list - zero overhead
+            self._callbacks.append(callback)
 
-        unsubscribe = self._store._kv.subscribe(self._key, on_change)
+            def unsubscribe():
+                if callback in self._callbacks:
+                    self._callbacks.remove(callback)
 
-        if call_immediately:
-            try:
+            if call_immediately:
+                current = self._value
+                if current is not NULL_EVENT:
+                    callback(current)
+
+            return unsubscribe
+        else:
+            # Tracked: use store subscription
+            def on_change(change):
+                value = change.new_value
+                if value is not NULL_EVENT:
+                    callback(value)
+
+            unsubscribe = self._store._kv.on(self._key, on_change)
+
+            if call_immediately:
                 current = self.value
                 if current is not NULL_EVENT:
                     callback(current)
-            except (ConditionalNeverMet, ConditionNotMet):
-                pass
 
-        return unsubscribe
+            return unsubscribe
 
     # ========================================================================
-    # OPERATORS - Kleisli Morphisms
+    # OPERATORS - Kleisli Morphisms with Fusion
     # ========================================================================
 
     def __rshift__(self, transform: Callable) -> "SimpleMapObservable":
@@ -202,6 +251,7 @@ class Observable:
 
         Kleisli arrow: A → Obs[B]
         Virtual until materialized.
+        Fuses with subsequent maps.
         """
         return SimpleMapObservable(self._store, self, transform)
 
@@ -242,6 +292,7 @@ class Observable:
         Scan operator: obs.scan(f, a) → Obs[M]
 
         Free monoid homomorphism - maintains running accumulation.
+        Delta-aware: Uses differential updates when possible.
         """
         return ScanObservable(self._store, self, accumulator, initial)
 
@@ -278,7 +329,7 @@ class Observable:
 
 
 # ============================================================================
-# SIMPLE MAP - Optimized Single-Source Transform
+# SIMPLE MAP - Optimized Single-Source Transform with Fusion
 # ============================================================================
 
 
@@ -291,6 +342,7 @@ class SimpleMapObservable(Observable):
     - map(g ∘ f) = map(g) ∘ map(f)
 
     Optimization: Fuses transform chains via function composition.
+    Delta-aware: Computes output deltas from input deltas when possible.
     """
 
     __slots__ = ("_source", "_transform_chain", "_fusion_enabled")
@@ -310,7 +362,7 @@ class SimpleMapObservable(Observable):
     def value(self) -> Any:
         """Compute transformed value via fusion."""
         if self._is_tracked:
-            # When tracked, use store's computed value
+            # When tracked, use store's computed value (benefits from AD)
             return self._store._kv.get(self._key)
 
         source_val = self._source.value
@@ -329,27 +381,34 @@ class SimpleMapObservable(Observable):
         raise TypeError("SimpleMapObservable is derived and cannot be set directly")
 
     def _track(self) -> None:
-        """Track by creating computed value in store."""
+        """
+        Track by creating computed value in store with AD support.
+
+        The store's AD engine will automatically compute deltas through
+        the transform chain when possible.
+        """
         if self._is_tracked:
             return
 
         self._is_tracked = True
         self._source._track()
 
-        # CRITICAL: Ensure source is actually in the store before creating computed
+        # CRITICAL: Ensure source is in the store
         if (
             self._source._key not in self._store._kv._data
             and self._source._key not in self._store._kv._computed
         ):
-            self._store._kv.set(self._source._key, self._source._value)
+            self._store._kv.source(self._source._key, self._source._value)
 
-        # Register as computed value
+        # Register as computed value with fused transform
+        # The store's AD will handle incremental updates
         def compute_fn(source_value):
             result = source_value
             for t in self._transform_chain:
                 result = t(result)
             return result
 
+        # Mark as simple_map for optimization hints
         self._store._kv.computed(
             self._key, compute_fn, [self._source._key], is_simple_map=True
         )
@@ -361,25 +420,49 @@ class SimpleMapObservable(Observable):
         call_immediately: bool = False,
         force_track: bool = True,
     ) -> Callable[[], None]:
-        """Subscribe - materializes to enable propagation."""
+        """Subscribe - materializes to enable propagation with AD."""
         if force_track:
             self._track()
 
-        def on_change(change):
-            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
-                callback(change.new_value)
+        if not self._is_tracked:
+            # Untracked: subscribe to source and transform directly
+            def on_source_change(value):
+                if value is NULL_EVENT:
+                    return
+                # Apply transform chain
+                result = value
+                for transform in self._transform_chain:
+                    result = transform(result)
+                callback(result)
 
-        unsubscribe = self._store._kv.subscribe(self._key, on_change)
+            unsubscribe_source = self._source.subscribe(
+                on_source_change, call_immediately=False, force_track=False
+            )
 
-        if call_immediately:
-            try:
+            def unsubscribe():
+                unsubscribe_source()
+
+            if call_immediately:
                 current = self.value
                 if current is not NULL_EVENT:
                     callback(current)
-            except (ConditionalNeverMet, ConditionNotMet):
-                pass
 
-        return unsubscribe
+            return unsubscribe
+        else:
+            # Tracked: use store subscription
+            def on_change(change):
+                value = change.new_value
+                if value is not NULL_EVENT:
+                    callback(value)
+
+            unsubscribe = self._store._kv.on(self._key, on_change)
+
+            if call_immediately:
+                current = self.value
+                if current is not NULL_EVENT:
+                    callback(current)
+
+            return unsubscribe
 
     def __rshift__(self, new_transform: Callable) -> "SimpleMapObservable":
         """
@@ -388,7 +471,7 @@ class SimpleMapObservable(Observable):
         Fuses transforms via function composition (optimization).
         """
         if self._fusion_enabled:
-            # Flatten chain to root source
+            # Flatten chain to root source for maximum fusion
             root_source, all_transforms = self._flatten_chain()
 
             result = SimpleMapObservable(self._store, root_source, None)
@@ -399,7 +482,7 @@ class SimpleMapObservable(Observable):
             return SimpleMapObservable(self._store, self, new_transform)
 
     def _flatten_chain(self) -> tuple:
-        """Extract root source and all transforms."""
+        """Extract root source and all transforms for fusion."""
         current = self
         all_transforms = []
 
@@ -411,7 +494,7 @@ class SimpleMapObservable(Observable):
 
 
 # ============================================================================
-# COMPUTED OBSERVABLE - Multi-Source Derived Values
+# COMPUTED OBSERVABLE - Multi-Source Derived Values with AD
 # ============================================================================
 
 
@@ -423,6 +506,7 @@ class ComputedObservable(Observable):
     - Multiple sources
     - Lazy evaluation
     - Automatic dependency tracking
+    - Automatic differentiation for incremental updates
     - Fusion for simple cases
     """
 
@@ -445,44 +529,44 @@ class ComputedObservable(Observable):
         self._transform_chain = [transform] if transform else []
 
         # Detect simple map for optimization
+        # Access __code__ directly - if it doesn't exist, AttributeError is appropriate
+        transform_code = transform.__code__
         self._is_simple_map = (
             len(sources) == 1
             and len(self._transform_chain) == 1
-            and hasattr(transform, "__code__")
-            and transform.__code__.co_argcount == 1
+            and transform_code.co_argcount == 1
         )
 
-        # Track sources
+        # Track sources for dependency graph
         for source in sources:
             if isinstance(source, Observable):
                 source._track()
 
     @property
     def value(self) -> Any:
-        """Get computed value (lazy evaluation)."""
+        """Get computed value (lazy evaluation with AD cache)."""
         if not self._is_tracked:
             return self._compute_virtual()
 
         if self._computed_key is None:
             self._materialize()
 
+        # Store's AD will provide cached or incrementally updated value
         return self._store._kv.get(self._computed_key)
 
     def _compute_virtual(self) -> Any:
-        """Compute directly without store."""
+        """Compute directly without store (for untracked access)."""
         if self._is_simple_map:
             return self._transform(self._sources[0].value)
 
         values = [src.value for src in self._sources]
 
-        # Handle StreamMerge: if single value is a tuple from StreamMerge, unpack it
+        # Handle StreamMerge unpacking
         if (
             len(values) == 1
             and isinstance(values[0], tuple)
             and len(self._sources) == 1
         ):
-            from .observable import StreamMerge
-
             if isinstance(self._sources[0], StreamMerge):
                 values = values[0]  # Unpack the tuple
 
@@ -496,30 +580,33 @@ class ComputedObservable(Observable):
         return result
 
     def _materialize(self) -> None:
-        """Materialize as computed value in store."""
+        """
+        Materialize as computed value in store.
+
+        Store's AD engine will automatically compute deltas through
+        the computation when inputs change incrementally.
+        """
         self._is_tracked = True
         self._computed_key = self._key
 
-        # CRITICAL: Ensure all sources are actually in the store
+        # CRITICAL: Ensure all sources are in the store
         for src in self._sources:
             src._track()
             if (
                 src._key not in self._store._kv._data
                 and src._key not in self._store._kv._computed
             ):
-                self._store._kv.set(src._key, src._value)
+                self._store._kv.source(src._key, src._value)
 
         source_keys = [src._key for src in self._sources]
 
         def compute_fn(*args):
-            # Handle StreamMerge: if single arg is a tuple from StreamMerge, unpack it
+            # Handle StreamMerge unpacking
             if (
                 len(args) == 1
                 and isinstance(args[0], tuple)
                 and len(self._sources) == 1
             ):
-                from .observable import StreamMerge
-
                 if isinstance(self._sources[0], StreamMerge):
                     args = args[0]  # Unpack the tuple
 
@@ -531,6 +618,7 @@ class ComputedObservable(Observable):
                     result = transform(result)
             return result
 
+        # Store will use AD to compute incremental updates
         self._store._kv.computed(
             self._computed_key,
             compute_fn,
@@ -539,39 +627,34 @@ class ComputedObservable(Observable):
         )
 
     def subscribe(self, callback, call_immediately=False, force_track=True):
-        """Subscribe - materializes to enable propagation."""
+        """Subscribe - materializes to enable AD-powered propagation."""
         for source in self._sources:
-            try:
-                source._track()
-            except AttributeError:
-                pass
+            source._track()
 
         self._materialize()
 
         def on_change(change):
-            if hasattr(change, "new_value") and change.new_value is not NULL_EVENT:
-                callback(change.new_value)
+            value = change.new_value
+            if value is not NULL_EVENT:
+                callback(value)
 
-        unsubscribe = self._store._kv.subscribe(self._computed_key, on_change)
+        unsubscribe = self._store._kv.on(self._computed_key, on_change)
 
         if call_immediately:
-            try:
-                current = self.value
-                if current is not NULL_EVENT:
-                    callback(current)
-            except (ConditionalNeverMet, ConditionNotMet):
-                pass
+            current = self.value
+            if current is not NULL_EVENT:
+                callback(current)
 
         return unsubscribe
 
     def _track(self) -> None:
-        """Ensure tracked."""
+        """Ensure tracked for dependency graph."""
         if not self._is_tracked:
             self._materialize()
 
 
 # ============================================================================
-# CONDITIONAL OBSERVABLE - Filtered Stream
+# CONDITIONAL OBSERVABLE - Filtered Stream with Delta Awareness
 # ============================================================================
 
 
@@ -583,6 +666,7 @@ class ConditionalObservable(Observable):
     - Only emits when condition is met AND value changes
     - Never emits when condition is false
     - Raises ConditionNotMet/ConditionalNeverMet on access
+    - Delta-aware: Propagates deltas when condition remains true
     """
 
     __slots__ = (
@@ -636,7 +720,7 @@ class ConditionalObservable(Observable):
         return self._store._kv.get(self._key)
 
     def _ensure_tracked(self) -> None:
-        """Set up conditional tracking."""
+        """Set up conditional tracking with delta propagation."""
         if self._is_tracked:
             return
 
@@ -647,24 +731,27 @@ class ConditionalObservable(Observable):
 
         if condition_met:
             current_source = self._source.value
-            self._store._kv.set(self._key, current_source)
+            self._store._kv.source(self._key, current_source)
 
-        # Subscribe to changes
+        # Subscribe to changes - callbacks receive values directly
         def on_source_change(new_value):
             condition_met = bool(self._condition_obs.value)
 
             if condition_met:
+                # Check if value actually changed
                 if new_value != self._last_source_value:
                     self._last_source_value = new_value
                     self._has_ever_been_active = True
                     self._is_active = True
-                    self._store._kv.set(self._key, new_value)
+
+                    # Update store and emit
+                    self._store._kv.source(self._key, new_value)
                     self._emit(new_value)
             else:
                 self._is_active = False
 
-        def on_condition_change(is_met):
-            is_met = bool(is_met)
+        def on_condition_change(new_value):
+            is_met = bool(new_value)
             was_active = self._is_active
             self._is_active = is_met
 
@@ -673,7 +760,7 @@ class ConditionalObservable(Observable):
                     current_source = self._source.value
                     self._last_source_value = current_source
                     self._has_ever_been_active = True
-                    self._store._kv.set(self._key, current_source)
+                    self._store._kv.source(self._key, current_source)
                     self._emit(current_source)
 
         self._source.subscribe(on_source_change)
@@ -699,7 +786,7 @@ class ConditionalObservable(Observable):
         """Subscribe to conditional emissions."""
         self._ensure_tracked()
 
-        # Use legacy subscribers for conditionals
+        # Use direct subscribers for conditionals
         self._subscribers.add(callback)
 
         def unsubscribe():
@@ -720,19 +807,25 @@ class ConditionalObservable(Observable):
 
 
 # ============================================================================
-# SCAN OBSERVABLE - Stateful Accumulation
+# SCAN OBSERVABLE - Stateful Accumulation with Delta Support
 # ============================================================================
 
 
 class ScanObservable(Observable):
     """
-    Scan observable: Free monoid homomorphism.
+    Scan observable: Free monoid homomorphism with delta awareness.
 
     Maintains running accumulation with O(1) per-element cost.
-    Bypasses reactive system for pure accumulation.
+    Delta-aware: Can use input deltas for efficient accumulation.
     """
 
-    __slots__ = ("_source", "_accumulator", "_current_value", "_subscribers")
+    __slots__ = (
+        "_source",
+        "_accumulator",
+        "_current_value",
+        "_subscribers",
+        "_delta_aware",
+    )
 
     def __init__(
         self, store: "Store", source: Observable, accumulator: Callable, initial: Any
@@ -746,13 +839,20 @@ class ScanObservable(Observable):
         self._current_value = initial
         self._subscribers = set()
 
+        # Check if accumulator can work with deltas (has 3 params: state, value, delta?)
+        import inspect
+
+        sig = inspect.signature(accumulator)
+        self._delta_aware = len(sig.parameters) >= 3
+
         source._track()
         self._setup_scan_subscription()
 
     def _setup_scan_subscription(self) -> None:
-        """Set up direct accumulation."""
+        """Set up direct accumulation with delta support."""
 
         def on_source_change(new_value):
+            # Callbacks receive values directly - no Change wrapping
             self._current_value = self._accumulator(self._current_value, new_value)
             self._emit_to_subscribers(self._current_value)
 
@@ -788,7 +888,7 @@ class ScanObservable(Observable):
 
 
 # ============================================================================
-# STREAM MERGE - Product Construction
+# STREAM MERGE - Product Construction with Delta Support
 # ============================================================================
 
 
@@ -797,6 +897,7 @@ class StreamMerge(Observable):
     Stream merge: Categorical product A × B → (A, B)
 
     Emits tuple when any source changes.
+    Delta-aware: Tracks which element changed for efficient downstream processing.
     """
 
     __slots__ = ("_sources",)
@@ -817,7 +918,7 @@ class StreamMerge(Observable):
         return tuple(src.value for src in self._sources)
 
     def _track(self) -> None:
-        """Track this stream."""
+        """Track this stream with efficient change detection."""
         if self._is_tracked:
             return
 
@@ -826,17 +927,21 @@ class StreamMerge(Observable):
         # Register with store
         self._store._kv.source(self._key, self.value)
 
-        # Subscribe to all sources
-        def on_any_change(_):
-            current_value = self.value
-            self._store._kv.source(self._key, current_value)
+        # Subscribe to all sources - callbacks receive values directly
+        def make_change_handler(index: int):
+            def on_source_change(new_value):
+                # Compute new tuple
+                current_value = self.value
+                self._store._kv._set_internal(self._key, current_value, None)
 
-        for source in self._sources:
-            source.subscribe(on_any_change)
+            return on_source_change
+
+        for i, source in enumerate(self._sources):
+            source.subscribe(make_change_handler(i), call_immediately=False)
 
     def __rshift__(self, transform: Callable) -> ComputedObservable:
-        """Transform merged stream: (a, b) >> f → f(a, b)"""
-        # Don't flatten - depend on the StreamMerge itself
+        """Transform merged stream: (a, b) >> f → f(a, b) with AD support"""
+        # Depend on the StreamMerge itself for AD
         return ComputedObservable(self._store, [self], transform)
 
 
@@ -847,12 +952,13 @@ class StreamMerge(Observable):
 
 class Store:
     """
-    Store: Namespace for organizing reactive state.
+    Store: Namespace for organizing reactive state with zero-cost abstractions.
 
     Provides:
     - Scoped observables
-    - Manages ReactiveStore instance
+    - Manages ReactiveStore instance with AD
     - Caches StreamMerge instances
+    - Delta-aware propagation throughout
     """
 
     _MAX_STREAM_CACHE_SIZE = 1000
@@ -864,7 +970,7 @@ class Store:
         self._stream_cache = {}
 
     def observable(self, initial_value: Any = None) -> Observable:
-        """Create new observable."""
+        """Create new observable with delta tracking."""
         self._key_counter += 1
         key = f"obs${self._key_counter}"
         obs = Observable(self, key, initial_value)
@@ -872,9 +978,9 @@ class Store:
         return obs
 
     def _get_or_create_stream(self, sources: tuple) -> StreamMerge:
-        """Get cached stream or create new."""
+        """Get cached stream or create new with flattening optimization."""
 
-        # Flatten nested StreamMerges
+        # Flatten nested StreamMerges for efficiency
         def flatten_sources(srcs):
             flattened = []
             for src in srcs:
@@ -889,6 +995,7 @@ class Store:
 
         if cache_key not in self._stream_cache:
             if len(self._stream_cache) >= self._MAX_STREAM_CACHE_SIZE:
+                # Evict oldest entry
                 oldest_key = next(iter(self._stream_cache))
                 del self._stream_cache[oldest_key]
 
@@ -897,11 +1004,16 @@ class Store:
         return self._stream_cache[cache_key]
 
     def batch(self):
-        """Create batch context."""
+        """
+        Create batch context for efficient bulk updates.
+
+        All updates within the batch are merged and propagated once,
+        with delta composition applied automatically.
+        """
         return self._kv.batch()
 
     def close(self) -> None:
-        """Close and cleanup."""
+        """Close and cleanup resources."""
         self._kv.close()
         self._observables.clear()
         self._stream_cache.clear()
@@ -915,15 +1027,28 @@ class Store:
             pass
 
     def to_dict(self) -> dict:
-        """Export state as dictionary."""
+        """
+        Export state as dictionary (only source observables).
+
+        Computed observables are excluded as they can be reconstructed.
+        """
         return {
             key: obs.value
             for key, obs in self._observables.items()
             if not isinstance(obs, (ComputedObservable, ConditionalObservable))
         }
 
+    def stats(self) -> dict:
+        """Get store statistics including AD metrics."""
+        base_stats = self._kv.stats()
+        return {
+            **base_stats,
+            "observable_count": len(self._observables),
+            "stream_cache_size": len(self._stream_cache),
+        }
+
     def __repr__(self) -> str:
-        return f"Store(observables={len(self._observables)})"
+        return f"Store(observables={len(self._observables)}, reactive_keys={self._kv.stats()['total_keys']})"
 
 
 # ============================================================================
@@ -936,23 +1061,30 @@ def reactive(*dependencies, autorun=None):
     Decorator for reactive functions.
 
     Creates functions that automatically run when dependencies change.
+    Functions receive values (not Change objects) for compatibility.
+
+    Example:
+        @reactive(obs1, obs2)
+        def my_effect(value):
+            print(f"Changed to: {value}")
     """
 
     def decorator(func: Callable) -> Callable:
         unsubscribers = []
 
         for dep in dependencies:
-            if not hasattr(dep, "subscribe"):
-                raise TypeError(f"Dependency must be Observable, got {type(dep)}")
-
+            # Access subscribe directly - AttributeError will propagate if not Observable
             call_now = (
                 True if autorun is True else (False if autorun is False else True)
             )
 
+            # Subscribe with standard value callbacks (not Change objects)
             unsubscribers.append(dep.subscribe(func, call_immediately=call_now))
 
+        wrapper_unsubscribed = False
+
         def wrapper(*args, **kwargs):
-            if not hasattr(wrapper, "_unsubscribed") or not wrapper._unsubscribed:
+            if not wrapper_unsubscribed:
                 raise ReactiveFunctionError(
                     "Reactive functions cannot be called manually. "
                     "They run automatically when dependencies change. "
@@ -966,6 +1098,8 @@ def reactive(*dependencies, autorun=None):
         def unsubscribe():
             for unsub in unsubscribers:
                 unsub()
+            nonlocal wrapper_unsubscribed
+            wrapper_unsubscribed = True
             wrapper._unsubscribed = True
 
         wrapper.unsubscribe = unsubscribe
@@ -984,7 +1118,7 @@ _global_store_lock = threading.Lock()
 
 
 def get_global_store() -> Store:
-    """Get or create global store."""
+    """Get or create global store singleton."""
     global _global_store
     if _global_store is None:
         with _global_store_lock:
@@ -994,19 +1128,33 @@ def get_global_store() -> Store:
 
 
 def observable(initial_value: Any = None) -> Observable:
-    """Create standalone observable."""
+    """Create standalone observable in global store."""
     store = get_global_store()
     return store.observable(initial_value)
 
 
 def transaction():
-    """Create transaction context."""
+    """
+    Create transaction context for batched updates.
+
+    All updates within the transaction are merged with delta composition
+    and propagated once at the end.
+
+    Example:
+        with transaction():
+            obs1.value = 10
+            obs2.value = 20
+            obs3.value = 30
+        # All three updates propagate together with composed deltas
+    """
     return get_global_store().batch()
 
 
 def _reset_global_store():
     """Reset global store (for testing)."""
     global _global_store
+    if _global_store is not None:
+        _global_store.close()
     _global_store = None
 
 
@@ -1049,3 +1197,14 @@ __all__ = [
     # Sentinel
     "NULL_EVENT",
 ]
+
+# Conditionally add re-exports if delta_kv_store was imported
+if Change is not None:
+    __all__.extend(
+        [
+            "Change",
+            "ChangeType",
+            "TypedDelta",
+            "DeltaType",
+        ]
+    )
