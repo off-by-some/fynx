@@ -399,19 +399,35 @@ When your function is already being called reactively (through a subscription or
 
 ## Observable Mutation Detection
 
-FynX can't automatically detect changes to the contents of observables:
+FynX requires explicit notification via `.set()` to trigger reactivity. In-place mutations don't automatically trigger notifications:
 
 ```python
 items = observable([1, 2, 3])
 
 # This does NOT trigger subscribers
+# The mutation happens, but .set() is never called
 items.value.append(4)
 
-# You must explicitly call .set()
+# You must explicitly call .set() to notify subscribers
 items.set(items.value + [4])  # This DOES trigger subscribers
 ```
 
-FynX can't detect mutations to the objects inside observables. When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call `.set()` with the updated value—even if it's the same object reference—to trigger reactivity.
+**How it works:** When you call `.set()`, FynX computes structural changes (deltas) between the old and new values. For lists, dictionaries, sets, and other supported types, FynX detects what changed and propagates these changes efficiently through the reactive graph.
+
+**The key point:** The limitation is about the notification trigger (calling `.set()`), not about detection capability. When you do call `.set()`, FynX's delta system automatically detects structural changes:
+
+```python
+items = observable([1, 2, 3])
+
+# Delta-aware update: FynX detects this is an append operation
+items.set(items.value + [4])  # Computes delta: [insert(3, 4)]
+
+# Delta-aware update: FynX detects dictionary changes
+profile = observable({"name": "Alice"})
+profile.set({**profile.value, "age": 30})  # Computes delta: {age: (None, 30)}
+```
+
+In-place mutations bypass the notification mechanism entirely—they modify the object without calling `.set()`, so subscribers never get notified. Always use immutable update patterns and call `.set()` to trigger reactivity.
 
 ## External State Dependencies
 
