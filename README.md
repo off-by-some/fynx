@@ -118,7 +118,7 @@ Each operation creates a new observable. Chain them to build sophisticated react
 
 ## The Mathematical Guarantee
 
-You don't need to understand category theory to use FynX, but it's what makes FynX reliable: the reactive behavior isn't just validated by examples—it's guaranteed by mathematical necessity. Every reactive program you construct will work correctly because FynX is built on universal properties from category theory (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that ensure correctness and enable powerful optimizations.
+You don't need to understand category theory to use FynX, but it's what makes FynX reliable: the reactive behavior isn't just validated by examples—it's guaranteed by mathematical necessity. Every reactive program you construct will work correctly because FynX is built on universal properties from category theory (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that ensure correctness and enable powerful optimizations.
 
 FynX satisfies specific universal properties from category theory, guaranteeing correctness:
 * **Functoriality**: Transformations with `>>` preserve composition. Your chains work exactly as expected, regardless of how you compose them.
@@ -176,6 +176,15 @@ Running Reactive Fan-out benchmark...
 │ ✓ Creates 757K+ observable objects per second                                   │
 │ ✓ Average propagation latency: 21μs per dependency link                         │
 ╰──────────────────────────────────────────────────────────────────────────────── ╯
+
+                       ⚡ Latency Percentiles                        
+╔═══════════════════╦════════╦════════╦════════╦════════╗
+║ Operation         ║    p50 ║    p95 ║    p99 ║  p99.9 ║
+╠═══════════════════╬════════╬════════╬════════╬════════╣
+║ Single Update     ║  4.6μs ║  6.5μs ║ 10.2μs ║ 15.3μs ║
+║ Chain Link        ║ 21.1μs ║ 27.4μs ║ 40.1μs ║ 63.3μs ║
+║ Fan-out (per dep) ║ 23.8μs ║ 30.9μs ║ 42.8μs ║ 59.5μs ║
+╚═══════════════════╩════════╩════════╩════════╩════════╝
 ```
 
 The library processes over **215,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
@@ -189,11 +198,11 @@ The library processes over **215,000 state updates per second** and handles reac
 
 Latency remains sub-microsecond for individual updates and averages 21μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
 
-The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
+The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
 
 ## Observables
 
-[Observables](https://off-by-some.github.io/fynx/generation/markdown/observables/) form the foundation—reactive values that notify dependents automatically when they change. Create them standalone or organize them into [Stores](https://off-by-some.github.io/fynx/generation/markdown/stores/):
+[Observables](https://off-by-some.github.io/fynx/reference/observable/) form the foundation—reactive values that notify dependents automatically when they change. Create them standalone or organize them into [Stores](https://off-by-some.github.io/fynx/tutorial/stores/):
 
 ```python
 from fynx import observable, Store
