@@ -1276,6 +1276,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#real-world-performance-translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Real-World Performance Translation
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1779,6 +1788,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#real-world-performance-translation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Real-World Performance Translation
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2091,7 +2109,7 @@
 <hr />
 <h2 id="the-optimizer-category-theory-as-compiler">The Optimizer: Category Theory as Compiler<a class="headerlink" href="#the-optimizer-category-theory-as-compiler" title="Permanent link">&para;</a></h2>
 <h3 id="automatic-optimization">Automatic Optimization<a class="headerlink" href="#automatic-optimization" title="Permanent link">&para;</a></h3>
-<p>FynX achieves strong performance—353,000+ state updates per second, dependency chains 2,776 levels deep, 47,000+ components updating efficiently—all in pure Python. This performance comes from automatic optimization guided by the mathematical structures we've explored.</p>
+<p>FynX achieves strong performance—215K+ state updates per second, dependency chains 47,427 levels deep, 47,000+ components updating efficiently—all in pure Python. This performance comes from automatic optimization guided by the mathematical structures we've explored.</p>
 <p>The optimizer applies four types of rewrites, each justified by category theory.</p>
 <h3 id="functor-composition-fusion">Functor Composition Fusion<a class="headerlink" href="#functor-composition-fusion" title="Permanent link">&para;</a></h3>
 <p>The composition law proves that sequential transformations can safely fuse:</p>
@@ -2184,12 +2202,20 @@
 <h3 id="the-numbers">The Numbers<a class="headerlink" href="#the-numbers" title="Permanent link">&para;</a></h3>
 <p>FynX's benchmark suite measures fundamental operations:</p>
 <ul>
-<li>Observable creation: 794,000 ops/sec</li>
-<li>Individual updates: 353,000 ops/sec</li>
-<li>Chain propagation: 1,640 ops/sec for 2,776-link chains</li>
-<li>Reactive fan-out: 47,000 ops/sec with 47,427 dependent components</li>
+<li>Observable creation: 756,789 ops/sec (810,325 items)</li>
+<li>Individual updates: 215,064 ops/sec (240,097 items)</li>
+<li>Chain propagation: 47,412 ops/sec (47,427 links, 21μs latency)</li>
+<li>Reactive fan-out: 42,032 ops/sec (47,427 items)</li>
 </ul>
-<p>Average latencies are sub-microsecond for individual updates, 609 microseconds per dependency link in complex chains.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>                       ⚡ Latency Percentiles
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>╔═══════════════════╦════════╦════════╦════════╦════════╗
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>║ Operation         ║    p50 ║    p95 ║    p99 ║  p99.9 ║
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>╠═══════════════════╬════════╬════════╬════════╬════════╣
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>║ Single Update     ║  4.6μs ║  6.5μs ║ 10.2μs ║ 15.3μs ║
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>║ Chain Link        ║ 21.1μs ║ 27.4μs ║ 40.1μs ║ 63.3μs ║
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>║ Fan-out (per dep) ║ 23.8μs ║ 30.9μs ║ 42.8μs ║ 59.5μs ║
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>╚═══════════════════╩════════╩════════╩════════╩════════╝
+</code></pre></div>
 <h3 id="scaling-properties">Scaling Properties<a class="headerlink" href="#scaling-properties" title="Permanent link">&para;</a></h3>
 <p>The categorical structure provides specific scaling characteristics:</p>
 <p><strong>Linear in dependencies</strong>: Each dependency adds constant cost, as it must.</p>
@@ -2197,6 +2223,15 @@
 <p><strong>Constant in fan-out</strong>: Product sharing makes fan-out nearly independent of dependent count. The product is computed once whether 10 or 10,000 components use it.</p>
 <p><strong>Batched amortization</strong>: Multiple changes in a batch share topological sorting costs, so amortized cost per change decreases as batches grow.</p>
 <p>These properties follow from the categorical structure. The theory predicts how performance scales.</p>
+<h3 id="real-world-performance-translation">Real-World Performance Translation<a class="headerlink" href="#real-world-performance-translation" title="Permanent link">&para;</a></h3>
+<p>The benchmark results translate to impressive real-world capabilities:</p>
+<ul>
+<li>Can handle ~47,427 UI components reacting to single state change</li>
+<li>Supports component trees up to 47,427 levels deep</li>
+<li>Processes 215K+ state updates per second</li>
+<li>Creates 757K+ observable objects per second</li>
+<li>Average propagation latency: 21μs per dependency link</li>
+</ul>
 <hr />
 <h2 id="related-work-and-context">Related Work and Context<a class="headerlink" href="#related-work-and-context" title="Permanent link">&para;</a></h2>
 <p>FynX builds on established concepts in functional reactive programming and category theory. Functors appear prominently in languages like Haskell and libraries like Scala Cats. Product types are fundamental to type theory. Pullbacks have been applied to constraint systems and relational databases.</p>
