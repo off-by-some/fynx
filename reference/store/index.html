@@ -791,15 +791,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fynx.store--why-use-stores" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why Use Stores?
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#fynx.store--core-components" class="md-nav__link">
     <span class="md-ellipsis">
       Core Components
@@ -1266,15 +1257,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fynx.store--why-use-stores" class="md-nav__link">
-    <span class="md-ellipsis">
-      Why Use Stores?
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#fynx.store--core-components" class="md-nav__link">
     <span class="md-ellipsis">
       Core Components
@@ -1502,37 +1484,47 @@
     <div class="doc doc-contents first">
 
         <h2 id="fynx.store--fynx-store-reactive-state-management-components">FynX Store - Reactive State Management Components<a class="headerlink" href="#fynx.store--fynx-store-reactive-state-management-components" title="Permanent link">&para;</a></h2>
-<p>This module provides the core components for reactive state management in FynX,
-enabling you to create organized, reactive state containers that group related
-observables together with convenient subscription and state management methods.</p>
-<h3 id="fynx.store--why-use-stores">Why Use Stores?<a class="headerlink" href="#fynx.store--why-use-stores" title="Permanent link">&para;</a></h3>
-<p>Stores help you organize your application's reactive state into logical units. Instead
-of having observables scattered throughout your codebase, Stores group related data
-together and provide convenient methods for subscribing to changes, serializing state,
-and managing the reactive lifecycle.</p>
-<p>Stores are particularly useful for:
-- <strong>Application State</strong>: Global app state like user preferences, theme settings
-- <strong>Feature State</strong>: State for specific features like shopping cart, user profile
-- <strong>Component State</strong>: Local state that needs to be shared across multiple components
-- <strong>Business Logic</strong>: Computed values and derived state based on raw data</p>
+<p>Consider a filing cabinet: each drawer holds related documents, and you can watch
+the cabinet to know when anything inside changes. That cabinet is a Store—a container
+that groups related reactive values together and provides unified change notification.</p>
+<p>Stores organize reactive state into logical units. Instead of scattering observables
+throughout your codebase, Stores group related data together and provide methods for
+subscribing to changes, serializing state, and managing the reactive lifecycle. This
+gives you structured state management—each Store becomes a cohesive unit that you can
+observe, persist, and compose.</p>
+<p>We apply that pattern to application architecture. Stores work well for application
+state like user preferences and theme settings, feature state like shopping carts and
+user profiles, component state that needs sharing across multiple components, and business
+logic that computes derived values from raw data. That organization reduces coupling
+and makes state changes predictable.</p>
 <h3 id="fynx.store--core-components">Core Components<a class="headerlink" href="#fynx.store--core-components" title="Permanent link">&para;</a></h3>
-<p><strong>Store</strong>: A base class for creating reactive state containers. Store classes can define
-observable attributes using the <code>observable()</code> descriptor, and automatically provide
-methods for subscribing to changes and managing state.</p>
-<p><strong>observable</strong>: A descriptor function that creates observable attributes on Store classes.
-Use this to define reactive properties in your Store subclasses.</p>
-<p><strong>StoreSnapshot</strong>: An immutable snapshot of store state at a specific point in time,
-useful for debugging, logging, and ensuring consistent state access.</p>
-<p><strong>StoreMeta</strong>: A metaclass that automatically converts observable attributes to descriptors
-and provides type hint compatibility for mypy.</p>
+<p><strong>Store</strong>: Base class for reactive state containers. Store classes define observable
+attributes using the <code>observable()</code> descriptor, and Store provides methods for subscribing
+to changes and managing state. The metaclass intercepts attribute assignment, allowing
+<code>Store.attr = value</code> syntax to work seamlessly with observables.</p>
+<p><strong>observable</strong>: Descriptor function that creates observable attributes on Store classes.
+Use this to define reactive properties in your Store subclasses. The metaclass converts
+these to descriptors that provide transparent reactive access.</p>
+<p><strong>StoreSnapshot</strong>: Immutable snapshot of store state at a specific point in time. Useful
+for debugging, logging, and ensuring consistent state access during reactive callbacks.
+Each snapshot captures all observable values at creation time.</p>
+<p><strong>StoreMeta</strong>: Metaclass that automatically converts observable attributes to descriptors
+and provides type hint compatibility for mypy. This metaclass processes class definitions
+to wrap observables in descriptors and handles inheritance of observable attributes.</p>
 <h3 id="fynx.store--key-features">Key Features<a class="headerlink" href="#fynx.store--key-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Automatic Observable Management</strong>: Store metaclass handles observable creation</li>
-<li><strong>Convenient Subscriptions</strong>: Subscribe to all changes or individual observables</li>
-<li><strong>State Serialization</strong>: Save and restore store state with <code>to_dict()</code> and <code>load_state()</code></li>
-<li><strong>Type Safety</strong>: Full type hint support for better IDE experience</li>
-<li><strong>Memory Efficient</strong>: Automatic cleanup and efficient change detection</li>
-<li><strong>Composable</strong>: Easy to combine and nest multiple stores</li>
+<li><strong>Automatic Observable Management</strong>: Store metaclass handles observable creation and
+  descriptor wrapping, including support for inherited observables from parent classes</li>
+<li><strong>Unified Subscriptions</strong>: Subscribe to all changes in a store with a single callback
+  that receives a StoreSnapshot, or subscribe to individual observables directly</li>
+<li><strong>State Serialization</strong>: Save and restore store state with <code>to_dict()</code> and <code>load_state()</code>.
+  The <code>to_dict()</code> method serializes all observables including computed ones; use
+  <code>_get_primitive_observable_attrs()</code> to filter out computed observables for persistence</li>
+<li><strong>Type Safety</strong>: Full type hint support for better IDE experience and static analysis</li>
+<li><strong>Memory Efficient</strong>: Automatic cleanup through subscription context management and
+  efficient change detection that avoids redundant updates</li>
+<li><strong>Composable</strong>: Multiple stores operate independently, allowing you to organize state
+  by domain without cross-store dependencies</li>
 </ul>
 <h3 id="fynx.store--basic-usage">Basic Usage<a class="headerlink" href="#fynx.store--basic-usage" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
@@ -1546,70 +1538,105 @@ and provides type hint compatibility for mypy.</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">5</span>     <span class="c1"># Updates the observable</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Subscribe to all changes in the store</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nd">@CounterStore</span><span class="o">.</span><span class="n">subscribe</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_store_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Store changed: count=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">, name=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Triggers: &quot;Store changed: count=10, name=My Counter&quot;</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_store_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Store changed: count=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">, name=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_store_change</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Triggers: &quot;Store changed: count=10, name=My Counter&quot;</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Unsubscribe when done</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">on_store_change</span><span class="p">)</span>
+</code></pre></div>
+<p>Alternative: use the <code>@reactive</code> decorator for a more convenient syntax:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">reactive</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">CounterStore</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_store_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Store changed: count=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">, name=</span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">10</span>  <span class="c1"># Automatically triggers the function</span>
 </code></pre></div>
 <h3 id="fynx.store--advanced-patterns">Advanced Patterns<a class="headerlink" href="#fynx.store--advanced-patterns" title="Permanent link">&para;</a></h3>
 <h4 id="fynx.store--computed-properties-in-stores">Computed Properties in Stores<a class="headerlink" href="#fynx.store--computed-properties-in-stores" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">first_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;John&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">last_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Doe&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="c1"># Computed properties using the &gt;&gt; operator</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">full_name</span> <span class="o">=</span> <span class="p">(</span><span class="n">first_name</span> <span class="o">+</span> <span class="n">last_name</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        <span class="k">lambda</span> <span class="n">fname</span><span class="p">,</span> <span class="n">lname</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fname</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">lname</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="p">)</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">is_adult</span> <span class="o">=</span> <span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">)</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>  <span class="c1"># &quot;John Doe&quot;</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">first_name</span> <span class="o">=</span> <span class="s2">&quot;Jane&quot;</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>  <span class="c1"># &quot;Jane Doe&quot; (automatically updated)</span>
+<p>Stores support computed observables that derive values from other observables. These
+update automatically when their dependencies change:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">first_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;John&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">last_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Doe&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="c1"># Computed properties using the &gt;&gt; operator</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">full_name</span> <span class="o">=</span> <span class="p">(</span><span class="n">first_name</span> <span class="o">+</span> <span class="n">last_name</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>        <span class="k">lambda</span> <span class="n">fname</span><span class="p">,</span> <span class="n">lname</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fname</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">lname</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">is_adult</span> <span class="o">=</span> <span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>  <span class="c1"># &quot;John Doe&quot;</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">first_name</span> <span class="o">=</span> <span class="s2">&quot;Jane&quot;</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>  <span class="c1"># &quot;Jane Doe&quot; (automatically updated)</span>
 </code></pre></div>
+<p>That pattern lets you define derived state alongside raw data. The computed observables
+participate in store subscriptions—when you subscribe to a store, computed values trigger
+updates just like primitive observables.</p>
 <h4 id="fynx.store--state-persistence">State Persistence<a class="headerlink" href="#fynx.store--state-persistence" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Save store state</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">state</span> <span class="o">=</span> <span class="n">CounterStore</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># state = {&quot;count&quot;: 10, &quot;name&quot;: &quot;My Counter&quot;}</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Restore state later</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">load_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span><span class="p">)</span>  <span class="c1"># 10</span>
-</code></pre></div>
-<h4 id="fynx.store--store-composition">Store Composition<a class="headerlink" href="#fynx.store--store-composition" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AppStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">theme</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">language</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">)</span>
+<p>Stores can serialize their state to dictionaries and restore from them. This enables
+persistence across sessions or state transfer between components:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Save store state</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">state</span> <span class="o">=</span> <span class="n">CounterStore</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># state = {&quot;count&quot;: 10, &quot;name&quot;: &quot;My Counter&quot;}</span>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">preferences</span> <span class="o">=</span> <span class="n">observable</span><span class="p">({})</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Use both stores independently</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">AppStore</span><span class="o">.</span><span class="n">theme</span> <span class="o">=</span> <span class="s2">&quot;dark&quot;</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># Restore state later</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">load_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span><span class="p">)</span>  <span class="c1"># 10</span>
 </code></pre></div>
-<h3 id="fynx.store--common-patterns">Common Patterns<a class="headerlink" href="#fynx.store--common-patterns" title="Permanent link">&para;</a></h3>
-<p><strong>Singleton Stores</strong>: Use class-level access for global state:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">GlobalStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">is_loading</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">current_user</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<p>Note that <code>to_dict()</code> includes all observables, including computed ones. For persistence,
+you typically want only primitive observables since computed values derive from them.
+Use <code>_get_primitive_observable_attrs()</code> to filter if needed, though the current implementation
+serializes everything for simplicity.</p>
+<h4 id="fynx.store--store-composition">Store Composition<a class="headerlink" href="#fynx.store--store-composition" title="Permanent link">&para;</a></h4>
+<p>Multiple stores operate independently, allowing you to organize state by domain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">AppStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">theme</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;light&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">language</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;en&quot;</span><span class="p">)</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Access globally</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">GlobalStore</span><span class="o">.</span><span class="n">is_loading</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">preferences</span> <span class="o">=</span> <span class="n">observable</span><span class="p">({})</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1"># Use both stores independently</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">AppStore</span><span class="o">.</span><span class="n">theme</span> <span class="o">=</span> <span class="s2">&quot;dark&quot;</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>
 </code></pre></div>
-<p>```</p>
+<p>That independence means you can compose complex applications from focused stores. Each
+store manages its own domain without creating cross-store dependencies.</p>
+<h3 id="fynx.store--common-patterns">Common Patterns<a class="headerlink" href="#fynx.store--common-patterns" title="Permanent link">&para;</a></h3>
+<p><strong>Singleton Stores</strong>: Use class-level access for global state. Since Store attributes
+are class-level, each Store class acts as a singleton:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">GlobalStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">is_loading</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">current_user</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="c1"># Access globally</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">GlobalStore</span><span class="o">.</span><span class="n">is_loading</span> <span class="o">=</span> <span class="kc">True</span>
+</code></pre></div>
+<p><strong>Store Inheritance</strong>: Child classes inherit observable attributes from parent classes.
+The metaclass handles descriptor creation for inherited observables:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">BaseStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">created_at</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">BaseStore</span><span class="p">):</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="c1"># UserStore automatically has created_at from BaseStore</span>
+</code></pre></div>
 <h3 id="fynx.store--see-also">See Also<a class="headerlink" href="#fynx.store--see-also" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>fynx.observable</code>: Core observable classes and operators</li>
-<li><code>fynx.computed</code>: Creating computed properties</li>
 <li><code>fynx.reactive</code>: Reactive decorators for side effects</li>
-<li><code>fynx.watch</code>: Conditional reactive functions</li>
+<li><code>fynx.observable.computed</code>: Creating computed properties</li>
 </ul>
 
 
@@ -1646,16 +1673,19 @@ and provides type hint compatibility for mypy.</p>
 
 
         <p>Base class for reactive state containers with observable attributes.</p>
-<p>Store provides a convenient way to group related observable values together
-and manage their lifecycle as a cohesive unit. Store subclasses can define
-observable attributes using the <code>observable()</code> descriptor, and Store provides
-methods for subscribing to changes, serializing state, and managing the
-reactive relationships.</p>
+<p>Store groups related observable values together and manages their lifecycle
+as a cohesive unit. Store subclasses define observable attributes using the
+<code>observable()</code> descriptor, and Store provides methods for subscribing to changes,
+serializing state, and managing reactive relationships.</p>
+<p>The metaclass intercepts attribute assignment, allowing <code>Store.attr = value</code> syntax
+to work seamlessly with observables. When you assign to a store attribute, the
+metaclass delegates to the underlying observable's <code>set()</code> method, which triggers
+reactive updates.</p>
 <p>Key Features:
-- Automatic observable attribute detection and management
-- Convenient subscription methods for reacting to state changes
-- Serialization/deserialization support for persistence
-- Snapshot functionality for debugging and state inspection</p>
+- Automatic observable attribute detection and management through metaclass
+- Unified subscription method that reacts to all observable changes in the store
+- Serialization/deserialization support via <code>to_dict()</code> and <code>load_state()</code>
+- Snapshot functionality through StoreSnapshot for consistent state access</p>
 
 
 <details class="example" open>
@@ -1667,20 +1697,26 @@ reactive relationships.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Counter&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Subscribe to all changes</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nd">@CounterStore</span><span class="o">.</span><span class="n">subscribe</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Counter: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">, Name: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># Changes trigger reactions</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Prints: Counter: 5, Name: Counter</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;My Counter&quot;</span>  <span class="c1"># Prints: Counter: 5, Name: My Counter</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Counter: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">count</span><span class="si">}</span><span class="s2">, Name: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_change</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1"># Changes trigger reactions</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">count</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Prints: Counter: 5, Name: Counter</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;My Counter&quot;</span>  <span class="c1"># Prints: Counter: 5, Name: My Counter</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="c1"># Unsubscribe when done</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">CounterStore</span><span class="o">.</span><span class="n">unsubscribe</span><span class="p">(</span><span class="n">on_change</span><span class="p">)</span>
 </code></pre></div>
 </details>
 
 <details class="note" open>
   <summary>Note</summary>
   <p>Store uses a metaclass to intercept attribute assignment, allowing
-<code>Store.attr = value</code> syntax to work seamlessly with observables.</p>
+<code>Store.attr = value</code> syntax to work seamlessly with observables. The
+<code>subscribe()</code> method is a classmethod that takes a function, not a decorator.
+Use <code>@reactive(Store)</code> from <code>fynx.reactive</code> for decorator syntax.</p>
 </details>
 
 

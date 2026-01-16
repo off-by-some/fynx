@@ -670,36 +670,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.operators--why-operators" class="md-nav__link">
+  <a href="#fynx.observable.operators--operator-semantics" class="md-nav__link">
     <span class="md-ellipsis">
-      Why Operators?
+      Operator Semantics
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.operators--operator-overview" class="md-nav__link">
+  <a href="#fynx.observable.operators--implementation-architecture" class="md-nav__link">
     <span class="md-ellipsis">
-      Operator Overview
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--operator-mixins" class="md-nav__link">
-    <span class="md-ellipsis">
-      Operator Mixins
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--implementation-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      Implementation Details
+      Implementation Architecture
     </span>
   </a>
   
@@ -736,15 +718,6 @@
   <a href="#fynx.observable.operators--best-practices" class="md-nav__link">
     <span class="md-ellipsis">
       Best Practices
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--migration-from-method-calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      Migration from Method Calls
     </span>
   </a>
   
@@ -1352,36 +1325,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.operators--why-operators" class="md-nav__link">
+  <a href="#fynx.observable.operators--operator-semantics" class="md-nav__link">
     <span class="md-ellipsis">
-      Why Operators?
+      Operator Semantics
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.operators--operator-overview" class="md-nav__link">
+  <a href="#fynx.observable.operators--implementation-architecture" class="md-nav__link">
     <span class="md-ellipsis">
-      Operator Overview
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--operator-mixins" class="md-nav__link">
-    <span class="md-ellipsis">
-      Operator Mixins
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--implementation-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      Implementation Details
+      Implementation Architecture
     </span>
   </a>
   
@@ -1418,15 +1373,6 @@
   <a href="#fynx.observable.operators--best-practices" class="md-nav__link">
     <span class="md-ellipsis">
       Best Practices
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.operators--migration-from-method-calls" class="md-nav__link">
-    <span class="md-ellipsis">
-      Migration from Method Calls
     </span>
   </a>
   
@@ -1672,63 +1618,48 @@
     <div class="doc doc-contents first">
 
         <h2 id="fynx.observable.operators--fynx-operators-observable-operator-implementations-and-mixins">FynX Operators - Observable Operator Implementations and Mixins<a class="headerlink" href="#fynx.observable.operators--fynx-operators-observable-operator-implementations-and-mixins" title="Permanent link">&para;</a></h2>
-<p>This module provides the core operator implementations and mixins that enable FynX's
-fluent reactive programming syntax. These operators allow observables to be composed
-using intuitive Python operators, creating complex reactive behaviors from simple
-building blocks.</p>
-<h3 id="fynx.observable.operators--why-operators">Why Operators?<a class="headerlink" href="#fynx.observable.operators--why-operators" title="Permanent link">&para;</a></h3>
-<p>FynX uses Python's operator overloading to provide a natural, readable syntax
-for reactive programming. Instead of verbose method calls, you can express
-reactive relationships using familiar operators:</p>
-<ul>
-<li><code>observable &gt;&gt; function</code> - Transform values reactively</li>
-<li><code>observable &amp; condition</code> - Filter values conditionally</li>
-<li><code>obs1 + obs2 + obs3</code> - Combine observables</li>
-</ul>
-<p>This approach makes reactive code more declarative and easier to understand.</p>
-<h3 id="fynx.observable.operators--operator-overview">Operator Overview<a class="headerlink" href="#fynx.observable.operators--operator-overview" title="Permanent link">&para;</a></h3>
+<p>Consider a spreadsheet formula: you reference cells, apply functions, combine values. That formula recalculates automatically when inputs change. This module provides that mechanism as Python operators—familiar syntax that composes reactive values into complex behaviors.</p>
+<p>FynX uses operator overloading to make reactive code read like natural expressions. Instead of method chains like <code>obs.map(f).filter(g)</code>, you write <code>obs &gt;&gt; f &amp; g</code>. That syntax compresses reactive relationships into declarative statements—the operators handle dependency tracking and automatic updates behind the scenes.</p>
+<p>The operators work through three mixin classes that consolidate operator overloading logic. OperatorMixin provides the core reactive operators (<code>+</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>~</code>, <code>|</code>) for all observable types. TupleMixin adds tuple-like behavior to merged observables—iteration, indexing, length operations. ValueMixin enables transparent value access for ObservableValue instances, making reactive attributes behave like regular values while preserving reactive capabilities.</p>
+<p>Result: reactive code that reads like mathematical expressions, with automatic optimization and dependency tracking handled transparently.</p>
+<h3 id="fynx.observable.operators--operator-semantics">Operator Semantics<a class="headerlink" href="#fynx.observable.operators--operator-semantics" title="Permanent link">&para;</a></h3>
 <p><strong>Transform (<code>&gt;&gt;</code>)</strong>: Apply functions to create derived values
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">doubled</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">counter</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">doubled</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">doubled</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># 10</span>
 </code></pre></div></p>
 <p><strong>Filter (<code>&amp;</code>)</strong>: Only emit values when conditions are met
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">valid_data</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&amp;</span> <span class="n">is_valid</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">data</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="s2">&quot;hello&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">is_ready</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;ready&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">filtered</span> <span class="o">=</span> <span class="n">data</span> <span class="o">&amp;</span> <span class="n">is_ready</span>  <span class="c1"># Only emits when is_ready is True</span>
 </code></pre></div></p>
 <p><strong>Combine (<code>+</code>)</strong>: Merge multiple observables into tuples
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">coordinates</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">x</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">y</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">z</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;z&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">coordinates</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span> <span class="o">+</span> <span class="n">z</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">coordinates</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># (1, 2, 3)</span>
 </code></pre></div></p>
-<p>These operators work together to create complex reactive pipelines:
+<p>These operators compose to create complex reactive pipelines:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">total</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">))</span>
 </code></pre></div></p>
-<h3 id="fynx.observable.operators--operator-mixins">Operator Mixins<a class="headerlink" href="#fynx.observable.operators--operator-mixins" title="Permanent link">&para;</a></h3>
-<p>This module also provides mixin classes that consolidate operator overloading logic:</p>
-<p><strong>OperatorMixin</strong>: Provides common reactive operators (<strong>add</strong>, <strong>rshift</strong>, <strong>and</strong>, <strong>invert</strong>)
-for all observable types that support reactive composition.</p>
-<p><strong>TupleMixin</strong>: Adds tuple-like behavior (<strong>iter</strong>, <strong>len</strong>, <strong>getitem</strong>, <strong>setitem</strong>) for
-observables that represent collections of values.</p>
-<p><strong>ValueMixin</strong>: Provides transparent value wrapper behavior for ObservableValue instances,
-making them behave like regular Python values while supporting reactive operators.</p>
-<h3 id="fynx.observable.operators--implementation-details">Implementation Details<a class="headerlink" href="#fynx.observable.operators--implementation-details" title="Permanent link">&para;</a></h3>
-<p>The operators are implemented as standalone functions rather than methods
-to avoid circular import issues and enable lazy loading. They are called
-automatically when you use the corresponding operators on Observable instances.</p>
-<p>The functions handle different observable types (regular, merged, conditional)
-appropriately, ensuring consistent behavior across the reactive system.</p>
+<h3 id="fynx.observable.operators--implementation-architecture">Implementation Architecture<a class="headerlink" href="#fynx.observable.operators--implementation-architecture" title="Permanent link">&para;</a></h3>
+<p>The operators delegate to methods in OperationsMixin rather than implementing logic directly. That separation enables lazy loading and avoids circular import issues. When you use <code>obs &gt;&gt; func</code>, Python calls <code>__rshift__</code>, which delegates to <code>obs.then(func)</code>. The <code>then</code> method creates computed observables through <code>_create_computed</code>, which registers with the optimization system automatically.</p>
+<p>The functions handle different observable types (regular, merged, conditional) uniformly. For merged observables, transformation functions receive unpacked tuple values as separate arguments. For single observables, they receive one argument. That distinction enables functions that work with both coordinate pairs and scalar values.</p>
 <h3 id="fynx.observable.operators--performance-characteristics">Performance Characteristics<a class="headerlink" href="#fynx.observable.operators--performance-characteristics" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Lazy Evaluation</strong>: Operators create computed/conditional observables that
-  only evaluate when needed</li>
-<li><strong>Efficient Composition</strong>: Multiple operators can be chained without
-  creating intermediate objects</li>
-<li><strong>Memory Conscious</strong>: Operators reuse existing infrastructure rather than
-  creating new classes</li>
-</ul>
+<p>Operators create computed or conditional observables that evaluate lazily—they recalculate only when accessed after dependencies change. Multiple operators chain without creating intermediate objects—the optimization system fuses sequential transformations into single composed functions. Operators reuse existing infrastructure rather than creating new classes, minimizing memory overhead.</p>
 <h3 id="fynx.observable.operators--common-patterns">Common Patterns<a class="headerlink" href="#fynx.observable.operators--common-patterns" title="Permanent link">&para;</a></h3>
 <p><strong>Data Processing Pipeline</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">raw_data</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([])</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">processed</span> <span class="o">=</span> <span class="p">(</span><span class="n">raw_data</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># Filter positive values</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>                <span class="c1"># Sort results</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="k">else</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># Calculate average</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">raw_data</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">processed</span> <span class="o">=</span> <span class="p">(</span><span class="n">raw_data</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># Filter positive values</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">d</span><span class="p">))</span>                <span class="c1"># Sort results</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">d</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="k">else</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># Calculate average</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">processed</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># 3.0</span>
 </code></pre></div></p>
 <p><strong>Conditional UI Updates</strong>:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">user_input</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
@@ -1743,33 +1674,17 @@ appropriately, ensuring consistent behavior across the reactive system.</p>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">subtotal</span> <span class="o">=</span> <span class="p">(</span><span class="n">price</span> <span class="o">+</span> <span class="n">quantity</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">p</span> <span class="o">*</span> <span class="n">q</span><span class="p">)</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">tax</span> <span class="o">=</span> <span class="n">subtotal</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span> <span class="o">*</span> <span class="n">tax_rate</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="n">subtotal</span> <span class="o">+</span> <span class="n">tax</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">s</span> <span class="o">+</span> <span class="n">t</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">total</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># 10.8</span>
 </code></pre></div></p>
 <h3 id="fynx.observable.operators--error-handling">Error Handling<a class="headerlink" href="#fynx.observable.operators--error-handling" title="Permanent link">&para;</a></h3>
-<p>Operators handle errors gracefully:
-- Transformation function errors are propagated but don't break the reactive system
-- Invalid operator usage provides clear error messages
-- Circular dependencies are detected and prevented</p>
+<p>Transformation function errors propagate normally—the reactive system doesn't swallow exceptions. Invalid operator usage raises TypeError with descriptive messages. Circular dependencies are detected during <code>.set()</code> operations and raise RuntimeError before creating infinite loops.</p>
 <h3 id="fynx.observable.operators--best-practices">Best Practices<a class="headerlink" href="#fynx.observable.operators--best-practices" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Keep Functions Pure</strong>: Transformation functions should not have side effects</li>
-<li><strong>Use Meaningful Lambdas</strong>: Complex operations deserve named functions</li>
-<li><strong>Chain Thoughtfully</strong>: Break complex chains into intermediate variables for clarity</li>
-<li><strong>Handle Edge Cases</strong>: Consider what happens with None, empty collections, etc.</li>
-</ul>
-<h3 id="fynx.observable.operators--migration-from-method-calls">Migration from Method Calls<a class="headerlink" href="#fynx.observable.operators--migration-from-method-calls" title="Permanent link">&para;</a></h3>
-<p>If you're familiar with other reactive libraries, here's how FynX operators compare:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Other libraries (method-based)</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">result</span> <span class="o">=</span> <span class="n">obs</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">)</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># FynX (operator-based)</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">result</span> <span class="o">=</span> <span class="n">obs</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">obs</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">))</span>
-</code></pre></div>
-<p>The operator syntax is more concise and readable for simple transformations.</p>
+<p>Keep transformation functions pure—no side effects, no external state access. Use named functions for complex operations rather than long lambda expressions. Break complex chains into intermediate variables for clarity. Handle edge cases explicitly—consider None values, empty collections, and boundary conditions.</p>
 <h3 id="fynx.observable.operators--see-also">See Also<a class="headerlink" href="#fynx.observable.operators--see-also" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>fynx.observable</code>: Core observable classes that use these operators and mixins</li>
-<li><code>fynx.computed</code>: Computed observables created by the <code>&gt;&gt;</code> operator</li>
-<li><code>fynx.watch</code>: Conditional reactive functions (alternative to <code>&amp;</code>)</li>
+<li><code>fynx.observable.computed</code>: Computed observables created by the <code>&gt;&gt;</code> operator</li>
+<li><code>fynx.observable.conditional</code>: Conditional observables created by the <code>&amp;</code> operator</li>
 </ul>
 
 
@@ -1854,7 +1769,9 @@ need to support reactive composition operations.</p>
 
         <p>Combine this observable with another using the + operator.</p>
 <p>This creates a merged observable that contains a tuple of both values
-and updates automatically when either observable changes.</p>
+and updates automatically when either observable changes. The merge operation
+represents the categorical product—combining independent reactive values
+into a single reactive pair.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1929,7 +1846,9 @@ and updates automatically when either observable changes.</p>
 
         <p>Create a conditional observable using the &amp; operator for filtered reactivity.</p>
 <p>This creates a ConditionalObservable that only emits values when all
-specified conditions are True, enabling precise control over reactive updates.</p>
+specified conditions are True, enabling precise control over reactive updates.
+The operation represents a pullback—filtering the reactive stream through
+boolean conditions.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2004,7 +1923,8 @@ specified conditions are True, enabling precise control over reactive updates.</
 
         <p>Create a negated boolean observable using the ~ operator.</p>
 <p>This creates a computed observable that returns the logical negation
-of the current boolean value, useful for creating inverse conditions.</p>
+of the current boolean value, useful for creating inverse conditions.
+The negation updates automatically when the source changes.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -2049,7 +1969,8 @@ of the current boolean value, useful for creating inverse conditions.</p>
 
         <p>Create a logical OR condition using the | operator.</p>
 <p>This creates a conditional observable that only emits when the OR result
-is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.</p>
+is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.
+The operation combines boolean observables with logical disjunction.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2147,7 +2068,8 @@ is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.</p>
 
         <p>Support right-side addition for merging observables.</p>
 <p>This enables expressions like <code>other + self</code> to work correctly,
-ensuring that merged observables can be chained properly.</p>
+ensuring that merged observables can be chained properly. Python calls
+this method when the left operand doesn't support <code>__add__</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2222,7 +2144,8 @@ ensuring that merged observables can be chained properly.</p>
 
         <p>Apply a transformation function using the &gt;&gt; operator to create computed observables.</p>
 <p>This implements the functorial map operation over observables, allowing you to
-transform observable values through pure functions while preserving reactivity.</p>
+transform observable values through pure functions while preserving reactivity.
+The operation satisfies the functor laws: identity and composition preservation.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

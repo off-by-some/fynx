@@ -2,66 +2,66 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://off-by-some.github.io/fynx/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/api/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/computed-observable/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/conditional-observable/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/merged-observable/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/observable-descriptors/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/observable-operators/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/observable/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/reactive-decorator/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/reference/store/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/tutorial/conditionals/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/tutorial/derived-observables/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/tutorial/observables/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/tutorial/stores/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
     <url>
          <loc>https://off-by-some.github.io/fynx/tutorial/using-reactive/</loc>
-         <lastmod>2025-10-21</lastmod>
+         <lastmod>2026-01-16</lastmod>
     </url>
 </urlset>

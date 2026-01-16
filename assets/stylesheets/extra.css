@@ -129,6 +129,10 @@
   }
 }
 
+div.md-container > main > div > div.md-sidebar.md-sidebar--primary {
+  left: 0 !important;
+}
+
 /* Responsive collapse for smaller screens */
 @media screen and (max-width: 76.1875em) {
   .md-sidebar--primary {

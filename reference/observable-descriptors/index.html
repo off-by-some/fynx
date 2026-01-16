@@ -780,15 +780,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.descriptors--key-benefits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Key Benefits
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#fynx.observable.descriptors--common-patterns" class="md-nav__link">
     <span class="md-ellipsis">
       Common Patterns
@@ -810,15 +801,6 @@
   <a href="#fynx.observable.descriptors--performance-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       Performance Considerations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.descriptors--best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      Best Practices
     </span>
   </a>
   
@@ -1247,15 +1229,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#fynx.observable.descriptors--key-benefits" class="md-nav__link">
-    <span class="md-ellipsis">
-      Key Benefits
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#fynx.observable.descriptors--common-patterns" class="md-nav__link">
     <span class="md-ellipsis">
       Common Patterns
@@ -1277,15 +1250,6 @@
   <a href="#fynx.observable.descriptors--performance-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       Performance Considerations
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fynx.observable.descriptors--best-practices" class="md-nav__link">
-    <span class="md-ellipsis">
-      Best Practices
     </span>
   </a>
   
@@ -1426,16 +1390,20 @@
     <div class="doc doc-contents first">
 
         <h2 id="fynx.observable.descriptors--fynx-observable-descriptors-reactive-attribute-descriptors">FynX Observable Descriptors - Reactive Attribute Descriptors<a class="headerlink" href="#fynx.observable.descriptors--fynx-observable-descriptors-reactive-attribute-descriptors" title="Permanent link">&para;</a></h2>
+<p>ObservableValue acts as a transparent wrapper that makes reactive values behave
+like regular Python values. You access the value directly through familiar attribute
+syntax, while the wrapper tracks changes and triggers updates automatically behind
+the scenes. The value appears ordinary, but the system maintains reactive behavior.</p>
 <p>This module provides descriptor classes that enable transparent reactive programming
-in class attributes. These descriptors bridge the gap between regular Python attribute
-access and reactive capabilities, allowing Store classes to provide both familiar
-attribute syntax and full reactive behavior.</p>
+in class attributes. These descriptors bridge regular Python attribute access with
+reactive capabilities, allowing Store classes to provide familiar syntax alongside
+automatic dependency tracking and change propagation.</p>
 <h3 id="fynx.observable.descriptors--transparent-reactivity">Transparent Reactivity<a class="headerlink" href="#fynx.observable.descriptors--transparent-reactivity" title="Permanent link">&para;</a></h3>
-<p>FynX's descriptors enable "transparent reactivity" - the ability to write code that
-looks like regular attribute access while maintaining automatic dependency tracking
-and change propagation. This means you can use observables in existing code without
-major syntax changes.</p>
-<p>Instead of:
+<p>FynX's descriptors enable transparent reactivity—code that looks like regular
+attribute access while maintaining automatic dependency tracking. You write
+<code>store.counter = 5</code> and the system handles subscriptions, notifications, and
+computed updates. That transparency means existing code works without modification.</p>
+<p>Instead of explicit reactive patterns:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Traditional reactive approach</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">store</span><span class="o">.</span><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">store</span><span class="o">.</span><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
@@ -1444,7 +1412,7 @@ major syntax changes.</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">update_total</span><span class="p">():</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">total</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">price</span><span class="o">.</span><span class="n">value</span> <span class="o">*</span> <span class="n">store</span><span class="o">.</span><span class="n">quantity</span><span class="o">.</span><span class="n">value</span>
 </code></pre></div></p>
-<p>You can write:
+<p>You write natural attribute access:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Transparent reactive approach</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">store</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>  <span class="c1"># Direct access</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">store</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">5</span>     <span class="c1"># Automatic updates</span>
@@ -1452,87 +1420,104 @@ major syntax changes.</p>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Automatic dependency tracking</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">total</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">price</span> <span class="o">*</span> <span class="n">store</span><span class="o">.</span><span class="n">quantity</span>  <span class="c1"># Reactive computation</span>
 </code></pre></div></p>
+<p>The descriptor system handles the reactive machinery behind the scenes. When you
+access <code>store.counter</code>, the descriptor returns an ObservableValue that wraps the
+actual Observable. That wrapper behaves like the value for most operations—equality,
+string conversion, iteration—while also providing reactive methods like subscription
+and operator overloading. We call this transparent reactivity—the value appears
+ordinary, but the system tracks dependencies and propagates changes automatically.</p>
 <h3 id="fynx.observable.descriptors--how-it-works">How It Works<a class="headerlink" href="#fynx.observable.descriptors--how-it-works" title="Permanent link">&para;</a></h3>
-<p>The descriptor system works through two key components:</p>
+<p>The descriptor system operates through two components working together:</p>
 <ol>
 <li>
-<p><strong>SubscriptableDescriptor</strong>: Attached to class attributes, creates and manages
-   the underlying Observable instances at the class level.</p>
+<p><strong>SubscriptableDescriptor</strong>: Attached to class attributes by StoreMeta, creates
+   and manages the underlying Observable instances at the class level. The StoreMeta
+   metaclass converts <code>observable()</code> instances (which return Observable objects) into
+   SubscriptableDescriptor instances during class creation.</p>
 </li>
 <li>
 <p><strong>ObservableValue</strong>: Returned when accessing descriptor attributes, provides
-   transparent value access while maintaining reactive capabilities.</p>
+   transparent value access through ValueMixin while maintaining reactive capabilities.
+   This wrapper subscribes to the underlying Observable to keep its displayed value
+   synchronized.</p>
 </li>
 </ol>
-<p>When you access <code>store.counter</code>, the descriptor returns an ObservableValue that
-wraps the actual Observable, allowing natural value operations while preserving
-reactive behavior.</p>
-<h3 id="fynx.observable.descriptors--key-benefits">Key Benefits<a class="headerlink" href="#fynx.observable.descriptors--key-benefits" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Familiar Syntax</strong>: Use regular attribute access (<code>obj.attr = value</code>)</li>
-<li><strong>Reactive Capabilities</strong>: Full access to subscription and operators</li>
-<li><strong>Type Safety</strong>: Maintains type information through generics</li>
-<li><strong>Performance</strong>: Efficient caching and lazy evaluation</li>
-<li><strong>Compatibility</strong>: Works with existing Python idioms (iteration, comparison, etc.)</li>
-</ul>
+<p>When you write <code>class UserStore(Store): name = observable("Alice")</code>, the StoreMeta
+metaclass intercepts that Observable instance and replaces it with a SubscriptableDescriptor.
+Accessing <code>UserStore.name</code> then triggers the descriptor's <code>__get__</code> method, which
+creates or retrieves the class-level Observable and returns an ObservableValue wrapper.
+That wrapper delegates value operations to the underlying value while preserving
+reactive behavior. Result: attribute access looks normal, but the system maintains
+dependency graphs and triggers updates automatically.</p>
 <h3 id="fynx.observable.descriptors--common-patterns">Common Patterns<a class="headerlink" href="#fynx.observable.descriptors--common-patterns" title="Permanent link">&para;</a></h3>
 <p><strong>Store Attributes</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># Access like regular attributes</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>      <span class="c1"># &quot;Alice&quot;</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="mi">31</span>         <span class="c1"># Triggers reactive updates</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># But also provides reactive methods</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Name: </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Access like regular attributes</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>      <span class="c1"># &quot;Alice&quot;</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="mi">31</span>         <span class="c1"># Triggers reactive updates</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># But also provides reactive methods</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">n</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Name: </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
 </code></pre></div></p>
 <p><strong>Transparent Integration</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Works with existing Python constructs</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">if</span> <span class="n">store</span><span class="o">.</span><span class="n">is_enabled</span><span class="p">:</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Enabled&quot;</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">store</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="c1"># String formatting</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">store</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">store</span><span class="o">.</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">AppStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">is_enabled</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># Works with existing Python constructs</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="k">if</span> <span class="n">AppStore</span><span class="o">.</span><span class="n">is_enabled</span><span class="p">:</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Enabled&quot;</span><span class="p">)</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">AppStore</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="c1"># String formatting</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">AppStore</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">AppStore</span><span class="o">.</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span>
 </code></pre></div></p>
 <p><strong>Reactive Operators</strong>:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># All operators work transparently</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">full_name</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">first_name</span> <span class="o">+</span> <span class="n">store</span><span class="o">.</span><span class="n">last_name</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">l</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">is_adult</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">valid_user</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">name</span> <span class="o">&amp;</span> <span class="n">is_adult</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">first_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;John&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">last_name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Doe&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;John&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="c1"># All operators work transparently</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">full_name</span> <span class="o">=</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">first_name</span> <span class="o">+</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">last_name</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">f</span><span class="p">,</span> <span class="n">l</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">l</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">is_adult</span> <span class="o">=</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="n">a</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">)</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="n">valid_user</span> <span class="o">=</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">&amp;</span> <span class="n">is_adult</span>
 </code></pre></div></p>
 <h3 id="fynx.observable.descriptors--implementation-details">Implementation Details<a class="headerlink" href="#fynx.observable.descriptors--implementation-details" title="Permanent link">&para;</a></h3>
-<p><strong>Descriptor Protocol</strong>: Uses <code>__get__</code>, <code>__set__</code>, and <code>__set_name__</code> to integrate
-with Python's attribute system.</p>
-<p><strong>Class-Level Storage</strong>: Observables are stored at the class level to ensure
-shared state across instances.</p>
-<p><strong>Lazy Initialization</strong>: ObservableValue instances are created on-demand and
-cached for performance.</p>
-<p><strong>Type Preservation</strong>: Generic types ensure compile-time type safety.</p>
+<p>The descriptor protocol uses <code>__get__</code>, <code>__set__</code>, and <code>__set_name__</code> to integrate
+with Python's attribute system. Observables are stored at the class level (as
+<code>_{attr_name}_observable</code> attributes) to ensure shared state across all access.
+ObservableValue instances are created on-demand when attributes are accessed, and
+they subscribe to the underlying Observable to maintain synchronization.</p>
+<p>The StoreMeta metaclass performs the conversion from Observable to SubscriptableDescriptor
+during class creation. When you define <code>name = observable("Alice")</code> in a Store subclass,
+StoreMeta detects the Observable instance and replaces it with a SubscriptableDescriptor
+that wraps the original Observable. That descriptor then manages the class-level storage
+and returns ObservableValue instances on access.</p>
 <h3 id="fynx.observable.descriptors--performance-considerations">Performance Considerations<a class="headerlink" href="#fynx.observable.descriptors--performance-considerations" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Memory Efficient</strong>: Reuses Observable instances across attribute access</li>
-<li><strong>Lazy Creation</strong>: ObservableValue wrappers created only when needed</li>
-<li><strong>Minimal Overhead</strong>: Thin wrapper around actual Observable instances</li>
-<li><strong>Caching</strong>: Internal caching prevents redundant operations</li>
-</ul>
-<h3 id="fynx.observable.descriptors--best-practices">Best Practices<a class="headerlink" href="#fynx.observable.descriptors--best-practices" title="Permanent link">&para;</a></h3>
-<ul>
-<li><strong>Use Store Classes</strong>: Leverage descriptors through Store classes for better organization</li>
-<li><strong>Consistent Access</strong>: Use either direct access or reactive methods, not both inconsistently</li>
-<li><strong>Type Hints</strong>: Provide type annotations for better IDE support</li>
-<li><strong>Documentation</strong>: Document store attributes and their purposes</li>
-</ul>
+<p>The system reuses Observable instances across attribute access, storing them as class
+attributes. ObservableValue wrappers are created on-demand and subscribe to updates,
+but the underlying Observable instances persist. This design minimizes memory overhead
+while maintaining reactive behavior.</p>
 <h3 id="fynx.observable.descriptors--limitations">Limitations<a class="headerlink" href="#fynx.observable.descriptors--limitations" title="Permanent link">&para;</a></h3>
-<ul>
-<li>Descriptor behavior requires class-level attribute assignment</li>
-<li>Not suitable for instance-specific reactive attributes</li>
-<li>Some advanced Python features may not work as expected with wrapped values</li>
-</ul>
+<p>Descriptor behavior requires class-level attribute assignment—instance-specific
+reactive attributes are not supported. Some advanced Python features (like certain
+metaclass interactions) may not work as expected with wrapped values, though common
+operations (equality, iteration, string conversion) work transparently.</p>
 <h3 id="fynx.observable.descriptors--see-also">See Also<a class="headerlink" href="#fynx.observable.descriptors--see-also" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>fynx.store</code>: Store classes that use these descriptors</li>
@@ -1576,18 +1561,21 @@ cached for performance.</p>
 
         <p>A transparent wrapper that combines direct value access with observable capabilities.</p>
 <p>ObservableValue acts as a bridge between regular Python value access and reactive
-programming. It behaves like the underlying value in most contexts (equality,
-string conversion, iteration, etc.) while also providing access to observable
-methods like subscription and operator overloading.</p>
+programming. This wrapper behaves like the underlying value in most contexts—equality,
+string conversion, iteration, indexing—while also providing access to observable
+methods like subscription and operator overloading. The value appears ordinary, but
+the wrapper maintains reactive behavior behind the scenes.</p>
 <p>This class enables Store classes and other descriptor-based reactive systems to
 provide both familiar value access (<code>store.attr = value</code>) and reactive capabilities
-(<code>store.attr.subscribe(callback)</code>) through a single attribute.</p>
-<p>Key Features:
-- <strong>Transparent Value Access</strong>: Behaves like the underlying value for most operations
-- <strong>Observable Methods</strong>: Provides subscription and reactive operator access
-- <strong>Automatic Synchronization</strong>: Keeps the displayed value in sync with the observable
-- <strong>Operator Support</strong>: Enables <code>+</code>, <code>&gt;&gt;</code>, and other reactive operators
-- <strong>Type Safety</strong>: Generic type parameter ensures type-safe operations</p>
+(<code>store.attr.subscribe(callback)</code>) through a single attribute. The wrapper subscribes
+to the underlying Observable during initialization, keeping its displayed value
+synchronized automatically.</p>
+<p>The ValueMixin provides transparent behavior: <code>__str__</code> delegates to the value,
+<code>__eq__</code> compares against the value (delegating to the underlying Observable's equality),
+<code>__iter__</code> iterates over collections or wraps scalars in a single-item list, <code>__len__</code>
+returns 0 for non-collections or the collection length otherwise, and <code>__contains__</code>
+works for collections but returns False for scalars. Reactive operators (<code>+</code>, <code>&gt;&gt;</code>, <code>&amp;</code>)
+unwrap ObservableValue operands and delegate to the underlying Observable.</p>
 
 
 <details class="example" open>
@@ -1603,14 +1591,18 @@ provide both familiar value access (<code>store.attr = value</code>) and reactiv
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Direct value access (like a regular attribute)</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">counter</span><span class="p">)</span>              <span class="c1"># 0</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>         <span class="c1"># True</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>         <span class="c1"># TypeError (unless value is a collection)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>         <span class="c1"># 0 (returns 0 for non-collections)</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Observable methods</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>              <span class="c1"># Update the value</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="c1"># Iteration: scalars wrap in single-item list, collections iterate normally</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">counter</span><span class="p">:</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                 <span class="c1"># 0 (scalar wrapped as [0])</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Reactive operators</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">doubled</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="c1"># Observable methods</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>              <span class="c1"># Update the value</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Reactive operators</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">doubled</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
 </code></pre></div>
 </details>
 
@@ -1736,24 +1728,27 @@ Store: Uses ObservableValue for transparent reactive attributes</p>
 attributes that behave like regular Python attributes while providing full reactive
 capabilities. When accessed, it returns an ObservableValue instance that combines
 direct value access with observable methods.</p>
-<p>This descriptor is the foundation for FynX's transparent reactive programming model,
-allowing you to write code that looks like regular attribute access while maintaining
-full reactive capabilities.</p>
-<p>Key Features:
-- <strong>Class-Level Observables</strong>: Creates observables at the class level for shared state
-- <strong>Transparent Access</strong>: Attributes behave like regular values but are reactive
-- <strong>Automatic Management</strong>: Handles observable lifecycle and descriptor protocol
-- <strong>Store Integration</strong>: Designed to work seamlessly with Store classes
-- <strong>Memory Efficient</strong>: Reuses observable instances across class access</p>
+<p>This descriptor is the foundation for FynX's transparent reactive programming model.
+The StoreMeta metaclass converts <code>observable()</code> instances (which return Observable
+objects) into SubscriptableDescriptor instances during class creation. When you write
+<code>name = observable("Alice")</code> in a Store subclass, StoreMeta detects the Observable
+and replaces it with a SubscriptableDescriptor that wraps the original Observable.</p>
+<p>The descriptor stores observables at the class level (as <code>_{attr_name}_observable</code>
+attributes) to ensure shared state across all access. On first access via <code>__get__</code>,
+it creates or retrieves the class-level Observable and returns an ObservableValue wrapper.
+Subsequent accesses reuse the same observable instance. The <code>__set__</code> method delegates
+to the observable's <code>set()</code> method, triggering reactive updates.</p>
 
 
 <details class="how-it-works" open>
   <summary>How It Works</summary>
   <ol>
-<li>When assigned to a class attribute, stores initial value and owner class</li>
-<li>On first access, creates a class-level Observable instance</li>
+<li>StoreMeta converts <code>observable()</code> instances to SubscriptableDescriptor during
+   class creation, storing the original Observable for later use</li>
+<li>On first attribute access, <code>__get__</code> creates a class-level Observable instance
+   (or uses the original if provided) and stores it as <code>_{attr_name}_observable</code></li>
 <li>Returns an ObservableValue wrapper for transparent reactive access</li>
-<li>Subsequent accesses reuse the same observable instance</li>
+<li>Subsequent accesses reuse the same observable instance from the class</li>
 </ol>
 </details>
 
@@ -1762,7 +1757,7 @@ full reactive capabilities.</p>
   <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="c1"># This creates a SubscriptableDescriptor</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="c1"># StoreMeta converts this Observable to a SubscriptableDescriptor</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
@@ -1783,13 +1778,14 @@ full reactive capabilities.</p>
 <details class="note" open>
   <summary>Note</summary>
   <p>This descriptor is typically used indirectly through the <code>observable()</code> function
-in Store classes. Direct instantiation is usually not needed.</p>
+in Store classes, which returns an Observable that StoreMeta converts to a
+SubscriptableDescriptor. Direct instantiation is usually not needed.</p>
 </details>
 
 <details class="see-also" open>
   <summary>See Also</summary>
   <p>ObservableValue: The wrapper returned by this descriptor
-observable: Convenience function that creates SubscriptableDescriptor instances
+observable: Function that creates Observable instances (converted by StoreMeta)
 Store: Uses this descriptor for reactive class attributes</p>
 </details>
 
@@ -1827,6 +1823,106 @@ Store: Uses this descriptor for reactive class attributes</p>
     <div class="doc doc-contents ">
 
         <p>Get the observable value for this attribute.</p>
+<p>This method is called when the attribute is accessed. It creates or retrieves
+the class-level Observable instance and returns an ObservableValue wrapper
+that provides transparent value access while maintaining reactive capabilities.</p>
+<p>The observable is stored at the class level as <code>_{attr_name}_observable</code> to
+ensure shared state across all access. If the original Observable was provided
+during descriptor creation (by StoreMeta), it is reused; otherwise, a new
+Observable is created with the initial value.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>instance</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="object">object</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The instance that accessed the attribute (unused for class-level access)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>owner</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Type">Type</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The class that owns this descriptor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="typing.Any">Any</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>An ObservableValue instance wrapping the class-level Observable</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="AttributeError">AttributeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the descriptor is not properly initialized (owner is None)</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1847,6 +1943,82 @@ Store: Uses this descriptor for reactive class attributes</p>
     <div class="doc doc-contents ">
 
         <p>Set the value on the observable.</p>
+<p>This method is called when the attribute is assigned a new value. It delegates
+to the underlying Observable's <code>set()</code> method, which triggers reactive updates
+and notifies all observers.</p>
+<p>The observable is created if it doesn't exist (using the same logic as <code>__get__</code>),
+ensuring that assignment works even before the attribute has been accessed.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>instance</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="object">object</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The instance that assigned the value (unused for class-level assignment)</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>value</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="fynx.observable.descriptors.T">T</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The new value to set on the observable</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="AttributeError">AttributeError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the descriptor is not properly initialized and no instance
+          is provided to determine the owner class</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -1867,6 +2039,56 @@ Store: Uses this descriptor for reactive class attributes</p>
     <div class="doc doc-contents ">
 
         <p>Called when the descriptor is assigned to a class attribute.</p>
+<p>This method is invoked automatically by Python when the descriptor is assigned
+to a class attribute. It stores the attribute name and owner class for later
+use in <code>__get__</code> and <code>__set__</code> methods.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>owner</code>
+            </td>
+            <td>
+                  <code><span title="typing.Type">Type</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The class that owns this descriptor</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The name of the attribute this descriptor is assigned to</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

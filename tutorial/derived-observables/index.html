@@ -1876,7 +1876,7 @@
 <a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="n">doubled_operator</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">&gt;&gt;</span> <span class="n">multiply_by_external</span>
 <a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>
 <a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a><span class="n">external_multiplier</span> <span class="o">=</span> <span class="mi">3</span>
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Still uses old multiplier value (2), result = 10</span>
+<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Uses current multiplier value (3), result = 15</span>
 </code></pre></div>
 <p>If your transformation depends on variables outside the observable, FynX won't track those dependencies. Keep all reactive state inside observables for predictable behavior.</p>
 <h2 id="best-practices-for-transformations">Best Practices for Transformations<a class="headerlink" href="#best-practices-for-transformations" title="Permanent link">&para;</a></h2>

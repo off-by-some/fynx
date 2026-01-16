@@ -1630,7 +1630,7 @@
 <a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="n">is_warning</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># Still prints (is_error is True)</span>
 <a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="n">is_error</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>   <span class="c1"># Still prints (is_critical is False, but was True initially)</span>
 </code></pre></div>
-<p>The <code>|</code> operator creates conditional observables that only emit when the OR result is truthy. If the initial OR result is falsy, it raises <code>ConditionalNeverMet</code>.</p>
+<p>The <code>|</code> operator creates conditional observables that only emit when the OR result is truthy. If all conditions are initially False, accessing the value will raise <code>ConditionalNeverMet</code> until at least one condition becomes True.</p>
 <h3 id="combining-or-with-other-operators">Combining OR with Other Operators<a class="headerlink" href="#combining-or-with-other-operators" title="Permanent link">&para;</a></h3>
 <p>You can combine <code>|</code> with <code>&amp;</code> and <code>~</code> for complex logical expressions:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">user_input</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>

@@ -1588,9 +1588,10 @@
 
 
         <p>Raised when a reactive function is called manually instead of through reactive triggers.</p>
-<p>Reactive functions are designed to run automatically when their observable dependencies change.
-Manually calling them mixes reactive and imperative paradigms and should be avoided.</p>
-<p>Instead of calling reactive functions directly, modify the observable values that trigger them.</p>
+<p>Reactive functions run automatically when their observable dependencies change.
+Manual invocation mixes reactive and imperative paradigms—the framework prevents this
+to maintain clear separation. Modify the observable values that trigger the function instead,
+or call <code>.unsubscribe()</code> to convert the function back to normal, callable form.</p>
 
 
 
@@ -1620,8 +1621,13 @@ Manually calling them mixes reactive and imperative paradigms and should be avoi
 
 
         <p>Wraps a reactive function and manages its subscription lifecycle.</p>
-<p>This wrapper acts like the original function but prevents manual calls
-while subscribed. After unsubscribe(), it becomes a normal function again.</p>
+<p>Consider a thermostat: it monitors temperature and triggers heating when needed.
+You don't manually flip the switch—the system responds automatically. This wrapper
+enforces that pattern: while subscribed, the function runs reactively, not manually.
+After <code>unsubscribe()</code>, it reverts to normal function behavior—you can call it directly.</p>
+<p>The wrapper preserves function metadata (name, docstring) and tracks subscriptions
+internally. When targets change, it invokes the function automatically. Manual calls
+raise <code>ReactiveFunctionWasCalled</code> to prevent mixing paradigms.</p>
 
         <p>Initialize the wrapper with the function and its reactive targets.</p>
 
@@ -1707,6 +1713,10 @@ while subscribed. After unsubscribe(), it becomes a normal function again.</p>
     <div class="doc doc-contents ">
 
         <p>Call the wrapped function, raising an error if still subscribed.</p>
+<p>While subscribed, manual calls raise <code>ReactiveFunctionWasCalled</code>. This enforces
+the reactive contract: functions run automatically when dependencies change, not
+when you call them. After <code>unsubscribe()</code>, this method delegates to the original
+function normally.</p>
 
 
     </div>
@@ -1727,6 +1737,10 @@ while subscribed. After unsubscribe(), it becomes a normal function again.</p>
     <div class="doc doc-contents ">
 
         <p>Unsubscribe from all reactive targets, making this a normal function again.</p>
+<p>This severs the reactive connection: the function stops responding to changes
+and becomes callable normally. The operation is idempotent—calling it multiple
+times is safe. After unsubscription, you can call the function manually without
+raising <code>ReactiveFunctionWasCalled</code>.</p>
 
 
     </div>
@@ -1756,15 +1770,60 @@ while subscribed. After unsubscribe(), it becomes a normal function again.</p>
     <div class="doc doc-contents ">
 
         <p>Create a reactive handler that works as a decorator.</p>
-<p>This is a convenience wrapper around subscribe() that works as a decorator.</p>
+<p>This decorator bridges declarative state management with imperative side effects.
+Instead of manually subscribing and unsubscribing, you declare what observables
+matter and the framework handles the lifecycle.</p>
+<p>The decorator accepts three patterns:</p>
+<ol>
+<li>
+<p><strong>Store subscription</strong>: <code>@reactive(StoreClass)</code> reacts to all observables
+   in the store, passing a <code>StoreSnapshot</code> to the function.</p>
+</li>
+<li>
+<p><strong>Single observable</strong>: <code>@reactive(observable)</code> reacts to one observable,
+   passing its current value to the function.</p>
+</li>
+<li>
+<p><strong>Multiple observables</strong>: <code>@reactive(obs1, obs2, ...)</code> merges observables
+   and passes their values as separate arguments.</p>
+</li>
+</ol>
+<p>The function executes immediately with current values when decorated, then
+runs automatically whenever dependencies change. While subscribed, manual
+calls raise <code>ReactiveFunctionWasCalled</code>. Call <code>.unsubscribe()</code> to restore
+normal function behavior.</p>
 
 
-<details class="as-decorator" open>
-  <summary>As decorator</summary>
-  <p>@reactive(store) - reacts to all observables in store
-@reactive(observable) - reacts to single observable
-@reactive(obs1, obs2, ...) - reacts to multiple observables</p>
-</details>
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span><span class="p">,</span> <span class="n">reactive</span><span class="p">,</span> <span class="n">Store</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Single observable</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">count</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">count</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">log_count</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Count: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">count</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Count: 5&quot;</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Store subscription</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">class</span><span class="w"> </span><span class="nc">UserStore</span><span class="p">(</span><span class="n">Store</span><span class="p">):</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">age</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">UserStore</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_user_change</span><span class="p">(</span><span class="n">snapshot</span><span class="p">):</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">snapshot</span><span class="o">.</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>  <span class="c1"># Triggers on_user_change</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Multiple observables</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">age</span><span class="p">)</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_name_or_age</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">age</span><span class="p">):</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Name: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">, Age: </span><span class="si">{</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="mi">31</span>  <span class="c1"># Triggers on_name_or_age</span>
+</code></pre></div>
+
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <table>
@@ -1810,7 +1869,16 @@ while subscribed. After unsubscribe(), it becomes a normal function again.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>ReactiveWrapper instance that acts like the original function</p>
+                <p>ReactiveWrapper instance that acts like the original function but prevents</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>manual calls while subscribed.</p>
               </div>
             </td>
           </tr>

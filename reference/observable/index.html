@@ -1301,19 +1301,14 @@
 
 
         <p>A reactive value that automatically notifies dependents when it changes.</p>
-<p>Observable is the core primitive of FynX's reactivity system. It wraps a value
-and provides transparent reactive behavior - when the value changes, all
-dependent computations and reactions are automatically notified and updated.</p>
-<p>Key Features:
-- <strong>Transparent</strong>: Behaves like a regular value but with reactive capabilities
-- <strong>Dependency Tracking</strong>: Automatically tracks which reactive contexts depend on it
-- <strong>Change Notification</strong>: Notifies all observers when the value changes
-- <strong>Type Safety</strong>: Generic type parameter ensures type-safe operations
-- <strong>Lazy Evaluation</strong>: Computations only re-run when actually needed
-- <strong>Circular Dependency Detection</strong>: Prevents infinite loops at runtime</p>
-<p>Observable implements various magic methods (<code>__eq__</code>, <code>__str__</code>, etc.) to
-behave like its underlying value in most contexts, making it easy to use
-in existing code without modification.</p>
+<p>Observable wraps any Python value and makes it reactive. When you modify the
+value, all computations and functions that depend on it recalculate automatically.
+Wrap any value in an Observable, and functions that read it during reactive
+execution will re-run when the value changes.</p>
+<p>The mechanism works through dependency tracking. When a reactive function executes, it runs within a ReactiveContext. That context watches which observables get accessed via their <code>.value</code> property. Each access registers the observable as a dependency and adds the context's re-run function as an observer. Later, when you call <code>.set()</code> on the observable, it notifies all observers, causing dependent functions to re-execute with fresh values.</p>
+<p>Observable implements magic methods to behave like its underlying value. You can use it in boolean contexts (<code>if observable:</code>), string formatting (<code>f"{observable}"</code>), and equality comparisons (<code>observable == 5</code>) without accessing <code>.value</code> explicitly. That transparency makes observables easy to integrate into existing code—they look and feel like regular values.</p>
+<p>The notification system uses batched processing with topological sorting. When multiple observables change, the system collects pending notifications and processes them in dependency order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.</p>
+<p>Circular dependency detection prevents infinite loops. If a computation tries to modify one of its own dependencies (directly or indirectly), the system raises a RuntimeError. The detection works by checking whether the current reactive context depends on the observable being modified.</p>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -1329,7 +1324,7 @@ in existing code without modification.</p>
           <tr class="doc-section-item">
             <td><code><a class="autorefs autorefs-internal" title="key (fynx.observable.base.Observable.key)" href="#fynx.observable.base.Observable.key">key</a></code></td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="str">str</span></code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1340,7 +1335,6 @@ in existing code without modification.</p>
           <tr class="doc-section-item">
             <td><code><span title="fynx.observable.base.Observable._value">_value</span></code></td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="fynx.observable.base.T">T</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1355,7 +1349,7 @@ in existing code without modification.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Set of observer functions</p>
+                <p>Set of observer functions to notify on change</p>
               </div>
             </td>
           </tr>
@@ -1365,8 +1359,11 @@ in existing code without modification.</p>
 
 <details class="class-attributes" open>
   <summary>Class Attributes</summary>
-  <p>_current_context (Optional[ReactiveContext]): Current reactive execution context
-_context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
+  <p>_current_context: Current reactive execution context (None when not in reactive execution)
+_context_stack: Stack of nested reactive contexts for proper dependency tracking
+_pending_notifications: Set of observables waiting to notify observers
+_notification_scheduled: Whether notification processing is scheduled
+_currently_notifying: Set of observables currently notifying (prevents re-entrant notifications)</p>
 </details>
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1389,8 +1386,8 @@ _context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A unique identifier for this observable (used for debugging).
- If None, will be set to "<unnamed>" and updated in <strong>set_name</strong>.</p>
+                <p>A unique identifier for this observable (used for debugging and serialization).
+ If None, will be set to "<unnamed>" and updated in <strong>set_name</strong> when used as a class attribute.</p>
               </div>
             </td>
             <td>
@@ -1406,7 +1403,7 @@ _context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The initial value to store. Can be any type.</p>
+                <p>The initial value to store. Can be any type compatible with the generic type parameter.</p>
               </div>
             </td>
             <td>
@@ -1432,7 +1429,7 @@ _context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If a circular dependency is detected during value updates.</p>
+                <p>If setting this value would create a circular dependency (e.g., a computed value trying to modify its own input).</p>
               </div>
             </td>
           </tr>
@@ -1453,8 +1450,8 @@ _context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">counter</span><span class="p">))</span>   <span class="c1"># &quot;0&quot;</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="c1"># Subscribe to changes</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">():</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Counter changed to: </span><span class="si">{</span><span class="n">counter</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">(</span><span class="n">new_value</span><span class="p">):</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Counter changed to: </span><span class="si">{</span><span class="n">new_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">counter</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_change</span><span class="p">)</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Counter changed to: 5&quot;</span>
@@ -1463,9 +1460,7 @@ _context_stack (List[ReactiveContext]): Stack of nested reactive contexts</p>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>While you can create Observable instances directly, it's often more
-convenient to use the <code>observable()</code> descriptor in Store classes for
-better organization and automatic serialization support.</p>
+  <p>While you can create Observable instances directly, it's often more convenient to use the <code>observable()</code> descriptor in Store classes for better organization and automatic serialization support.</p>
 </details>
 
 <details class="see-also" open>
@@ -1577,8 +1572,8 @@ reactive: For creating reactive functions that respond to changes</p>
     <div class="doc doc-contents ">
 
         <p>Get the current value of this observable.</p>
-<p>Accessing the value property automatically registers this observable
-as a dependency if called within a reactive context (computation or reaction).</p>
+<p>Accessing this property reads the wrapped value. If called within a reactive context (during execution of a reactive function or computation), it also registers this observable as a dependency. That registration happens automatically—the current ReactiveContext (if any) adds this observable to its dependency set and registers itself as an observer.</p>
+<p>The dependency tracking enables automatic re-execution. When you later call <code>.set()</code> on this observable, all registered observers (including reactive contexts that depend on it) get notified and re-run their functions with fresh values.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -1606,19 +1601,21 @@ as a dependency if called within a reactive context (computation or reaction).</
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>This property is tracked by the reactive system. Use it instead of
-accessing _value directly to ensure proper dependency tracking.</p>
+  <p>This property is tracked by the reactive system. Use it instead of accessing <code>_value</code> directly to ensure proper dependency tracking. Outside reactive contexts, reading <code>.value</code> behaves like a regular property access.</p>
 </details>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># 5</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">reactive</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># In a reactive context, this creates a dependency</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">print_value</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># 5</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># In a reactive context, this creates a dependency</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">print_value</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value: </span><span class="si">{</span><span class="n">val</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
 </details>
     </div>
@@ -2023,7 +2020,8 @@ enabling observables to be used seamlessly in string contexts.</p>
   <summary>Example</summary>
   <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;Alice&quot;</span><span class="p">)</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hello </span><span class="si">{</span><span class="n">obs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Hello Alice&quot;</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;User: &quot;</span> <span class="o">+</span> <span class="n">obs</span>  <span class="c1"># Works like &quot;User: &quot; + obs.value</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Note: String concatenation with + requires explicit .value access</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;User: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">obs</span><span class="p">)</span>  <span class="c1"># Works with str() conversion</span>
 </code></pre></div>
 </details>
 
@@ -2147,11 +2145,9 @@ enabling observables to be used seamlessly in string contexts.</p>
     <div class="doc doc-contents ">
 
         <p>Set the value and notify all observers if the value changed.</p>
-<p>This method updates the observable's value and triggers change notifications
-to all registered observers. The update only occurs if the new value is
-different from the current value (using != comparison).</p>
-<p>Circular dependency detection is performed to prevent infinite loops where
-a computation tries to modify one of its own dependencies.</p>
+<p>This method updates the observable's wrapped value and triggers change notifications to all registered observers. The update only occurs if the new value differs from the current value (using <code>!=</code> comparison). If the value hasn't changed, observers are not notified—that avoids unnecessary re-computations.</p>
+<p>Before updating, the method checks for circular dependencies. If the current reactive context depends on this observable (directly or indirectly), setting the value would create a cycle. The system raises a RuntimeError in that case, preventing infinite loops.</p>
+<p>When the value does change, the observable adds itself to a pending notifications set. The notification system processes these in topological order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2174,8 +2170,7 @@ a computation tries to modify one of its own dependencies.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The new value to set. Can be any type compatible with the
-   observable's generic type parameter.</p>
+                <p>The new value to set. Can be any type compatible with the observable's generic type parameter.</p>
               </div>
             </td>
             <td>
@@ -2201,8 +2196,7 @@ a computation tries to modify one of its own dependencies.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If setting this value would create a circular dependency
-         (e.g., a computed value trying to modify its own input).</p>
+                <p>If setting this value would create a circular dependency (e.g., a computed value trying to modify its own input).</p>
               </div>
             </td>
           </tr>
@@ -2212,18 +2206,19 @@ a computation tries to modify one of its own dependencies.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Triggers observers if value changed</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># No change, no notification</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Same value, observers not called</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Triggers observers if value changed</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># No change, no notification</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Same value, observers not called</span>
 </code></pre></div>
 </details>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>Equality is checked using <code>!=</code> operator, so custom objects should
-implement proper equality comparison if needed.</p>
+  <p>Equality is checked using the <code>!=</code> operator, so custom objects should implement proper equality comparison if needed.</p>
 </details>
 
     </div>
@@ -2244,7 +2239,9 @@ implement proper equality comparison if needed.</p>
     <div class="doc doc-contents ">
 
         <p>Subscribe a function to react to changes in this observable.</p>
-<p>The subscribed function will be called whenever the observable's value changes.</p>
+<p>The subscribed function will be called whenever the observable's value changes. The function receives the new value as its single argument. This creates a ReactiveContext that wraps the function and registers it as an observer on this observable.</p>
+<p>When you call <code>.set()</code> with a new value, the observable notifies all observers. The subscription system ensures that your function runs with the updated value. The function is not called immediately upon subscription—only when the value actually changes.</p>
+<p>The subscription creates a reactive context internally. That context tracks dependencies if your function accesses other observables during execution, enabling automatic re-execution when those dependencies change as well.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2267,8 +2264,7 @@ implement proper equality comparison if needed.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A callable that accepts one argument (the new value).
-  The function will be called whenever the observable's value changes.</p>
+                <p>A callable that accepts one argument (the new value). The function will be called whenever the observable's value changes.</p>
               </div>
             </td>
             <td>
@@ -2304,20 +2300,21 @@ implement proper equality comparison if needed.</p>
 
 <details class="example" open>
   <summary>Example</summary>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">(</span><span class="n">new_value</span><span class="p">):</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Observable changed to: </span><span class="si">{</span><span class="n">new_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">obs</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_change</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Observable changed to: 5&quot;</span>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx.observable</span><span class="w"> </span><span class="kn">import</span> <span class="n">Observable</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_change</span><span class="p">(</span><span class="n">new_value</span><span class="p">):</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Observable changed to: </span><span class="si">{</span><span class="n">new_value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">Observable</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">obs</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">on_change</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">obs</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Observable changed to: 5&quot;</span>
 </code></pre></div>
 </details>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>The function is called only when the observable's value changes.
-It is not called immediately upon subscription.</p>
+  <p>The function is called only when the observable's value changes. It is not called immediately upon subscription.</p>
 </details>
 
 <details class="see-also" open>

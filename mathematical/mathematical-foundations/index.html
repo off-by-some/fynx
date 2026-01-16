@@ -1166,6 +1166,33 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#monoidal-cost-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monoidal Cost Model
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sharing-penalty-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sharing Penalty Model
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#total-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      Total Cost
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#why-optimization-is-sound" class="md-nav__link">
     <span class="md-ellipsis">
       Why Optimization is Sound
@@ -1642,6 +1669,33 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#monoidal-cost-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monoidal Cost Model
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sharing-penalty-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sharing Penalty Model
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#total-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      Total Cost
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#why-optimization-is-sound" class="md-nav__link">
     <span class="md-ellipsis">
       Why Optimization is Sound
@@ -1941,7 +1995,7 @@
 <a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Validation conditions</span>
 <a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">username_valid</span> <span class="o">=</span> <span class="n">username</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="ow">and</span> <span class="n">u</span><span class="o">.</span><span class="n">isalnum</span><span class="p">())</span>
 <a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="n">email_valid</span> <span class="o">=</span> <span class="n">email</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="s2">&quot;@&quot;</span> <span class="ow">in</span> <span class="n">e</span> <span class="ow">and</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="n">password_strong</span> <span class="o">=</span> <span class="n">password</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">8</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">isupper</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">))</span>
+<a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="n">password_strong</span> <span class="o">=</span> <span class="n">password</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">8</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">isupper</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">islower</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">))</span>
 <a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="n">age_appropriate</span> <span class="o">=</span> <span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="mi">13</span> <span class="o">&lt;=</span> <span class="n">a</span> <span class="o">&lt;=</span> <span class="mi">120</span><span class="p">)</span>
 <a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
 <a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="c1"># Form only submittable when all validations pass</span>
@@ -2014,7 +2068,7 @@
 <a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="n">terms_accepted</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a>
 <a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="c1"># Functors: lift validation functions</span>
-<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="n">is_valid_email</span> <span class="o">=</span> <span class="n">email</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="s2">&quot;@&quot;</span> <span class="ow">in</span> <span class="n">e</span> <span class="ow">and</span> <span class="s2">&quot;.&quot;</span> <span class="ow">in</span> <span class="n">e</span><span class="p">)</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="n">is_valid_email</span> <span class="o">=</span> <span class="n">email</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">e</span><span class="p">:</span> <span class="s2">&quot;@&quot;</span> <span class="ow">in</span> <span class="n">e</span> <span class="ow">and</span> <span class="n">e</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">e</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">e</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">part</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">e</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">part</span><span class="p">))</span>
 <a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="n">is_strong_password</span> <span class="o">=</span> <span class="n">password</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">8</span><span class="p">)</span>
 <a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a>
 <a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="c1"># Product: combine related fields</span>
@@ -2063,15 +2117,28 @@
 <div class="arithmatex">\[\text{obs} \&amp; c_1 \&amp; c_2 \&amp; c_3 \rightarrow \text{obs} \&amp; (c_1 \wedge c_2 \wedge c_3)\]</div>
 <p>Multiple conditional checks become one. The algebraic structure proves this fusion preserves semantics.</p>
 <h3 id="cost-based-materialization">Cost-Based Materialization<a class="headerlink" href="#cost-based-materialization" title="Permanent link">&para;</a></h3>
-<p>The optimizer decides whether to cache or recompute each node using a cost model:</p>
-<div class="arithmatex">\[C(\sigma) = \alpha \cdot +\text{Dep}(\sigma)+ + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)\]</div>
-<p>This cost functional has important mathematical structure. It's a monoidal functor from the reactive category to the ordered monoid <span class="arithmatex">\((\mathbb{R}^+, +, 0)\)</span>. This means:</p>
+<p>The optimizer decides whether to cache or recompute each node using a two-stage cost model that combines monoidal composition with sharing penalties:</p>
+<h3 id="monoidal-cost-model">Monoidal Cost Model<a class="headerlink" href="#monoidal-cost-model" title="Permanent link">&para;</a></h3>
+<p>The base cost functional respects the monoidal structure of the reactive category:</p>
+<div class="arithmatex">\[\text{Monoidal Cost}(\sigma) = \alpha \cdot \text{materialization}(\sigma) + \beta \cdot \text{recomputation}(\sigma) + \sum_{\tau \in \text{dependencies}(\sigma)} \text{Monoidal Cost}(\tau)\]</div>
+<p>Where:
+- <span class="arithmatex">\(\alpha\)</span>: Memory cost coefficient for materialized nodes
+- <span class="arithmatex">\(\beta\)</span>: Computation cost coefficient<br />
+- <span class="arithmatex">\(\text{materialization}(\sigma)\)</span>: 1 if node is cached, 0 otherwise
+- <span class="arithmatex">\(\text{recomputation}(\sigma)\)</span>: <span class="arithmatex">\(\mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma)\)</span> if not cached, 0 otherwise</p>
+<p>This cost functional is a monoidal functor <span class="arithmatex">\(C: \mathcal{C}_T \to (\mathbb{R}^+, +, 0)\)</span>, ensuring that:</p>
 <p><span class="arithmatex">\(C(g \circ f) \leq C(g) + C(f)\)</span></p>
-<p>Cost flows from sources to dependents through the graph structure. When we compute a node's cost, we're summing its local computation cost with the costs flowing from its dependencies. This monoidal composition ensures that optimization decisions compose correctly—choosing the minimal-cost materialization strategy at each node yields a globally optimal strategy.</p>
-<p>The optimizer handles two types of costs:</p>
-<p><strong>Monoidal cost</strong>: Flows through the category following composition laws. For a computed node, this is either the memory cost of materialization (<span class="arithmatex">\(\alpha\)</span>) or the recomputation cost (<span class="arithmatex">\(\beta \cdot \text{frequency} \cdot \text{computation\_cost}\)</span>).</p>
-<p><strong>Sharing penalty</strong>: Accounts for redundant computation when a non-materialized node has multiple dependents. This breaks the monoidal structure slightly but captures the real cost of sharing in practice.</p>
-<p>For frequently-accessed or deep nodes, caching wins. For cheap or rarely-accessed nodes, recomputation wins.</p>
+<p>Cost flows compositionally from sources to dependents through the graph structure.</p>
+<h3 id="sharing-penalty-model">Sharing Penalty Model<a class="headerlink" href="#sharing-penalty-model" title="Permanent link">&para;</a></h3>
+<p>In addition to monoidal costs, the optimizer accounts for sharing penalties that arise when non-materialized nodes have multiple dependents:</p>
+<div class="arithmatex">\[\text{Sharing Penalty}(\sigma) = \begin{cases} 
+0 &amp; \text{if } \sigma \text{ is materialized or } |\text{dependents}(\sigma)| \leq 1 \\
+(\text{dependents}(\sigma) - 1) \cdot \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma) &amp; \text{otherwise}
+\end{cases}\]</div>
+<h3 id="total-cost">Total Cost<a class="headerlink" href="#total-cost" title="Permanent link">&para;</a></h3>
+<p>The complete cost model combines both components:</p>
+<div class="arithmatex">\[\text{Total Cost}(\sigma) = \text{Monoidal Cost}(\sigma) + \text{Sharing Penalty}(\sigma)\]</div>
+<p>The monoidal component ensures compositionality and global optimality, while the sharing penalty captures contextual costs that depend on usage patterns. For frequently-accessed or deep nodes, caching wins. For cheap or rarely-accessed nodes, recomputation wins. When a node has multiple dependents, materialization becomes more attractive to avoid redundant computation.</p>
 <h3 id="why-optimization-is-sound">Why Optimization is Sound<a class="headerlink" href="#why-optimization-is-sound" title="Permanent link">&para;</a></h3>
 <p>These aren't heuristics discovered through profiling. Each rewrite is justified by category theory. Composition collapse follows from functor laws. Product factorization follows from universal properties. Pullback fusion follows from Boolean algebra structure. Materialization follows from monoidal cost composition.</p>
 <p>The optimizer can be aggressive because the mathematics proves when rewrites preserve semantics. This is optimization guided by proof.</p>

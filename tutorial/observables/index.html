@@ -1276,7 +1276,7 @@
 <a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Double: 10</span>
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="c1"># Square: 25</span>
 </code></pre></div>
-<p>All subscribers receive the same value, and they run in the order you subscribed them.</p>
+<p>All subscribers receive the same value. The execution order is not guaranteed and may vary between runs.</p>
 <h2 id="unsubscribing">Unsubscribing<a class="headerlink" href="#unsubscribing" title="Permanent link">&para;</a></h2>
 <p>When you no longer need to listen to an observable, unsubscribe to prevent memory leaks:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">logger</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
@@ -1302,7 +1302,7 @@
 <a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
 <a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">add_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">item</span><span class="p">):</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span> <span class="o">+</span> <span class="p">[</span><span class="n">item</span><span class="p">]</span>  <span class="c1"># Immutable update</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">)</span>
 <a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">update_ui</span><span class="p">()</span>  <span class="c1"># Manual synchronization</span>
 <a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">save_to_storage</span><span class="p">()</span>  <span class="c1"># Manual synchronization</span>
