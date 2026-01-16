@@ -9,6 +9,7 @@ from fynx.observable.conditional import ConditionalObservable
 from fynx.optimizer import (
     Morphism,
     MorphismParser,
+    MorphismType,
     ReactiveGraph,
     get_graph_statistics,
     optimize_reactive_graph,
@@ -142,22 +143,6 @@ def test_get_graph_statistics_reports_counts():
 
 
 @pytest.mark.unit
-def test_compute_equivalence_classes_partitions_by_structure():
-    """Equivalent computed shapes end up in the same structural class."""
-    # Arrange
-    base = observable(3)
-    c1 = base >> (lambda x: x + 1)
-    c2 = base >> (lambda x: x + 2) >> (lambda x: x - 1)
-    graph = ReactiveGraph()
-    graph.build_from_observables([c1, c2])
-    # Act
-    classes = graph.compute_equivalence_classes()
-    # Assert
-    assert isinstance(classes, dict)
-    assert sum(len(v) for v in classes.values()) == len(graph.nodes)
-
-
-@pytest.mark.unit
 def test_apply_functor_composition_fusion_reduces_chain_nodes():
     """Functor composition fusion collapses linear computed chains."""
     # Arrange
@@ -224,14 +209,13 @@ def test_optimize_runs_all_phases_and_returns_metrics():
     assert set(
         [
             "optimization_time",
-            "equivalence_classes",
             "functor_fusions",
             "product_factorizations",
             "filter_fusions",
             "total_nodes",
             "materialized_nodes",
             "confluence",
-            "universal_properties",
+            "correctness_check",
         ]
     ).issubset(results.keys())
 
@@ -331,26 +315,6 @@ def test_morphism_normalize_handles_associativity():
 
 
 @pytest.mark.unit
-def test_morphism_normalize_handles_unknown_type():
-    """Morphism.normalize() handles unknown morphism types gracefully."""
-    # Create a morphism with unknown type
-    morphism = Morphism("unknown")
-
-    # Should return self for unknown types
-    assert morphism.normalize() is morphism
-
-
-@pytest.mark.unit
-def test_morphism_canonical_form_handles_unknown_type():
-    """Morphism.canonical_form() handles unknown morphism types."""
-    # Create a morphism with unknown type
-    morphism = Morphism("unknown")
-
-    # Should return ("unknown",) for unknown types
-    assert morphism.canonical_form() == ("unknown",)
-
-
-@pytest.mark.unit
 def test_morphism_equality_with_non_morphism():
     """Morphism.__eq__ returns NotImplemented for non-Morphism objects."""
     morphism = Morphism.single("f")
@@ -361,21 +325,11 @@ def test_morphism_equality_with_non_morphism():
 
 
 @pytest.mark.unit
-def test_morphism_str_handles_unknown_type():
-    """Morphism.__str__ handles unknown morphism types."""
-    # Create a morphism with unknown type
-    morphism = Morphism("unknown")
-
-    # Should return "unknown(unknown)" for unknown types
-    assert str(morphism) == "unknown(unknown)"
-
-
-@pytest.mark.unit
 def test_morphism_parser_handles_empty_signature():
     """MorphismParser.parse() handles empty signature by returning identity morphism."""
     # Empty signature should return identity morphism
     result = MorphismParser.parse("")
-    assert result._type == "identity"
+    assert result.morphism_type == MorphismType.IDENTITY
 
 
 @pytest.mark.unit
@@ -413,13 +367,13 @@ def test_check_confluence_reports_convergent_orders():
     # Act
     report = graph.check_confluence()
     # Assert
-    assert report["total_orders_tested"] == 6
+    assert report["total_orders_tested"] == 6  # Test all 6 permutations of rule orders
     assert "convergent_orders" in report
 
 
 @pytest.mark.unit
-def test_verify_universal_properties_returns_counts():
-    """Universal property verification summarizes checked candidates."""
+def test_verify_optimization_correctness():
+    """Optimization correctness verification checks structural invariants."""
     # Arrange
     a = observable(1)
     b = a >> (lambda x: x + 1)
@@ -428,14 +382,14 @@ def test_verify_universal_properties_returns_counts():
     graph = ReactiveGraph()
     graph.build_from_observables([merged])
     # Act
-    summary = graph.verify_universal_properties()
+    summary = graph.verify_optimization_correctness()
     # Assert
     assert set(
         [
-            "verified_products",
-            "verified_pullbacks",
-            "total_candidates_checked",
-            "universal_property_satisfied",
+            "cycles_introduced",
+            "graph_connected",
+            "structural_correctness",
+            "optimization_invariants_held",
         ]
     ).issubset(summary.keys())
 
@@ -451,23 +405,6 @@ def test_compose_morphisms_and_identity_helpers():
 
 
 @pytest.mark.unit
-def test_get_hom_set_representation_includes_cardinality_and_flags():
-    """Hom-set representation includes counts and identity/direct flags."""
-    # Arrange
-    base = observable(1)
-    nxt = base >> (lambda x: x + 1)
-    graph = ReactiveGraph()
-    graph.build_from_observables([nxt])
-    n_base = graph.get_or_create_node(base)
-    n_nxt = graph.get_or_create_node(nxt)
-    # Act
-    rep = graph.get_hom_set_representation(n_base, n_nxt)
-    # Assert
-    assert rep["cardinality"] >= 1
-    assert "from_node" in rep and "to_node" in rep
-
-
-@pytest.mark.unit
 def test_materialization_strategy_sets_is_materialized_flags():
     """Materialization optimization decides per-node storage strategy."""
     # Arrange
@@ -479,21 +416,3 @@ def test_materialization_strategy_sets_is_materialized_flags():
     graph.optimize_materialization()
     # Assert
     assert any(n.is_materialized for n in graph.nodes.values())
-
-
-@pytest.mark.unit
-def test_optimizer_handles_conditional_chains_in_graph_methods():
-    """Graph helpers handle ConditionalObservable when present."""
-    # Arrange
-    data = observable(5)
-    cond = data & (lambda x: x > 3)
-    next_step = cond >> (lambda x: x + 1)
-    graph = ReactiveGraph()
-    graph.build_from_observables([next_step])
-    # Act
-    classes = graph.compute_equivalence_classes()
-    # Assert
-    assert isinstance(classes, dict)
-    assert any(
-        isinstance(n.observable, ConditionalObservable) for n in graph.nodes.values()
-    )

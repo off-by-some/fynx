@@ -75,7 +75,7 @@ What makes FynX special is its transparency. You don't need to learn special syn
 Here's a complete example showing how FynX's concepts work together:
 
 ```python
-from fynx import Store, observable, reactive, watch
+from fynx import Store, observable, reactive
 
 # Create a reactive store grouping related state
 class UserStore(Store):
@@ -83,10 +83,10 @@ class UserStore(Store):
     age = observable(30)
     is_online = observable(False)
 
-    # Computed property that automatically updates when dependencies change
-    greeting = (name + age) >> (
-        lambda n, a: f"Hello, {n}! You are {a} years old."
-    )
+# Computed property that automatically updates when dependencies change
+UserStore.greeting = (UserStore.name + UserStore.age) >> (
+    lambda n, a: f"Hello, {n}! You are {a} years old."
+)
 
 # React to any change in name or age
 @reactive(UserStore.name, UserStore.age)
@@ -98,7 +98,7 @@ is_adult_online = (UserStore.is_online >> (lambda online: online)) & (UserStore.
 @reactive(is_adult_online)
 def on_adult_online(is_adult_online_state):
     if is_adult_online_state:
-        print(f"Adult user {UserStore.name.value} is now online!")
+        print(f"Adult user {UserStore.name} is now online!")
 
 # Changes trigger appropriate reactions automatically
 UserStore.name = "Bob"      # Prints: User updated: Bob, 30

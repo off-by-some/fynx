@@ -430,7 +430,7 @@ doubled_method = counter.then(multiply_by_external)
 doubled_operator = counter >> multiply_by_external
 
 external_multiplier = 3
-counter.set(5)  # Still uses old multiplier value (2), result = 10
+counter.set(5)  # Uses current multiplier value (3), result = 15
 ```
 
 If your transformation depends on variables outside the observable, FynX won't track those dependencies. Keep all reactive state inside observables for predictable behavior.

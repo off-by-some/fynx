@@ -7,7 +7,16 @@ categorical optimization of FynX reactive observable networks.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from enum import Enum
+from typing import List, Optional, Tuple, Union
+
+
+class MorphismType(Enum):
+    """Enumeration of valid morphism types."""
+
+    IDENTITY = "identity"
+    SINGLE = "single"
+    COMPOSE = "compose"
 
 
 @dataclass(frozen=True)
@@ -21,25 +30,32 @@ class Morphism:
     - Compose: represents composition of two morphisms
     """
 
-    _type: str
-    _name: Optional[str] = None
-    _left: Optional["Morphism"] = None
-    _right: Optional["Morphism"] = None
+    morphism_type: MorphismType
+    name: Optional[str] = None
+    left: Optional["Morphism"] = None
+    right: Optional["Morphism"] = None
 
     @staticmethod
     def identity() -> "Morphism":
         """Create an identity morphism."""
-        return Morphism(_type="identity")
+        return Morphism(morphism_type=MorphismType.IDENTITY)
 
     @staticmethod
     def single(name: str) -> "Morphism":
         """Create a single morphism with the given name."""
-        return Morphism(_type="single", _name=name)
+        return Morphism(morphism_type=MorphismType.SINGLE, name=name)
 
     @staticmethod
     def compose(left: "Morphism", right: "Morphism") -> "Morphism":
         """Create a composition of two morphisms."""
-        return Morphism(_type="compose", _left=left, _right=right)
+        return Morphism(morphism_type=MorphismType.COMPOSE, left=left, right=right)
+
+    def _validate_compose_components(self) -> None:
+        """Validate that a compose morphism has both left and right components."""
+        if self.left is None or self.right is None:
+            raise ValueError(
+                "Compose morphism must have both left and right components"
+            )
 
     def normalize(self) -> "Morphism":
         """
@@ -48,51 +64,51 @@ class Morphism:
         Identity laws: f ∘ id = f, id ∘ f = f
         Associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)
         """
-        if self._type == "identity":
+        if self.morphism_type == MorphismType.IDENTITY:
             return self
-        elif self._type == "single":
+        elif self.morphism_type == MorphismType.SINGLE:
             return self
-        elif self._type == "compose":
+        elif self.morphism_type == MorphismType.COMPOSE:
             # Recursively normalize components
-            assert self._left is not None and self._right is not None
-            left_norm = self._left.normalize()
-            right_norm = self._right.normalize()
+            self._validate_compose_components()
+            left_norm = self.left.normalize()
+            right_norm = self.right.normalize()
 
-            # Apply identity laws
-            if left_norm._type == "identity":
+            # Apply identity laws: f ∘ id = f, id ∘ f = f
+            if left_norm.morphism_type == MorphismType.IDENTITY:
                 return right_norm
-            if right_norm._type == "identity":
+            if right_norm.morphism_type == MorphismType.IDENTITY:
                 return left_norm
 
-            # Associativity: flatten nested compositions
-            if left_norm._type == "compose":
-                assert left_norm._left is not None and left_norm._right is not None
+            # Associativity: (f ∘ g) ∘ h = f ∘ (g ∘ h)
+            if left_norm.morphism_type == MorphismType.COMPOSE:
+                left_norm._validate_compose_components()
                 return Morphism.compose(
-                    left_norm._left, Morphism.compose(left_norm._right, right_norm)
+                    left_norm.left, Morphism.compose(left_norm.right, right_norm)
                 ).normalize()
 
             return Morphism.compose(left_norm, right_norm)
         else:
             # This should never happen with valid morphism types
-            return self
+            raise ValueError(f"Unknown morphism type: {self.morphism_type}")
 
     def canonical_form(self) -> Tuple[str, ...]:
         """
         Get a canonical tuple representation for equality comparison.
         """
         normalized = self.normalize()
-        if normalized._type == "identity":
+        if normalized.morphism_type == MorphismType.IDENTITY:
             return ("identity",)
-        elif normalized._type == "single":
-            return ("single", normalized._name or "")
-        elif normalized._type == "compose":
-            assert normalized._left is not None and normalized._right is not None
-            left_form = normalized._left.canonical_form()
-            right_form = normalized._right.canonical_form()
+        elif normalized.morphism_type == MorphismType.SINGLE:
+            return ("single", normalized.name or "")
+        elif normalized.morphism_type == MorphismType.COMPOSE:
+            normalized._validate_compose_components()
+            left_form = normalized.left.canonical_form()
+            right_form = normalized.right.canonical_form()
             return ("compose",) + left_form + right_form
         else:
             # This should never happen with valid morphism types
-            return ("unknown",)
+            raise ValueError(f"Unknown morphism type: {normalized.morphism_type}")
 
     def __eq__(self, other: object) -> bool:
         """Check structural equality after normalization."""
@@ -106,15 +122,15 @@ class Morphism:
 
     def __str__(self) -> str:
         """Convert back to string representation."""
-        if self._type == "identity":
+        if self.morphism_type == MorphismType.IDENTITY:
             return "id"
-        elif self._type == "single":
-            return self._name or "unknown"
-        elif self._type == "compose":
-            assert self._left is not None and self._right is not None
-            return f"({self._left}) ∘ ({self._right})"
+        elif self.morphism_type == MorphismType.SINGLE:
+            return self.name or "unknown"
+        elif self.morphism_type == MorphismType.COMPOSE:
+            self._validate_compose_components()
+            return f"({self.left}) ∘ ({self.right})"
         else:
-            return f"unknown({self._type})"
+            raise ValueError(f"Unknown morphism type: {self.morphism_type}")
 
     def __repr__(self) -> str:
         return f"Morphism({self})"

@@ -30,6 +30,7 @@ from typing import (
     List,
     Optional,
     Set,
+    Tuple,
     TypeVar,
 )
 
@@ -51,6 +52,9 @@ class DependencyNode:
     """
 
     def __init__(self, observable: Observable):
+        if not isinstance(observable, Observable):
+            raise TypeError("observable must be an instance of Observable")
+
         self.observable = observable
         self.incoming: Set["DependencyNode"] = set()  # Dependencies
         self.outgoing: Set["DependencyNode"] = set()  # Dependents
@@ -65,35 +69,66 @@ class DependencyNode:
 
     @property
     def depth(self) -> int:
-        """Maximum depth from source nodes to this node."""
+        """
+        Maximum depth from source nodes to this node.
+
+        Uses dynamic programming with cycle detection to compute the longest
+        path from any root node to this node.
+        """
         if self._cached_depth is not None:
             return self._cached_depth
 
-        # Handle cycles by using a visited set
-        visited = set()
+        self._cached_depth = self._calculate_depth_with_cycle_detection()
+        return self._cached_depth
 
-        def calculate_depth(node: DependencyNode, path: set) -> int:
-            if node in path:
-                # Cycle detected, return 0 as a safe default
+    def _calculate_depth_with_cycle_detection(self) -> int:
+        """
+        Calculate depth using DFS with cycle detection.
+
+        Returns the maximum depth from any source node, or 0 if cycles are detected.
+        """
+        visited = set()
+        path_stack = set()
+
+        def dfs_depth(node: DependencyNode) -> int:
+            # Cycle detected - return 0 as safe default
+            if node in path_stack:
                 return 0
+
+            # Already computed
             if node._cached_depth is not None:
                 return node._cached_depth
+
+            # Source node (no incoming dependencies)
             if not node.incoming:
                 node._cached_depth = 0
                 return 0
 
-            path.add(node)
-            try:
-                parent_depths = []
-                for parent in node.incoming:
-                    parent_depths.append(calculate_depth(parent, path))
-                node._cached_depth = 1 + max(parent_depths) if parent_depths else 0
-                return node._cached_depth
-            finally:
-                path.discard(node)
+            # Mark as visiting
+            path_stack.add(node)
+            visited.add(node)
 
-        self._cached_depth = calculate_depth(self, set())
-        return self._cached_depth
+            try:
+                # Recursively calculate depth of all dependencies
+                dependency_depths = []
+                for dependency in node.incoming:
+                    dep_depth = dfs_depth(dependency)
+                    dependency_depths.append(dep_depth)
+
+                # Node depth is 1 + maximum dependency depth
+                max_dep_depth = max(dependency_depths) if dependency_depths else 0
+                node._cached_depth = 1 + max_dep_depth
+                return node._cached_depth
+
+            finally:
+                # Clean up path tracking
+                path_stack.discard(node)
+
+        return dfs_depth(self)
+
+    def invalidate_depth_cache(self) -> None:
+        """Invalidate cached depth computation."""
+        self._cached_depth = None
 
     def __repr__(self) -> str:
         return f"Node({self.observable.key}, depth={self.depth}, deps={len(self.incoming)})"
@@ -105,6 +140,12 @@ class DependencyGraph:
 
     This class provides an elegant, fluent API for working with dependency graphs,
     implementing Python's container protocols for seamless integration.
+
+    The graph maintains mathematical correctness by ensuring:
+    - Topological ordering respects dependency relationships
+    - Cycle detection prevents infinite loops
+    - Depth calculations use proper graph algorithms
+    - Path finding algorithms handle cycles appropriately
 
     Examples
     --------
@@ -124,7 +165,6 @@ class DependencyGraph:
 
     def __init__(self):
         self.nodes: Dict[Observable, DependencyNode] = {}
-        self._root_nodes: Set[DependencyNode] = set()
         self._node_cache = weakref.WeakKeyDictionary()
         self._cached_cycles: Optional[List[List[DependencyNode]]] = None
         self._cached_stats: Optional[Dict[str, Any]] = None
@@ -138,22 +178,28 @@ class DependencyGraph:
         """Iterate over all nodes in the graph."""
         return iter(self.nodes.values())
 
-    def __contains__(self, observable: Observable) -> bool:
+    def __contains__(self, observable: Any) -> bool:
         """Check if an observable is in the graph."""
-        return observable in self.nodes
+        return isinstance(observable, Observable) and observable in self.nodes
 
     def __getitem__(self, observable: Observable) -> DependencyNode:
         """Get a node by its observable."""
-        if observable not in self.nodes:
+        if not isinstance(observable, Observable):
+            raise TypeError("Key must be an Observable")
+        try:
+            return self.nodes[observable]
+        except KeyError:
             raise KeyError(f"Observable {observable} not found in graph")
-        return self.nodes[observable]
 
     def __setitem__(self, observable: Observable, node: DependencyNode) -> None:
         """Set a node for an observable (advanced usage)."""
+        if not isinstance(observable, Observable):
+            raise TypeError("Key must be an Observable")
         if not isinstance(node, DependencyNode):
             raise TypeError("Value must be a DependencyNode")
         if node.observable != observable:
             raise ValueError("Node's observable must match the key")
+
         self.nodes[observable] = node
         self._node_cache[observable] = node
         self._invalidate_cache()
@@ -199,50 +245,52 @@ class DependencyGraph:
     def cycles(self) -> List[List[DependencyNode]]:
         """Get all cycles in the graph (cached)."""
         if self._cached_cycles is None:
-            self._cached_cycles = self.detect_cycles()
+            self._cached_cycles = self._detect_cycles()
         return self._cached_cycles
 
     @property
     def roots(self) -> List[DependencyNode]:
         """Get all root nodes (nodes with no incoming dependencies)."""
-        return [node for node in self if not node.incoming]
+        return [node for node in self.nodes.values() if not node.incoming]
 
     @property
     def leaves(self) -> List[DependencyNode]:
         """Get all leaf nodes (nodes with no outgoing dependencies)."""
-        return [node for node in self if not node.outgoing]
+        return [node for node in self.nodes.values() if not node.outgoing]
 
     # Fluent API Methods
     def add(self, observable: Observable) -> "DependencyGraph":
         """Add an observable to the graph. Returns self for chaining."""
+        if not isinstance(observable, Observable):
+            raise TypeError("Can only add Observable instances to the graph")
         self.get_or_create_node(observable)
         return self
 
     def remove(self, observable: Observable) -> "DependencyGraph":
         """Remove an observable from the graph. Returns self for chaining."""
+        if not isinstance(observable, Observable):
+            raise TypeError("Can only remove Observable instances from the graph")
+
         if observable in self.nodes:
-            node = self.nodes[observable]
-            # Remove from incoming/outgoing relationships
-            for incoming in node.incoming:
-                incoming.outgoing.discard(node)
-            for outgoing in node.outgoing:
-                outgoing.incoming.discard(node)
-            del self.nodes[observable]
-            if observable in self._node_cache:
-                del self._node_cache[observable]
-            self._invalidate_cache()
+            self._remove_node_safely(observable)
         return self
 
     def clear(self) -> "DependencyGraph":
         """Clear all nodes from the graph. Returns self for chaining."""
+        # Invalidate depth caches for all nodes
+        for node in self.nodes.values():
+            node.invalidate_depth_cache()
+
         self.nodes.clear()
-        self._root_nodes.clear()
         self._node_cache.clear()
         self._invalidate_cache()
         return self
 
     def get_or_create_node(self, observable: Observable) -> DependencyNode:
         """Get existing node or create new one for observable."""
+        if not isinstance(observable, Observable):
+            raise TypeError("observable must be an Observable instance")
+
         if observable in self._node_cache:
             return self._node_cache[observable]
 
@@ -252,6 +300,30 @@ class DependencyGraph:
         self._invalidate_cache()
 
         return node
+
+    def _remove_node_safely(self, observable: Observable) -> None:
+        """Safely remove a node and clean up all its relationships."""
+        node = self.nodes[observable]
+
+        # Remove this node from all incoming node's outgoing sets
+        for incoming_node in node.incoming:
+            incoming_node.outgoing.discard(node)
+
+        # Remove this node from all outgoing node's incoming sets
+        for outgoing_node in node.outgoing:
+            outgoing_node.incoming.discard(node)
+
+        # Invalidate depth caches for affected nodes
+        affected_nodes = node.incoming | node.outgoing
+        for affected_node in affected_nodes:
+            affected_node.invalidate_depth_cache()
+
+        # Remove from graph
+        del self.nodes[observable]
+        if observable in self._node_cache:
+            del self._node_cache[observable]
+
+        self._invalidate_cache()
 
     def batch_update(self) -> "DependencyGraph":
         """Context manager for batch operations (currently just returns self)."""
@@ -273,184 +345,339 @@ class DependencyGraph:
         """
         Perform topological sort using Kahn's algorithm.
 
-        Returns nodes in topological order (sources first).
+        Returns nodes in topological order (sources first). If cycles exist,
+        falls back to depth-based sorting as a safe approximation.
+
+        Time complexity: O(V + E) where V is vertices (nodes) and E is edges.
         """
-        # Calculate incoming degrees for current nodes only
+        if self.is_empty:
+            return []
+
+        # Calculate incoming degrees for all current nodes
+        in_degree_map = self._compute_in_degrees()
         current_nodes = set(self.nodes.values())
-        in_degree = {}
+
+        # Initialize queue with nodes that have no incoming dependencies
+        source_queue = self._get_source_nodes(in_degree_map)
+        sorted_nodes = []
+
+        # Process nodes using Kahn's algorithm
+        while source_queue:
+            current_node = source_queue.pop(0)
+            sorted_nodes.append(current_node)
+
+            # Update in-degrees of dependent nodes
+            self._process_dependents(
+                current_node, in_degree_map, source_queue, current_nodes
+            )
+
+        # Verify topological ordering is complete
+        if len(sorted_nodes) != len(current_nodes):
+            # Cycle detected - fall back to depth-based sorting
+            return self._fallback_depth_sort(current_nodes)
+
+        return sorted_nodes
+
+    def _compute_in_degrees(self) -> Dict[DependencyNode, int]:
+        """Compute in-degrees for all nodes in the current graph."""
+        current_nodes = set(self.nodes.values())
+        in_degree_map = {}
+
         for node in current_nodes:
-            # Count only incoming edges from nodes that still exist
-            in_degree[node] = len(
+            # Count incoming edges only from nodes that still exist
+            in_degree_map[node] = len(
                 [pred for pred in node.incoming if pred in current_nodes]
             )
 
-        # Start with nodes that have no incoming edges from current nodes (sources)
-        queue = [node for node in current_nodes if in_degree[node] == 0]
-        result = []
+        return in_degree_map
 
-        while queue:
-            current = queue.pop(0)
-            result.append(current)
+    def _get_source_nodes(
+        self, in_degree_map: Dict[DependencyNode, int]
+    ) -> List[DependencyNode]:
+        """Get nodes with no incoming dependencies (in-degree 0)."""
+        return [node for node, degree in in_degree_map.items() if degree == 0]
 
-            # For each dependent of current node that still exists
-            for dependent in list(current.outgoing):
-                if dependent in current_nodes and dependent in in_degree:
-                    in_degree[dependent] -= 1
-                    if in_degree[dependent] == 0:
-                        queue.append(dependent)
+    def _process_dependents(
+        self,
+        node: DependencyNode,
+        in_degree_map: Dict[DependencyNode, int],
+        source_queue: List[DependencyNode],
+        current_nodes: Set[DependencyNode],
+    ) -> None:
+        """Process all dependents of a node, updating their in-degrees."""
+        for dependent in list(node.outgoing):
+            if dependent in current_nodes and dependent in in_degree_map:
+                in_degree_map[dependent] -= 1
+                if in_degree_map[dependent] == 0:
+                    source_queue.append(dependent)
 
-        # Check if we got all current nodes
-        if len(result) != len(current_nodes):
-            # If there are cycles or other issues, fall back to depth-based sorting
-            return sorted(current_nodes, key=lambda n: n.depth)
+    def _fallback_depth_sort(self, nodes: Set[DependencyNode]) -> List[DependencyNode]:
+        """Fallback sorting by depth when topological sort fails due to cycles."""
+        return sorted(nodes, key=lambda n: n.depth)
 
-        return result
-
-    def detect_cycles(self) -> List[List[DependencyNode]]:
+    def _detect_cycles(self) -> List[List[DependencyNode]]:
         """
-        Detect cycles in the dependency graph.
+        Detect all cycles in the dependency graph using DFS.
 
         Returns a list of cycles, where each cycle is represented as a list of nodes.
+        Uses the standard cycle detection algorithm with three states:
+        - not visited
+        - visiting (in current path)
+        - visited (processed)
+
+        Time complexity: O(V + E) where V is vertices and E is edges.
         """
         cycles = []
         visited = set()
-        rec_stack = set()
+        recursion_stack = set()
 
-        def dfs_cycle_detect(node: DependencyNode, path: List[DependencyNode]):
+        def dfs_visit(node: DependencyNode, path: List[DependencyNode]) -> bool:
+            """
+            Visit a node during DFS cycle detection.
+
+            Returns True if a cycle is found starting from this node.
+            """
             visited.add(node)
-            rec_stack.add(node)
+            recursion_stack.add(node)
             path.append(node)
 
-            # Check all neighbors
+            # Check all outgoing neighbors
             for neighbor in node.outgoing:
                 if neighbor not in visited:
-                    if dfs_cycle_detect(neighbor, path):
+                    # Not visited - continue DFS
+                    if dfs_visit(neighbor, path):
                         return True
-                elif neighbor in rec_stack:
-                    # Found a cycle
-                    cycle_start = path.index(neighbor)
-                    cycle = path[cycle_start:] + [neighbor]
+                elif neighbor in recursion_stack:
+                    # Found back edge - cycle detected
+                    cycle = self._extract_cycle(path, neighbor)
                     cycles.append(cycle)
                     return True
 
+            # Backtrack
             path.pop()
-            rec_stack.remove(node)
+            recursion_stack.remove(node)
             return False
 
+        # Run DFS from each unvisited node
         for node in self.nodes.values():
             if node not in visited:
-                dfs_cycle_detect(node, [])
+                dfs_visit(node, [])
 
         return cycles
+
+    def _extract_cycle(
+        self, path: List[DependencyNode], back_edge_target: DependencyNode
+    ) -> List[DependencyNode]:
+        """
+        Extract a cycle from the current path when a back edge is found.
+
+        The cycle starts from the back edge target and includes all nodes
+        up to and including the current node.
+        """
+        cycle_start_index = path.index(back_edge_target)
+        cycle = path[cycle_start_index:] + [back_edge_target]
+        return cycle
 
     def find_paths(
         self, start: DependencyNode, end: DependencyNode, max_depth: int = 10
     ) -> List[List[DependencyNode]]:
         """
-        Find all paths from start to end node up to max_depth.
+        Find all paths from start to end node within max_depth limit.
 
-        Uses DFS with cycle detection and early termination.
+        Uses DFS with cycle detection to enumerate all valid paths.
+        Paths are deduplicated based on observable keys.
+
+        Args:
+            start: Starting node for path search
+            end: Target node to reach
+            max_depth: Maximum path length (prevents infinite recursion)
+
+        Returns:
+            List of unique paths, where each path is a list of nodes
         """
+        if start not in self.nodes.values() or end not in self.nodes.values():
+            return []
+
+        if max_depth < 1:
+            return []
+
         paths = []
+        self._dfs_path_search(start, end, max_depth, paths)
 
-        def dfs(
-            current: DependencyNode,
-            path: List[DependencyNode],
-            depth: int,
-            visited: Set[DependencyNode],
-        ):
-            if depth > max_depth:
-                return
+        # Deduplicate paths based on observable sequence
+        return self._deduplicate_paths(paths)
 
-            # Check for cycles
-            if current in visited:
-                return
+    def _dfs_path_search(
+        self,
+        current: DependencyNode,
+        target: DependencyNode,
+        max_depth: int,
+        paths: List[List[DependencyNode]],
+        path: Optional[List[DependencyNode]] = None,
+        visited: Optional[Set[DependencyNode]] = None,
+        depth: int = 0,
+    ) -> None:
+        """
+        Perform DFS to find all paths from current to target.
 
-            path.append(current)
+        Uses backtracking with cycle detection via visited set.
+        """
+        if path is None:
+            path = []
+        if visited is None:
+            visited = set()
 
-            if current == end and len(path) > 1:  # Found a valid path
-                paths.append(path.copy())
-            else:
-                # Continue along outgoing edges
-                visited.add(current)
+        # Depth limit exceeded
+        if depth > max_depth:
+            return
 
-                for neighbor in current.outgoing:
-                    dfs(neighbor, path, depth + 1, visited)
+        # Cycle detected
+        if current in visited:
+            return
 
-                visited.remove(current)
+        # Add current node to path
+        path.append(current)
 
-            path.pop()
+        # Found target (but exclude trivial single-node paths)
+        if current == target and len(path) > 1:
+            paths.append(path.copy())
+        else:
+            # Continue DFS to neighbors
+            visited.add(current)
 
-        dfs(start, [], 0, set())
+            for neighbor in current.outgoing:
+                self._dfs_path_search(
+                    neighbor, target, max_depth, paths, path, visited, depth + 1
+                )
 
-        # Remove duplicate paths
+            visited.remove(current)
+
+        # Backtrack
+        path.pop()
+
+    def _deduplicate_paths(
+        self, paths: List[List[DependencyNode]]
+    ) -> List[List[DependencyNode]]:
+        """Remove duplicate paths based on sequence of observable keys."""
         unique_paths = []
-        seen_paths = set()
+        seen_path_keys = set()
 
         for path in paths:
-            path_tuple = tuple(n.observable.key for n in path)
-            if path_tuple not in seen_paths:
-                seen_paths.add(path_tuple)
+            path_key = tuple(node.observable.key for node in path)
+            if path_key not in seen_path_keys:
+                seen_path_keys.add(path_key)
                 unique_paths.append(path)
 
         return unique_paths
 
     def can_reach(
-        self, target: DependencyNode, current: DependencyNode, max_hops: int = 10
+        self, target: DependencyNode, start: DependencyNode, max_hops: int = 10
     ) -> bool:
         """
-        Check if target is reachable from current within max_hops.
+        Check if target is reachable from start within max_hops using BFS.
 
-        Uses BFS for reachability checking with depth limit.
+        This implements a bounded reachability check to prevent excessive
+        computation on large graphs.
+
+        Args:
+            target: Node to reach
+            start: Starting node
+            max_hops: Maximum number of hops to search
+
+        Returns:
+            True if target is reachable within the hop limit
         """
-        if current == target:
+        if start == target:
             return True
 
+        if max_hops < 1:
+            return False
+
+        return self._bfs_reachability_check(start, target, max_hops)
+
+    def _bfs_reachability_check(
+        self, start: DependencyNode, target: DependencyNode, max_hops: int
+    ) -> bool:
+        """
+        Perform BFS to check reachability within hop limit.
+
+        Returns True if target is found within max_hops from start.
+        """
         visited = set()
-        queue = deque([(current, 0)])
+        queue = deque([(start, 0)])  # (node, depth)
 
         while queue:
-            node, depth = queue.popleft()
+            current_node, depth = queue.popleft()
 
+            # Exceeded hop limit
             if depth >= max_hops:
                 continue
 
-            if node in visited:
+            # Skip already visited nodes
+            if current_node in visited:
                 continue
-            visited.add(node)
 
-            for neighbor in node.outgoing:
+            visited.add(current_node)
+
+            # Check all outgoing neighbors
+            for neighbor in current_node.outgoing:
                 if neighbor == target:
                     return True
+
                 if neighbor not in visited:
                     queue.append((neighbor, depth + 1))
 
         return False
 
     def copy(self) -> "DependencyGraph":
-        """Create a deep copy of the current graph."""
+        """
+        Create a deep copy of the current graph.
+
+        Preserves all node relationships and metadata while creating
+        independent node instances.
+        """
         new_graph = self.__class__()
-        node_map = {}
+        node_mapping = {}
 
-        # Create new nodes
-        for obs, node in self.nodes.items():
-            new_node = DependencyNode(obs)
-            new_node.computation_func = node.computation_func
-            new_node.source_observable = node.source_observable
-            new_graph.nodes[obs] = new_node
-            node_map[node] = new_node
+        # Create all nodes first
+        for observable, original_node in self.nodes.items():
+            new_node = self._create_node_copy(original_node)
+            new_graph.nodes[observable] = new_node
+            node_mapping[original_node] = new_node
 
-        # Copy edges (only for nodes that still exist in the mapping)
-        for obs, node in self.nodes.items():
-            new_node = new_graph.nodes[obs]
-            new_node.incoming = {
-                node_map[pred] for pred in node.incoming if pred in node_map
-            }
-            new_node.outgoing = {
-                node_map[succ] for succ in node.outgoing if succ in node_map
-            }
+        # Reconstruct all edges
+        self._copy_node_relationships(new_graph, node_mapping)
 
         return new_graph
+
+    def _create_node_copy(self, original_node: DependencyNode) -> DependencyNode:
+        """Create a copy of a single node with all its metadata."""
+        new_node = DependencyNode(original_node.observable)
+        new_node.computation_func = original_node.computation_func
+        new_node.source_observable = original_node.source_observable
+        new_node.visit_count = original_node.visit_count
+        return new_node
+
+    def _copy_node_relationships(
+        self,
+        new_graph: "DependencyGraph",
+        node_mapping: Dict[DependencyNode, DependencyNode],
+    ) -> None:
+        """Copy all incoming and outgoing relationships between nodes."""
+        for original_node, new_node in node_mapping.items():
+            # Copy incoming relationships
+            new_node.incoming = {
+                node_mapping[pred]
+                for pred in original_node.incoming
+                if pred in node_mapping
+            }
+
+            # Copy outgoing relationships
+            new_node.outgoing = {
+                node_mapping[succ]
+                for succ in original_node.outgoing
+                if succ in node_mapping
+            }
 
     def copy_graph(self) -> "DependencyGraph":
         """Alias for copy() method for backward compatibility."""
@@ -463,28 +690,44 @@ class DependencyGraph:
         self._cached_stats = None
 
     def _compute_statistics(self) -> Dict[str, Any]:
-        """Compute comprehensive statistics about the graph."""
-        if not self.nodes:
-            return {
-                "total_nodes": 0,
-                "max_depth": 0,
-                "total_edges": 0,
-                "roots": 0,
-                "leaves": 0,
-                "cycles": 0,
-            }
+        """
+        Compute comprehensive statistics about the graph structure.
 
-        max_depth = max((node.depth for node in self.nodes.values()), default=0)
-        total_edges = sum(len(node.incoming) for node in self.nodes.values())
-        cycles = len(self.cycles)
+        Returns metrics that characterize the graph's topology and complexity.
+        """
+        if self.is_empty:
+            return self._empty_graph_statistics()
+
+        # Compute basic structural metrics
+        nodes = list(self.nodes.values())
+        max_depth = max(node.depth for node in nodes)
+
+        # Count edges (each incoming edge contributes to total)
+        total_edges = sum(len(node.incoming) for node in nodes)
+
+        # Count topological features
+        root_count = len(self.roots)
+        leaf_count = len(self.leaves)
+        cycle_count = 1 if self.has_cycles else 0
 
         return {
-            "total_nodes": len(self.nodes),
+            "total_nodes": len(nodes),
             "max_depth": max_depth,
             "total_edges": total_edges,
-            "roots": len(self.roots),
-            "leaves": len(self.leaves),
-            "cycles": cycles,
+            "roots": root_count,
+            "leaves": leaf_count,
+            "cycles": cycle_count,
+        }
+
+    def _empty_graph_statistics(self) -> Dict[str, Any]:
+        """Return statistics for an empty graph."""
+        return {
+            "total_nodes": 0,
+            "max_depth": 0,
+            "total_edges": 0,
+            "roots": 0,
+            "leaves": 0,
+            "cycles": 0,
         }
 
 

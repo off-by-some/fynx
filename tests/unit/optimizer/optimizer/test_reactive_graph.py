@@ -3,7 +3,9 @@
 import pytest
 
 from fynx import observable
+from fynx.observable.base import Observable
 from fynx.optimizer import ReactiveGraph, optimize_reactive_graph
+from fynx.optimizer.dependency_node import DependencyNode
 
 
 @pytest.mark.unit
@@ -67,22 +69,6 @@ def test_build_from_observables_with_conditional():
     assert source in graph.nodes
     assert conditional in graph.nodes
     # Condition might not be directly added depending on implementation
-
-
-@pytest.mark.unit
-@pytest.mark.optimizer
-def test_compute_equivalence_classes():
-    """ReactiveGraph compute_equivalence_classes returns equivalence classes"""
-    obs1 = observable(1)
-    obs2 = observable(2)
-
-    graph = ReactiveGraph()
-    graph.build_from_observables([obs1, obs2])
-
-    classes = graph.compute_equivalence_classes()
-
-    assert isinstance(classes, dict)
-    assert len(classes) > 0
 
 
 @pytest.mark.unit
@@ -169,24 +155,93 @@ def test_check_confluence():
 
     assert isinstance(result, dict)
     # Check for actual keys that exist
-    assert "convergence_tests" in result or "confluent" in result
+    assert "is_confluent" in result or "consistent_results" in result
 
 
-@pytest.mark.unit
-@pytest.mark.optimizer
-def test_verify_universal_properties():
-    """ReactiveGraph verify_universal_properties checks categorical properties"""
+def test_verify_optimization_correctness():
+    """Test optimization correctness verification with computational checks"""
+    # Test 1: Basic correctness verification
     base = observable(1)
     computed = base >> (lambda x: x * 2)
 
     graph = ReactiveGraph()
     graph.build_from_observables([computed])
 
-    result = graph.verify_universal_properties()
+    result = graph.verify_optimization_correctness()
 
     assert isinstance(result, dict)
-    # Check for actual keys that exist
-    assert "total_candidates_checked" in result or "universal_properties" in result
+    assert "cycles_introduced" in result
+    assert "graph_connected" in result
+    assert "structural_correctness" in result
+    assert result["structural_correctness"] == True
+
+    # Test 2: Verify optimization actually preserves observable behavior
+    # Create a chain that should be fused by optimization
+    base_val = Observable("base", 5)
+    step1 = base_val >> (lambda x: x + 3)  # 5 + 3 = 8
+    step2 = step1 >> (lambda x: x * 2)  # 8 * 2 = 16
+    final = step2 >> (lambda x: x - 1)  # 16 - 1 = 15
+
+    # Expected final value: ((5 + 3) * 2) - 1 = 15
+    expected_final = ((base_val.value + 3) * 2) - 1
+
+    graph2 = ReactiveGraph()
+    graph2.build_from_observables([final])
+
+    # Run optimization
+    opt_results = graph2.optimize()
+
+    # Verify optimization applied (should fuse the chain)
+    assert (
+        opt_results["functor_fusions"] > 0
+    ), "Chain fusion optimization should have applied"
+
+    # Verify correctness preserved after optimization
+    base_val.set(5)  # Trigger recomputation
+    actual_final = final.value
+
+    assert (
+        actual_final == expected_final
+    ), f"Optimization broke correctness: expected {expected_final}, got {actual_final}"
+
+    # Verify graph structure is valid after optimization
+    correctness = graph2.verify_optimization_correctness()
+    assert (
+        correctness["structural_correctness"] == True
+    ), "Optimization left graph in invalid state"
+
+    # Test 3: Verify optimizations don't break correctness with complex graphs
+    # Create a more complex graph with multiple computation paths
+    base_a = Observable("base_a", 2)
+    base_b = Observable("base_b", 3)
+
+    # Create computations that depend on both bases
+    sum_ab = (base_a + base_b) >> (lambda a, b: a + b)  # 2 + 3 = 5
+    prod_ab = (base_a + base_b) >> (lambda a, b: a * b)  # 2 * 3 = 6
+    final = (sum_ab + prod_ab) >> (lambda s, p: s + p)  # 5 + 6 = 11
+
+    graph3 = ReactiveGraph()
+    graph3.build_from_observables([final])
+
+    opt_results3 = graph3.optimize()
+
+    # Verify correctness is preserved
+    base_a.set(2)
+    base_b.set(3)
+    expected = (2 + 3) + (2 * 3)  # 5 + 6 = 11
+    assert (
+        final.value == expected
+    ), f"Complex computation failed: expected {expected}, got {final.value}"
+
+    # Test 4: Regression test - ensure optimizations don't create cycles
+    # This would catch if optimization incorrectly created self-references
+    correctness3 = graph3.verify_optimization_correctness()
+    assert (
+        correctness3["cycles_introduced"] == False
+    ), "Optimization must not introduce cycles"
+    assert (
+        correctness3["graph_connected"] == True
+    ), "Optimization must maintain connectivity"
 
 
 @pytest.mark.unit
@@ -215,42 +270,6 @@ def test_morphism_identity():
 
     identity = graph.morphism_identity(node)
     assert identity == "id"
-
-
-@pytest.mark.unit
-@pytest.mark.optimizer
-def test_get_hom_set_representation():
-    """ReactiveGraph get_hom_set_representation returns morphism representations"""
-    base = observable(1)
-    computed = base >> (lambda x: x * 2)
-
-    graph = ReactiveGraph()
-    graph.build_from_observables([computed])
-
-    base_node = graph.get_or_create_node(base)
-    computed_node = graph.get_or_create_node(computed)
-
-    result = graph.get_hom_set_representation(base_node, computed_node)
-
-    assert isinstance(result, dict)
-    assert "morphisms" in result
-
-
-@pytest.mark.unit
-@pytest.mark.optimizer
-def test_compute_yoneda_equivalence():
-    """ReactiveGraph compute_yoneda_equivalence checks Yoneda equivalence"""
-    obs1 = observable(1)
-    obs2 = observable(2)
-
-    graph = ReactiveGraph()
-    graph.build_from_observables([obs1, obs2])
-
-    node1 = graph.get_or_create_node(obs1)
-    node2 = graph.get_or_create_node(obs2)
-
-    equivalent = graph.compute_yoneda_equivalence(node1, node2)
-    assert isinstance(equivalent, bool)
 
 
 @pytest.mark.unit

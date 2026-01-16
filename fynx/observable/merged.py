@@ -2,19 +2,18 @@
 FynX MergedObservable - Combined Reactive Values
 ================================================
 
-This module provides the MergedObservable class, which combines multiple individual
-observables into a single reactive computed observable. This enables treating related
-observables as a cohesive group that updates atomically when any component changes.
+MergedObservable combines multiple observables into a single reactive tuple that
+updates when any component changes. Like coordinate pairs where both x and y must
+be known together, merged observables treat multiple related values as a single
+atomic unit. Change any component, and the entire tuple updates automatically.
 
-Merged observables are read-only computed observables that derive their value from
-their source observables. They are useful for:
+MergedObservable creates a read-only computed observable whose value is a tuple containing
+the current values of all source observables. When any source observable changes, the merged
+observable automatically recalculates its tuple value and notifies all subscribers. That
+automatic coordination eliminates manual synchronization—you declare the relationship, and
+the framework maintains it.
 
-- **Coordinated Updates**: When multiple values need to change together
-- **Computed Relationships**: When derived values depend on multiple inputs
-- **Tuple Operations**: When you need to pass multiple reactive values as a unit
-- **State Composition**: Building complex state from simpler reactive components
-
-The merge operation is created using the `+` operator between observables:
+The merge operation uses the `+` operator between observables. That syntax creates a new MergedObservable containing both values as a tuple:
 
 ```python
 from fynx import observable
@@ -28,8 +27,10 @@ width.set(15)
 print(dimensions.value)  # (15, 20)
 
 # Merged observables are read-only
-dimensions.set((5, 5))  # Raises ValueError: Computed observables are read-only
+dimensions.set((5, 5))  # Raises ValueError: Computed observables are read-only and cannot be set directly
 ```
+
+Result: multiple reactive values that behave as a single atomic unit, updating automatically when any component changes. That pattern enables functions that need multiple related parameters, computed values that depend on several inputs, and coordinated state updates across multiple variables.
 """
 
 from typing import Callable, Iterable, TypeVar
@@ -47,20 +48,16 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
     """
     A computed observable that combines multiple observables into a single reactive tuple.
 
-    MergedObservable creates a read-only computed observable whose value is a tuple containing
-    the current values of all source observables. When any source observable changes,
-    the merged observable automatically recalculates its tuple value and notifies all subscribers.
+    MergedObservable combines multiple observables into a single reactive tuple that
+    updates when any component changes. Change any source value, and the entire tuple
+    recalculates automatically. This enables treating multiple related values as a
+    single atomic unit.
 
-    As a computed observable, MergedObservable is read-only and cannot be set directly.
-    Its value is always derived from its source observables, ensuring consistency.
+    The merged observable creates a read-only computed observable whose value is a tuple containing the current values of all source observables. When any source observable changes, the merged observable automatically recalculates its tuple value and notifies all subscribers. That automatic coordination eliminates manual synchronization—you declare the relationship, and the framework maintains it.
 
-    This enables treating multiple related reactive values as a single atomic unit,
-    which is particularly useful for:
+    As a computed observable, MergedObservable is read-only and cannot be set directly. Its value always derives from its source observables, ensuring consistency. That constraint prevents breaking reactive relationships—if you could set a merged value, it would diverge from its sources.
 
-    - Functions that need multiple related parameters
-    - Computed values that depend on several inputs
-    - Coordinated state updates across multiple variables
-    - Maintaining referential consistency between related values
+    This enables treating multiple related reactive values as a single atomic unit. Functions that need multiple related parameters can receive the tuple directly. Computed values that depend on several inputs can derive from the merged observable. Coordinated state updates across multiple variables happen automatically when any component changes.
 
     Example:
         ```python
@@ -86,9 +83,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         print(distance_from_origin.value)   # 25.0
         ```
 
-    Note:
-        The merged observable's value is always a tuple, even when merging just
-        two observables. This provides a consistent interface for computed functions.
+    The merged observable's value is always a tuple, even when merging just two observables. That consistency provides a uniform interface for computed functions—they always receive a tuple, regardless of how many observables were merged.
 
     See Also:
         ComputedObservable: Base computed observable class
@@ -148,8 +143,10 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
 
         Example:
             ```python
-            x = Observable("x", 10)
-            y = Observable("y", 20)
+            from fynx import observable
+
+            x = observable(10)
+            y = observable(20)
             merged = x + y
 
             print(merged.value)  # (10, 20)
@@ -261,8 +258,10 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
 
         Examples:
             ```python
-            x = Observable("x", 1)
-            y = Observable("y", 2)
+            from fynx import observable
+
+            x = observable(1)
+            y = observable(2)
             coords = x + y
 
             def on_coords_change(x_val, y_val):
@@ -274,9 +273,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
             y.set(20)  # Prints: "Coordinates: (10, 20)"
             ```
 
-        Note:
-            The function is called only when observables change.
-            It is not called immediately upon subscription.
+        The function is called only when observables change. It is not called immediately upon subscription—that behavior differs from some reactive frameworks, but ensures that subscriptions don't trigger unnecessary initial executions.
 
         See Also:
             unsubscribe: Remove a subscription
@@ -324,6 +321,11 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
 
         Examples:
             ```python
+            from fynx import observable
+
+            x = observable(1)
+            y = observable(2)
+
             def handler(x, y):
                 print(f"Changed: {x}, {y}")
 
@@ -334,10 +336,7 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
             coords.unsubscribe(handler)  # No longer called when coords change
             ```
 
-        Note:
-            This only removes subscriptions to this specific merged observable.
-            If the same function is subscribed to other observables, those
-            subscriptions remain active.
+        This only removes subscriptions to this specific merged observable. If the same function is subscribed to other observables, those subscriptions remain active. That selective removal enables fine-grained control over reactive behavior—you can unsubscribe from specific merged observables without affecting other subscriptions.
 
         See Also:
             subscribe: Add a subscription

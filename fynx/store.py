@@ -2,49 +2,57 @@
 FynX Store - Reactive State Management Components
 =================================================
 
-This module provides the core components for reactive state management in FynX,
-enabling you to create organized, reactive state containers that group related
-observables together with convenient subscription and state management methods.
+Consider a filing cabinet: each drawer holds related documents, and you can watch
+the cabinet to know when anything inside changes. That cabinet is a Store—a container
+that groups related reactive values together and provides unified change notification.
 
-Why Use Stores?
----------------
+Stores organize reactive state into logical units. Instead of scattering observables
+throughout your codebase, Stores group related data together and provide methods for
+subscribing to changes, serializing state, and managing the reactive lifecycle. This
+gives you structured state management—each Store becomes a cohesive unit that you can
+observe, persist, and compose.
 
-Stores help you organize your application's reactive state into logical units. Instead
-of having observables scattered throughout your codebase, Stores group related data
-together and provide convenient methods for subscribing to changes, serializing state,
-and managing the reactive lifecycle.
-
-Stores are particularly useful for:
-- **Application State**: Global app state like user preferences, theme settings
-- **Feature State**: State for specific features like shopping cart, user profile
-- **Component State**: Local state that needs to be shared across multiple components
-- **Business Logic**: Computed values and derived state based on raw data
+We apply that pattern to application architecture. Stores work well for application
+state like user preferences and theme settings, feature state like shopping carts and
+user profiles, component state that needs sharing across multiple components, and business
+logic that computes derived values from raw data. That organization reduces coupling
+and makes state changes predictable.
 
 Core Components
 ---------------
 
-**Store**: A base class for creating reactive state containers. Store classes can define
-observable attributes using the `observable()` descriptor, and automatically provide
-methods for subscribing to changes and managing state.
+**Store**: Base class for reactive state containers. Store classes define observable
+attributes using the `observable()` descriptor, and Store provides methods for subscribing
+to changes and managing state. The metaclass intercepts attribute assignment, allowing
+`Store.attr = value` syntax to work seamlessly with observables.
 
-**observable**: A descriptor function that creates observable attributes on Store classes.
-Use this to define reactive properties in your Store subclasses.
+**observable**: Descriptor function that creates observable attributes on Store classes.
+Use this to define reactive properties in your Store subclasses. The metaclass converts
+these to descriptors that provide transparent reactive access.
 
-**StoreSnapshot**: An immutable snapshot of store state at a specific point in time,
-useful for debugging, logging, and ensuring consistent state access.
+**StoreSnapshot**: Immutable snapshot of store state at a specific point in time. Useful
+for debugging, logging, and ensuring consistent state access during reactive callbacks.
+Each snapshot captures all observable values at creation time.
 
-**StoreMeta**: A metaclass that automatically converts observable attributes to descriptors
-and provides type hint compatibility for mypy.
+**StoreMeta**: Metaclass that automatically converts observable attributes to descriptors
+and provides type hint compatibility for mypy. This metaclass processes class definitions
+to wrap observables in descriptors and handles inheritance of observable attributes.
 
 Key Features
 ------------
 
-- **Automatic Observable Management**: Store metaclass handles observable creation
-- **Convenient Subscriptions**: Subscribe to all changes or individual observables
-- **State Serialization**: Save and restore store state with `to_dict()` and `load_state()`
-- **Type Safety**: Full type hint support for better IDE experience
-- **Memory Efficient**: Automatic cleanup and efficient change detection
-- **Composable**: Easy to combine and nest multiple stores
+- **Automatic Observable Management**: Store metaclass handles observable creation and
+  descriptor wrapping, including support for inherited observables from parent classes
+- **Unified Subscriptions**: Subscribe to all changes in a store with a single callback
+  that receives a StoreSnapshot, or subscribe to individual observables directly
+- **State Serialization**: Save and restore store state with `to_dict()` and `load_state()`.
+  The `to_dict()` method serializes all observables including computed ones; use
+  `_get_primitive_observable_attrs()` to filter out computed observables for persistence
+- **Type Safety**: Full type hint support for better IDE experience and static analysis
+- **Memory Efficient**: Automatic cleanup through subscription context management and
+  efficient change detection that avoids redundant updates
+- **Composable**: Multiple stores operate independently, allowing you to organize state
+  by domain without cross-store dependencies
 
 Basic Usage
 -----------
@@ -61,17 +69,36 @@ print(CounterStore.count)  # 0
 CounterStore.count = 5     # Updates the observable
 
 # Subscribe to all changes in the store
-@CounterStore.subscribe
 def on_store_change(snapshot):
     print(f"Store changed: count={snapshot.count}, name={snapshot.name}")
 
+CounterStore.subscribe(on_store_change)
+
 CounterStore.count = 10  # Triggers: "Store changed: count=10, name=My Counter"
+
+# Unsubscribe when done
+CounterStore.unsubscribe(on_store_change)
+```
+
+Alternative: use the `@reactive` decorator for a more convenient syntax:
+
+```python
+from fynx import reactive
+
+@reactive(CounterStore)
+def on_store_change(snapshot):
+    print(f"Store changed: count={snapshot.count}, name={snapshot.name}")
+
+CounterStore.count = 10  # Automatically triggers the function
 ```
 
 Advanced Patterns
 -----------------
 
 ### Computed Properties in Stores
+
+Stores support computed observables that derive values from other observables. These
+update automatically when their dependencies change:
 
 ```python
 from fynx import Store, observable
@@ -93,7 +120,14 @@ UserStore.first_name = "Jane"
 print(UserStore.full_name)  # "Jane Doe" (automatically updated)
 ```
 
+That pattern lets you define derived state alongside raw data. The computed observables
+participate in store subscriptions—when you subscribe to a store, computed values trigger
+updates just like primitive observables.
+
 ### State Persistence
+
+Stores can serialize their state to dictionaries and restore from them. This enables
+persistence across sessions or state transfer between components:
 
 ```python
 # Save store state
@@ -105,7 +139,14 @@ CounterStore.load_state(state)
 print(CounterStore.count)  # 10
 ```
 
+Note that `to_dict()` includes all observables, including computed ones. For persistence,
+you typically want only primitive observables since computed values derive from them.
+Use `_get_primitive_observable_attrs()` to filter if needed, though the current implementation
+serializes everything for simplicity.
+
 ### Store Composition
+
+Multiple stores operate independently, allowing you to organize state by domain:
 
 ```python
 class AppStore(Store):
@@ -121,10 +162,14 @@ AppStore.theme = "dark"
 UserStore.name = "Bob"
 ```
 
+That independence means you can compose complex applications from focused stores. Each
+store manages its own domain without creating cross-store dependencies.
+
 Common Patterns
 ---------------
 
-**Singleton Stores**: Use class-level access for global state:
+**Singleton Stores**: Use class-level access for global state. Since Store attributes
+are class-level, each Store class acts as a singleton:
 
 ```python
 class GlobalStore(Store):
@@ -135,16 +180,24 @@ class GlobalStore(Store):
 GlobalStore.is_loading = True
 ```
 
+**Store Inheritance**: Child classes inherit observable attributes from parent classes.
+The metaclass handles descriptor creation for inherited observables:
 
+```python
+class BaseStore(Store):
+    created_at = observable(None)
+
+class UserStore(BaseStore):
+    name = observable("")
+    # UserStore automatically has created_at from BaseStore
 ```
 
 See Also
 --------
 
 - `fynx.observable`: Core observable classes and operators
-- `fynx.computed`: Creating computed properties
 - `fynx.reactive`: Reactive decorators for side effects
-- `fynx.watch`: Conditional reactive functions
+- `fynx.observable.computed`: Creating computed properties
 """
 
 from typing import (
@@ -298,17 +351,21 @@ class Store(metaclass=StoreMeta):
     """
     Base class for reactive state containers with observable attributes.
 
-    Store provides a convenient way to group related observable values together
-    and manage their lifecycle as a cohesive unit. Store subclasses can define
-    observable attributes using the `observable()` descriptor, and Store provides
-    methods for subscribing to changes, serializing state, and managing the
-    reactive relationships.
+    Store groups related observable values together and manages their lifecycle
+    as a cohesive unit. Store subclasses define observable attributes using the
+    `observable()` descriptor, and Store provides methods for subscribing to changes,
+    serializing state, and managing reactive relationships.
+
+    The metaclass intercepts attribute assignment, allowing `Store.attr = value` syntax
+    to work seamlessly with observables. When you assign to a store attribute, the
+    metaclass delegates to the underlying observable's `set()` method, which triggers
+    reactive updates.
 
     Key Features:
-    - Automatic observable attribute detection and management
-    - Convenient subscription methods for reacting to state changes
-    - Serialization/deserialization support for persistence
-    - Snapshot functionality for debugging and state inspection
+    - Automatic observable attribute detection and management through metaclass
+    - Unified subscription method that reacts to all observable changes in the store
+    - Serialization/deserialization support via `to_dict()` and `load_state()`
+    - Snapshot functionality through StoreSnapshot for consistent state access
 
     Example:
         ```python
@@ -319,18 +376,24 @@ class Store(metaclass=StoreMeta):
             name = observable("Counter")
 
         # Subscribe to all changes
-        @CounterStore.subscribe
         def on_change(snapshot):
             print(f"Counter: {snapshot.count}, Name: {snapshot.name}")
+
+        CounterStore.subscribe(on_change)
 
         # Changes trigger reactions
         CounterStore.count = 5  # Prints: Counter: 5, Name: Counter
         CounterStore.name = "My Counter"  # Prints: Counter: 5, Name: My Counter
+
+        # Unsubscribe when done
+        CounterStore.unsubscribe(on_change)
         ```
 
     Note:
         Store uses a metaclass to intercept attribute assignment, allowing
-        `Store.attr = value` syntax to work seamlessly with observables.
+        `Store.attr = value` syntax to work seamlessly with observables. The
+        `subscribe()` method is a classmethod that takes a function, not a decorator.
+        Use `@reactive(Store)` from `fynx.reactive` for decorator syntax.
     """
 
     # Class attributes set by metaclass

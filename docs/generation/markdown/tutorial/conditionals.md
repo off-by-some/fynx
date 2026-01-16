@@ -169,7 +169,7 @@ is_warning.set(False) # Still prints (is_error is True)
 is_error.set(False)   # Still prints (is_critical is False, but was True initially)
 ```
 
-The `|` operator creates conditional observables that only emit when the OR result is truthy. If the initial OR result is falsy, it raises `ConditionalNeverMet`.
+The `|` operator creates conditional observables that only emit when the OR result is truthy. If all conditions are initially False, accessing the value will raise `ConditionalNeverMet` until at least one condition becomes True.
 
 ### Combining OR with Other Operators
 

@@ -142,7 +142,6 @@ class TestDependencyGraph:
         graph = DependencyGraph()
 
         assert len(graph.nodes) == 0
-        assert len(graph._root_nodes) == 0
         assert graph._cached_cycles is None
         assert graph._cached_stats is None
 
@@ -528,7 +527,7 @@ class TestDependencyGraph:
         assert sample_graph.can_reach(node4, node1) is False
 
     @pytest.mark.unit
-    def test_dependency_graph_detect_cycles(self, sample_observables):
+    def test_dependency_graph_cycles_property(self, sample_observables):
         """Test DependencyGraph detect_cycles method."""
         obs1, obs2, obs3, obs4 = sample_observables
 
@@ -542,7 +541,7 @@ class TestDependencyGraph:
         node2.incoming.add(node1)
         node1.outgoing.add(node2)
 
-        cycles = graph_no_cycles.detect_cycles()
+        cycles = graph_no_cycles.cycles
         assert len(cycles) == 0
 
         # Test graph with cycles
@@ -557,7 +556,7 @@ class TestDependencyGraph:
         node1.incoming.add(node2)
         node2.outgoing.add(node1)
 
-        cycles = graph_with_cycles.detect_cycles()
+        cycles = graph_with_cycles.cycles
         assert len(cycles) > 0
         assert all(isinstance(cycle, list) for cycle in cycles)
 

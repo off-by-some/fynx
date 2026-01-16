@@ -8,10 +8,12 @@ of dependency graphs to minimize computational cost while preserving semantic eq
 """
 
 from .dependency_graph import get_graph_statistics
-from .morphism import Morphism, MorphismParser
+from .dependency_node import DependencyNode
+from .morphism import Morphism, MorphismParser, MorphismType
 from .optimizer import (
-    DependencyNode,
     OptimizationContext,
+)
+from .reactive_graph import (
     ReactiveGraph,
     optimize_reactive_graph,
 )
@@ -19,6 +21,7 @@ from .optimizer import (
 __all__ = [
     "Morphism",
     "MorphismParser",
+    "MorphismType",
     "DependencyNode",
     "OptimizationContext",
     "ReactiveGraph",

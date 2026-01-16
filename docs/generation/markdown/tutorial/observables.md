@@ -112,7 +112,7 @@ counter.set(5)
 # Square: 25
 ```
 
-All subscribers receive the same value, and they run in the order you subscribed them.
+All subscribers receive the same value. The execution order is not guaranteed and may vary between runs.
 
 ## Unsubscribing
 
@@ -147,7 +147,7 @@ class ShoppingCart:
         self.total = 0
 
     def add_item(self, item):
-        self.items.append(item)
+        self.items = self.items + [item]  # Immutable update
         self.total = sum(item['price'] for item in self.items)
         self.update_ui()  # Manual synchronization
         self.save_to_storage()  # Manual synchronization

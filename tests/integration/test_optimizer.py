@@ -47,7 +47,13 @@ import pytest
 from fynx import observable
 from fynx.observable.computed import ComputedObservable
 from fynx.observable.conditional import ConditionalNeverMet, ConditionalNotMet
-from fynx.optimizer import ReactiveGraph, get_graph_statistics, optimize_reactive_graph
+from fynx.optimizer import (
+    MorphismParser,
+    MorphismType,
+    ReactiveGraph,
+    get_graph_statistics,
+    optimize_reactive_graph,
+)
 
 
 class TestChainFusion:
@@ -289,62 +295,6 @@ class TestPullbackFusion:
         value.set(49)  # 49%2==1 (odd), fails last condition
         with pytest.raises(ConditionalNotMet):
             _ = complex_filter.value
-
-
-class TestEquivalenceAnalysis:
-    """Test DAG quotient construction via bisimulation"""
-
-    def test_identical_computations_equivalence(self):
-        """Test that identical computations are recognized as equivalent."""
-        base = observable(5)
-
-        # Create two identical computation chains
-        chain1 = base >> (lambda x: x * 2) >> (lambda x: x + 3)
-        chain2 = base >> (lambda x: x * 2) >> (lambda x: x + 3)  # Identical
-
-        results, optimizer = optimize_reactive_graph([chain1, chain2])
-
-        # Should recognize equivalence
-        assert (
-            results["equivalence_classes"] <= 3
-        )  # base + shared_computation + result_type
-
-        # Both should produce same result: (5*2)+3 = 13
-        assert chain1.value == 13
-        assert chain2.value == 13
-
-    def test_semantic_equivalence_detection(self):
-        """Test detection of semantically equivalent but syntactically different computations."""
-        base = observable(10)
-
-        # Different syntax, same semantics
-        comp1 = base >> (lambda x: x + 5) >> (lambda x: x * 2)  # (x+5)*2
-        comp2 = base >> (lambda x: x * 2) >> (lambda x: x + 10)  # x*2 + 10
-
-        # Both compute: x*2 + 10, but through different intermediate forms
-        results, optimizer = optimize_reactive_graph([comp1, comp2])
-
-        # Should recognize they're computing the same final result
-        # (10+5)*2 = 30, 10*2 + 10 = 30
-        assert comp1.value == 30
-        assert comp2.value == 30
-
-    def test_function_normalization(self):
-        """Test that function equivalence handles closures and bytecode."""
-        base = observable(1)
-
-        # Functions with different closures but same computation
-        def make_adder(n):
-            return lambda x: x + n
-
-        comp1 = base >> make_adder(5)
-        comp2 = base >> (lambda x: x + 5)  # Same computation
-
-        results, optimizer = optimize_reactive_graph([comp1, comp2])
-
-        # Should recognize functional equivalence
-        assert comp1.value == 6
-        assert comp2.value == 6
 
 
 class TestMaterializationOptimization:
@@ -661,20 +611,18 @@ class TestMorphismOperations:
 
     def test_morphism_parser(self):
         """Test morphism parsing."""
-        from fynx.optimizer import MorphismParser
-
         # Test identity
         parsed = MorphismParser.parse("id")
-        assert parsed._type == "identity"
+        assert parsed.morphism_type == MorphismType.IDENTITY
 
         # Test single
         parsed = MorphismParser.parse("func")
-        assert parsed._type == "single"
-        assert parsed._name == "func"
+        assert parsed.morphism_type == MorphismType.SINGLE
+        assert parsed.name == "func"
 
         # Test composition
         parsed = MorphismParser.parse("f ∘ g")
-        assert parsed._type == "compose"
+        assert parsed.morphism_type == MorphismType.COMPOSE
 
 
 class TestOptimizationCorrectness:
@@ -1046,11 +994,6 @@ if __name__ == "__main__":
     product_test = TestProductFactorization()
     product_test.test_multiple_shared_prefixes()
     print("✓ Common subexpression elimination")
-
-    # Test equivalence (original)
-    equiv_test = TestEquivalenceAnalysis()
-    equiv_test.test_identical_computations_equivalence()
-    print("✓ Semantic equivalence detection")
 
     # Test materialization (original)
     mat_test = TestMaterializationOptimization()

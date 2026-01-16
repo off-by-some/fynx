@@ -2,22 +2,17 @@
 FynX Observable - Core Reactive Value Implementation
 ====================================================
 
-This module provides the fundamental building blocks for reactive programming in FynX:
+Reactive programming transforms static values into dynamic ones that automatically propagate changes. When you modify an observable value, every computation and function that depends on it updates automatically—no manual synchronization required. This module implements that foundation for Python.
 
-- **Observable**: The core class representing a reactive value that can be observed
-  for changes and automatically notifies dependents.
+Observable wraps a value and tracks which reactive functions access it during execution. When the value changes, those functions re-run automatically. We call this dependency tracking—the observable maintains a set of observers that get notified on change.
 
-- **ReactiveContext**: Manages the execution context for reactive functions,
-  tracking dependencies and coordinating updates.
+ReactiveContext manages the execution environment for reactive functions. Think of it as a scope that watches which observables get accessed during function execution. When an observable's value property is read, the context records that dependency. Later, when that observable changes, the context re-runs the function with fresh values.
 
-- **MergedObservable**: Combines multiple observables into a single reactive unit
-  that updates when any of its components change.
+The system uses a stack-based approach for nested reactive functions. Each context pushes itself onto a stack during execution, ensuring that dependencies are tracked correctly even when functions call other reactive functions. That stack also enables circular dependency detection—if a computation tries to modify one of its own inputs, the system raises an error.
 
-- **ConditionalObservable**: Creates observables that only trigger reactions under
-  specific conditions.
+Observable implements magic methods (`__eq__`, `__str__`, `__bool__`) to behave like its underlying value. You can use it in boolean contexts, string formatting, and equality comparisons without accessing `.value` explicitly. That transparency makes observables easy to integrate into existing code.
 
-The Observable class forms the foundation of FynX's reactivity system, providing
-transparent dependency tracking and automatic change propagation.
+Result: values that look and feel like regular Python values, but propagate changes automatically through dependent computations and reactions.
 """
 
 from typing import (
@@ -41,33 +36,36 @@ class ReactiveContext(ReactiveContextInterface):
     """
     Execution context for reactive functions with automatic dependency tracking.
 
-    ReactiveContext manages the lifecycle of reactive functions (computations and reactions).
-    It automatically tracks which observables are accessed during execution and sets up
-    the necessary observers to re-run the function when any dependency changes.
+    ReactiveContext manages the execution environment for reactive functions. During
+    execution, it watches which observables get accessed and registers the function
+    as an observer on each one. When any dependency changes, the context re-runs
+    the function automatically.
 
-    Key Responsibilities:
-    - Track observable dependencies during function execution
-    - Coordinate re-execution when dependencies change
-    - Manage observer registration and cleanup
-    - Handle merged observables and complex dependency relationships
+    The context maintains a set of dependencies—observables that were accessed during the last execution. Each time the function runs, it clears old dependencies and builds a fresh set by tracking which observables' `.value` properties get accessed. That tracking happens transparently: reading `observable.value` within a reactive context automatically registers that observable as a dependency.
 
-    The context uses a stack-based approach to handle nested reactive functions,
-    ensuring that dependencies are tracked correctly even in complex scenarios.
+    The system uses a stack-based approach for nested reactive functions. When a context runs, it pushes itself onto Observable's context stack and sets itself as the current context. Nested reactive calls create new contexts that push onto the stack, ensuring that each level tracks its own dependencies correctly. When execution completes, the context pops itself from the stack and restores the previous context.
+
+    For cleanup, the context tracks which observable it was originally subscribed to (if any). When disposed, it removes itself from that observable's observers and clears all dependency registrations. That prevents memory leaks when reactive functions are no longer needed.
 
     Attributes:
-        func (Callable): The reactive function to execute
-        original_func (Callable): The original user function (for unsubscribe)
-        subscribed_observable (Observable): The observable this context is subscribed to
-        dependencies (Set[Observable]): Set of observables accessed during execution
-        is_running (bool): Whether the context is currently executing
+        func: The reactive function to execute
+        original_func: The original user function (for unsubscribe operations)
+        subscribed_observable: The observable this context is subscribed to, if any
+        dependencies: Set of observables accessed during execution
+        is_running: Whether the context is currently executing
 
     Note:
-        This class is typically managed automatically by FynX's decorators and
-        observable operations. Direct instantiation is usually not needed.
+        This class is typically managed automatically by FynX's decorators and observable operations. Direct instantiation is rarely needed—use `@reactive` or `.subscribe()` instead.
 
     Example:
         ```python
-        # Usually created automatically by @reactive decorator
+        from fynx.observable.base import ReactiveContext, Observable
+
+        def my_function():
+            # This function accesses observables
+            pass
+
+        some_observable = Observable("test", 0)
         context = ReactiveContext(my_function, my_function, some_observable)
         context.run()  # Executes function and tracks dependencies
         ```
@@ -141,38 +139,38 @@ class Observable(ObservableInterface[T], OperatorMixin):
     """
     A reactive value that automatically notifies dependents when it changes.
 
-    Observable is the core primitive of FynX's reactivity system. It wraps a value
-    and provides transparent reactive behavior - when the value changes, all
-    dependent computations and reactions are automatically notified and updated.
+    Observable wraps any Python value and makes it reactive. When you modify the
+    value, all computations and functions that depend on it recalculate automatically.
+    Wrap any value in an Observable, and functions that read it during reactive
+    execution will re-run when the value changes.
 
-    Key Features:
-    - **Transparent**: Behaves like a regular value but with reactive capabilities
-    - **Dependency Tracking**: Automatically tracks which reactive contexts depend on it
-    - **Change Notification**: Notifies all observers when the value changes
-    - **Type Safety**: Generic type parameter ensures type-safe operations
-    - **Lazy Evaluation**: Computations only re-run when actually needed
-    - **Circular Dependency Detection**: Prevents infinite loops at runtime
+    The mechanism works through dependency tracking. When a reactive function executes, it runs within a ReactiveContext. That context watches which observables get accessed via their `.value` property. Each access registers the observable as a dependency and adds the context's re-run function as an observer. Later, when you call `.set()` on the observable, it notifies all observers, causing dependent functions to re-execute with fresh values.
 
-    Observable implements various magic methods (`__eq__`, `__str__`, etc.) to
-    behave like its underlying value in most contexts, making it easy to use
-    in existing code without modification.
+    Observable implements magic methods to behave like its underlying value. You can use it in boolean contexts (`if observable:`), string formatting (`f"{observable}"`), and equality comparisons (`observable == 5`) without accessing `.value` explicitly. That transparency makes observables easy to integrate into existing code—they look and feel like regular values.
+
+    The notification system uses batched processing with topological sorting. When multiple observables change, the system collects pending notifications and processes them in dependency order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.
+
+    Circular dependency detection prevents infinite loops. If a computation tries to modify one of its own dependencies (directly or indirectly), the system raises a RuntimeError. The detection works by checking whether the current reactive context depends on the observable being modified.
 
     Attributes:
-        key (Optional[str]): Unique identifier for debugging and serialization
-        _value (Optional[T]): The current wrapped value
-        _observers (Set[Callable]): Set of observer functions
+        key: Unique identifier for debugging and serialization
+        _value: The current wrapped value
+        _observers: Set of observer functions to notify on change
 
     Class Attributes:
-        _current_context (Optional[ReactiveContext]): Current reactive execution context
-        _context_stack (List[ReactiveContext]): Stack of nested reactive contexts
+        _current_context: Current reactive execution context (None when not in reactive execution)
+        _context_stack: Stack of nested reactive contexts for proper dependency tracking
+        _pending_notifications: Set of observables waiting to notify observers
+        _notification_scheduled: Whether notification processing is scheduled
+        _currently_notifying: Set of observables currently notifying (prevents re-entrant notifications)
 
     Args:
-        key: A unique identifier for this observable (used for debugging).
-             If None, will be set to "<unnamed>" and updated in __set_name__.
-        initial_value: The initial value to store. Can be any type.
+        key: A unique identifier for this observable (used for debugging and serialization).
+             If None, will be set to "<unnamed>" and updated in __set_name__ when used as a class attribute.
+        initial_value: The initial value to store. Can be any type compatible with the generic type parameter.
 
     Raises:
-        RuntimeError: If a circular dependency is detected during value updates.
+        RuntimeError: If setting this value would create a circular dependency (e.g., a computed value trying to modify its own input).
 
     Example:
         ```python
@@ -187,17 +185,15 @@ class Observable(ObservableInterface[T], OperatorMixin):
         print(str(counter))   # "0"
 
         # Subscribe to changes
-        def on_change():
-            print(f"Counter changed to: {counter.value}")
+        def on_change(new_value):
+            print(f"Counter changed to: {new_value}")
 
         counter.subscribe(on_change)
         counter.set(5)  # Prints: "Counter changed to: 5"
         ```
 
     Note:
-        While you can create Observable instances directly, it's often more
-        convenient to use the `observable()` descriptor in Store classes for
-        better organization and automatic serialization support.
+        While you can create Observable instances directly, it's often more convenient to use the `observable()` descriptor in Store classes for better organization and automatic serialization support.
 
     See Also:
         Store: For organizing observables into reactive state containers
@@ -241,18 +237,21 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         Get the current value of this observable.
 
-        Accessing the value property automatically registers this observable
-        as a dependency if called within a reactive context (computation or reaction).
+        Accessing this property reads the wrapped value. If called within a reactive context (during execution of a reactive function or computation), it also registers this observable as a dependency. That registration happens automatically—the current ReactiveContext (if any) adds this observable to its dependency set and registers itself as an observer.
+
+        The dependency tracking enables automatic re-execution. When you later call `.set()` on this observable, all registered observers (including reactive contexts that depend on it) get notified and re-run their functions with fresh values.
 
         Returns:
             The current value stored in this observable, or None if not set.
 
         Note:
-            This property is tracked by the reactive system. Use it instead of
-            accessing _value directly to ensure proper dependency tracking.
+            This property is tracked by the reactive system. Use it instead of accessing `_value` directly to ensure proper dependency tracking. Outside reactive contexts, reading `.value` behaves like a regular property access.
 
         Example:
             ```python
+            from fynx.observable import Observable
+            from fynx import reactive
+
             obs = Observable("counter", 5)
             print(obs.value)  # 5
 
@@ -271,23 +270,22 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         Set the value and notify all observers if the value changed.
 
-        This method updates the observable's value and triggers change notifications
-        to all registered observers. The update only occurs if the new value is
-        different from the current value (using != comparison).
+        This method updates the observable's wrapped value and triggers change notifications to all registered observers. The update only occurs if the new value differs from the current value (using `!=` comparison). If the value hasn't changed, observers are not notified—that avoids unnecessary re-computations.
 
-        Circular dependency detection is performed to prevent infinite loops where
-        a computation tries to modify one of its own dependencies.
+        Before updating, the method checks for circular dependencies. If the current reactive context depends on this observable (directly or indirectly), setting the value would create a cycle. The system raises a RuntimeError in that case, preventing infinite loops.
+
+        When the value does change, the observable adds itself to a pending notifications set. The notification system processes these in topological order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.
 
         Args:
-            value: The new value to set. Can be any type compatible with the
-                   observable's generic type parameter.
+            value: The new value to set. Can be any type compatible with the observable's generic type parameter.
 
         Raises:
-            RuntimeError: If setting this value would create a circular dependency
-                         (e.g., a computed value trying to modify its own input).
+            RuntimeError: If setting this value would create a circular dependency (e.g., a computed value trying to modify its own input).
 
         Example:
             ```python
+            from fynx.observable import Observable
+
             obs = Observable("counter", 0)
             obs.set(5)  # Triggers observers if value changed
 
@@ -296,8 +294,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             ```
 
         Note:
-            Equality is checked using `!=` operator, so custom objects should
-            implement proper equality comparison if needed.
+            Equality is checked using the `!=` operator, so custom objects should implement proper equality comparison if needed.
         """
         # Check for circular dependency: check if the current context
         # is computing a value that depends on this observable
@@ -409,17 +406,22 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         Subscribe a function to react to changes in this observable.
 
-        The subscribed function will be called whenever the observable's value changes.
+        The subscribed function will be called whenever the observable's value changes. The function receives the new value as its single argument. This creates a ReactiveContext that wraps the function and registers it as an observer on this observable.
+
+        When you call `.set()` with a new value, the observable notifies all observers. The subscription system ensures that your function runs with the updated value. The function is not called immediately upon subscription—only when the value actually changes.
+
+        The subscription creates a reactive context internally. That context tracks dependencies if your function accesses other observables during execution, enabling automatic re-execution when those dependencies change as well.
 
         Args:
-            func: A callable that accepts one argument (the new value).
-                  The function will be called whenever the observable's value changes.
+            func: A callable that accepts one argument (the new value). The function will be called whenever the observable's value changes.
 
         Returns:
             This observable instance for method chaining.
 
         Example:
             ```python
+            from fynx.observable import Observable
+
             def on_change(new_value):
                 print(f"Observable changed to: {new_value}")
 
@@ -430,8 +432,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             ```
 
         Note:
-            The function is called only when the observable's value changes.
-            It is not called immediately upon subscription.
+            The function is called only when the observable's value changes. It is not called immediately upon subscription.
 
         See Also:
             unsubscribe: Remove a subscription
@@ -552,7 +553,8 @@ class Observable(ObservableInterface[T], OperatorMixin):
             ```python
             obs = Observable("name", "Alice")
             print(f"Hello {obs}")  # Prints: "Hello Alice"
-            message = "User: " + obs  # Works like "User: " + obs.value
+            # Note: String concatenation with + requires explicit .value access
+            message = "User: " + str(obs)  # Works with str() conversion
             ```
         """
         return str(self._value)

@@ -2,91 +2,72 @@
 FynX Operators - Observable Operator Implementations and Mixins
 ================================================================
 
-This module provides the core operator implementations and mixins that enable FynX's
-fluent reactive programming syntax. These operators allow observables to be composed
-using intuitive Python operators, creating complex reactive behaviors from simple
-building blocks.
+Consider a spreadsheet formula: you reference cells, apply functions, combine values. That formula recalculates automatically when inputs change. This module provides that mechanism as Python operators—familiar syntax that composes reactive values into complex behaviors.
 
-Why Operators?
---------------
+FynX uses operator overloading to make reactive code read like natural expressions. Instead of method chains like `obs.map(f).filter(g)`, you write `obs >> f & g`. That syntax compresses reactive relationships into declarative statements—the operators handle dependency tracking and automatic updates behind the scenes.
 
-FynX uses Python's operator overloading to provide a natural, readable syntax
-for reactive programming. Instead of verbose method calls, you can express
-reactive relationships using familiar operators:
+The operators work through three mixin classes that consolidate operator overloading logic. OperatorMixin provides the core reactive operators (`+`, `>>`, `&`, `~`, `|`) for all observable types. TupleMixin adds tuple-like behavior to merged observables—iteration, indexing, length operations. ValueMixin enables transparent value access for ObservableValue instances, making reactive attributes behave like regular values while preserving reactive capabilities.
 
-- `observable >> function` - Transform values reactively
-- `observable & condition` - Filter values conditionally
-- `obs1 + obs2 + obs3` - Combine observables
+Result: reactive code that reads like mathematical expressions, with automatic optimization and dependency tracking handled transparently.
 
-This approach makes reactive code more declarative and easier to understand.
-
-Operator Overview
------------------
+Operator Semantics
+------------------
 
 **Transform (`>>`)**: Apply functions to create derived values
 ```python
+from fynx.observable import Observable
+
+counter = Observable("counter", 5)
 doubled = counter >> (lambda x: x * 2)
+print(doubled.value)  # 10
 ```
 
 **Filter (`&`)**: Only emit values when conditions are met
 ```python
-valid_data = data & is_valid
+data = Observable("data", "hello")
+is_ready = Observable("ready", False)
+filtered = data & is_ready  # Only emits when is_ready is True
 ```
 
 **Combine (`+`)**: Merge multiple observables into tuples
 ```python
+x = Observable("x", 1)
+y = Observable("y", 2)
+z = Observable("z", 3)
 coordinates = x + y + z
+print(coordinates.value)  # (1, 2, 3)
 ```
 
-These operators work together to create complex reactive pipelines:
+These operators compose to create complex reactive pipelines:
 ```python
 result = (x + y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
 ```
 
-Operator Mixins
----------------
+Implementation Architecture
+----------------------------
 
-This module also provides mixin classes that consolidate operator overloading logic:
+The operators delegate to methods in OperationsMixin rather than implementing logic directly. That separation enables lazy loading and avoids circular import issues. When you use `obs >> func`, Python calls `__rshift__`, which delegates to `obs.then(func)`. The `then` method creates computed observables through `_create_computed`, which registers with the optimization system automatically.
 
-**OperatorMixin**: Provides common reactive operators (__add__, __rshift__, __and__, __invert__)
-for all observable types that support reactive composition.
-
-**TupleMixin**: Adds tuple-like behavior (__iter__, __len__, __getitem__, __setitem__) for
-observables that represent collections of values.
-
-**ValueMixin**: Provides transparent value wrapper behavior for ObservableValue instances,
-making them behave like regular Python values while supporting reactive operators.
-
-Implementation Details
-----------------------
-
-The operators are implemented as standalone functions rather than methods
-to avoid circular import issues and enable lazy loading. They are called
-automatically when you use the corresponding operators on Observable instances.
-
-The functions handle different observable types (regular, merged, conditional)
-appropriately, ensuring consistent behavior across the reactive system.
+The functions handle different observable types (regular, merged, conditional) uniformly. For merged observables, transformation functions receive unpacked tuple values as separate arguments. For single observables, they receive one argument. That distinction enables functions that work with both coordinate pairs and scalar values.
 
 Performance Characteristics
 ---------------------------
 
-- **Lazy Evaluation**: Operators create computed/conditional observables that
-  only evaluate when needed
-- **Efficient Composition**: Multiple operators can be chained without
-  creating intermediate objects
-- **Memory Conscious**: Operators reuse existing infrastructure rather than
-  creating new classes
+Operators create computed or conditional observables that evaluate lazily—they recalculate only when accessed after dependencies change. Multiple operators chain without creating intermediate objects—the optimization system fuses sequential transformations into single composed functions. Operators reuse existing infrastructure rather than creating new classes, minimizing memory overhead.
 
 Common Patterns
 ---------------
 
 **Data Processing Pipeline**:
 ```python
-raw_data = observable([])
+from fynx import observable
+
+raw_data = observable([1, -2, 3, -4, 5])
 processed = (raw_data
     >> (lambda d: [x for x in d if x > 0])  # Filter positive values
     >> (lambda d: sorted(d))                # Sort results
     >> (lambda d: sum(d) / len(d) if d else 0))  # Calculate average
+print(processed.value)  # 3.0
 ```
 
 **Conditional UI Updates**:
@@ -105,45 +86,25 @@ tax_rate = observable(0.08)
 subtotal = (price + quantity) >> (lambda p, q: p * q)
 tax = subtotal >> (lambda s: s * tax_rate.value)
 total = (subtotal + tax) >> (lambda s, t: s + t)
+print(total.value)  # 10.8
 ```
 
 Error Handling
 --------------
 
-Operators handle errors gracefully:
-- Transformation function errors are propagated but don't break the reactive system
-- Invalid operator usage provides clear error messages
-- Circular dependencies are detected and prevented
+Transformation function errors propagate normally—the reactive system doesn't swallow exceptions. Invalid operator usage raises TypeError with descriptive messages. Circular dependencies are detected during `.set()` operations and raise RuntimeError before creating infinite loops.
 
 Best Practices
 --------------
 
-- **Keep Functions Pure**: Transformation functions should not have side effects
-- **Use Meaningful Lambdas**: Complex operations deserve named functions
-- **Chain Thoughtfully**: Break complex chains into intermediate variables for clarity
-- **Handle Edge Cases**: Consider what happens with None, empty collections, etc.
-
-Migration from Method Calls
----------------------------
-
-If you're familiar with other reactive libraries, here's how FynX operators compare:
-
-```python
-# Other libraries (method-based)
-result = obs.map(lambda x: x * 2).filter(lambda x: x > 10)
-
-# FynX (operator-based)
-result = obs >> (lambda x: x * 2) & (obs >> (lambda x: x > 10))
-```
-
-The operator syntax is more concise and readable for simple transformations.
+Keep transformation functions pure—no side effects, no external state access. Use named functions for complex operations rather than long lambda expressions. Break complex chains into intermediate variables for clarity. Handle edge cases explicitly—consider None values, empty collections, and boundary conditions.
 
 See Also
 --------
 
 - `fynx.observable`: Core observable classes that use these operators and mixins
-- `fynx.computed`: Computed observables created by the `>>` operator
-- `fynx.watch`: Conditional reactive functions (alternative to `&`)
+- `fynx.observable.computed`: Computed observables created by the `>>` operator
+- `fynx.observable.conditional`: Conditional observables created by the `&` operator
 """
 
 from typing import TYPE_CHECKING, Callable, TypeVar
@@ -185,7 +146,9 @@ class OperatorMixin(OperationsMixin):
         Combine this observable with another using the + operator.
 
         This creates a merged observable that contains a tuple of both values
-        and updates automatically when either observable changes.
+        and updates automatically when either observable changes. The merge operation
+        represents the categorical product—combining independent reactive values
+        into a single reactive pair.
 
         Args:
             other: Another Observable to combine with
@@ -200,7 +163,8 @@ class OperatorMixin(OperationsMixin):
         Support right-side addition for merging observables.
 
         This enables expressions like `other + self` to work correctly,
-        ensuring that merged observables can be chained properly.
+        ensuring that merged observables can be chained properly. Python calls
+        this method when the left operand doesn't support `__add__`.
 
         Args:
             other: Another Observable to combine with
@@ -216,6 +180,7 @@ class OperatorMixin(OperationsMixin):
 
         This implements the functorial map operation over observables, allowing you to
         transform observable values through pure functions while preserving reactivity.
+        The operation satisfies the functor laws: identity and composition preservation.
 
         Args:
             func: A pure function to apply to the observable's value(s)
@@ -231,6 +196,8 @@ class OperatorMixin(OperationsMixin):
 
         This creates a ConditionalObservable that only emits values when all
         specified conditions are True, enabling precise control over reactive updates.
+        The operation represents a pullback—filtering the reactive stream through
+        boolean conditions.
 
         Args:
             condition: A boolean Observable, callable, or compound condition
@@ -246,6 +213,7 @@ class OperatorMixin(OperationsMixin):
 
         This creates a computed observable that returns the logical negation
         of the current boolean value, useful for creating inverse conditions.
+        The negation updates automatically when the source changes.
 
         Returns:
             A computed Observable[bool] with negated boolean value
@@ -258,6 +226,7 @@ class OperatorMixin(OperationsMixin):
 
         This creates a conditional observable that only emits when the OR result
         is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.
+        The operation combines boolean observables with logical disjunction.
 
         Args:
             other: Another boolean observable to OR with

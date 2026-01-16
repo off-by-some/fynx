@@ -61,7 +61,7 @@ This is the bridge from passive state management (observables and stores) to act
 
 ## A Critical Detail: When Reactions Fire
 
-Here's something that might surprise you: when you create a reactive function, it doesn't fire immediately with the current value. It only fires when the value *changes*.
+When you create a reactive function, it fires immediately with the current value of its dependencies, and then again whenever any dependency changes.
 
 ```python
 ready = observable(True)  # Already true
@@ -70,7 +70,7 @@ ready = observable(True)  # Already true
 def on_ready(value):
     print(f"Ready: {value}")
 
-# Nothing prints yet, even though ready is True
+# Prints: "Ready: True" (fires immediately with current value)
 
 ready.set(False)  # Prints: "Ready: False"
 ready.set(True)   # Prints: "Ready: True"

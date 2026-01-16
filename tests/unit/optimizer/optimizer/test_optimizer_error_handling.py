@@ -34,8 +34,7 @@ def test_reactive_graph_with_isolated_nodes():
     graph.build_from_observables([obs1, obs2])
 
     # Should handle isolated nodes
-    classes = graph.compute_equivalence_classes()
-    assert isinstance(classes, dict)
+    assert len(graph.nodes) == 2
 
 
 @pytest.mark.unit

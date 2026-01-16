@@ -161,33 +161,33 @@ FynX Benchmark Configuration:
 ╰─────────────────────────────────────────────────────────────────────────────────╯
 
 Running Observable Creation benchmark...
-✓ Observable Creation: 793,506 ops/sec (810325 items)
+✓ Observable Creation: 756,789 ops/sec (810325 items)
 Running Individual Updates benchmark...
-✓ Individual Updates: 352,902 ops/sec (360145 items)
+✓ Individual Updates: 215,064 ops/sec (240097 items)
 Running Chain Propagation benchmark...
-✓ Chain Propagation: 1,640 ops/sec (2776 links, 609μs latency)
+✓ Chain Propagation: 47,412 ops/sec (47427 links, 21μs latency)
 Running Reactive Fan-out benchmark...
-✓ Reactive Fan-out: 47,115 ops/sec (47427 items)
+✓ Reactive Fan-out: 42,032 ops/sec (47427 items)
 
 ╭─────────────────────── 🎯 Real-World Performance Translation ───────────────────╮
 │ ✓ Can handle ~47,427 UI components reacting to single state change              │
-│ ✓ Supports component trees up to 2,776 levels deep                              │
-│ ✓ Processes 353K+ state updates per second                                      │
-│ ✓ Creates 794K+ observable objects per second                                   │
-│ ✓ Average propagation latency: 609μs per dependency link                        │
+│ ✓ Supports component trees up to 47,427 levels deep                             │
+│ ✓ Processes 215K+ state updates per second                                      │
+│ ✓ Creates 757K+ observable objects per second                                   │
+│ ✓ Average propagation latency: 21μs per dependency link                         │
 ╰──────────────────────────────────────────────────────────────────────────────── ╯
 ```
 
-The library processes over **353,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
+The library processes over **215,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
 
 | Benchmark | Performance | Real-World Translation |
 |-----------|-------------|------------------------|
-| **Observable Creation** | 794K ops/sec | Create 790,000+ observable objects per second |
-| **Individual Updates** | 353K ops/sec | Process 350,000+ state changes per second |
-| **Chain Propagation** | 1.6K ops/sec | Support dependency chains 2,776 levels deep |
-| **Reactive Fan-out** | 47K ops/sec | Update 47,000+ UI components from single state change |
+| **Observable Creation** | 757K ops/sec | Create 750,000+ observable objects per second |
+| **Individual Updates** | 215K ops/sec | Process 215,000+ state changes per second |
+| **Chain Propagation** | 47K ops/sec | Support dependency chains 47,000+ levels deep |
+| **Reactive Fan-out** | 42K ops/sec | Update 42,000+ UI components from single state change |
 
-Latency remains sub-microsecond for individual updates and averages 609μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
+Latency remains sub-microsecond for individual updates and averages 21μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
 
 The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/generation/markdown/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
 

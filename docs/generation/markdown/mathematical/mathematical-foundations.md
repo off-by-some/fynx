@@ -274,7 +274,7 @@ age = observable(0)
 # Validation conditions
 username_valid = username >> (lambda u: len(u) >= 3 and u.isalnum())
 email_valid = email >> (lambda e: "@" in e and "." in e.split("@")[-1])
-password_strong = password >> (lambda p: len(p) >= 8 and any(c.isupper() for c in p))
+password_strong = password >> (lambda p: len(p) >= 8 and any(c.isupper() for c in p) and any(c.islower() for c in p))
 age_appropriate = age >> (lambda a: 13 <= a <= 120)
 
 # Form only submittable when all validations pass
@@ -390,7 +390,7 @@ confirmation = observable("")
 terms_accepted = observable(False)
 
 # Functors: lift validation functions
-is_valid_email = email >> (lambda e: "@" in e and "." in e)
+is_valid_email = email >> (lambda e: "@" in e and e.count("@") == 1 and not e.startswith("@") and not e.endswith("@") and all(part for part in e.split("@")[1].split(".") if part))
 is_strong_password = password >> (lambda p: len(p) >= 8)
 
 # Product: combine related fields
@@ -465,23 +465,42 @@ Multiple conditional checks become one. The algebraic structure proves this fusi
 
 ### Cost-Based Materialization
 
-The optimizer decides whether to cache or recompute each node using a cost model:
+The optimizer decides whether to cache or recompute each node using a two-stage cost model that combines monoidal composition with sharing penalties:
 
-$$C(\sigma) = \alpha \cdot +\text{Dep}(\sigma)+ + \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] + \gamma \cdot \text{depth}(\sigma)$$
+### Monoidal Cost Model
 
-This cost functional has important mathematical structure. It's a monoidal functor from the reactive category to the ordered monoid $(\mathbb{R}^+, +, 0)$. This means:
+The base cost functional respects the monoidal structure of the reactive category:
+
+$$\text{Monoidal Cost}(\sigma) = \alpha \cdot \text{materialization}(\sigma) + \beta \cdot \text{recomputation}(\sigma) + \sum_{\tau \in \text{dependencies}(\sigma)} \text{Monoidal Cost}(\tau)$$
+
+Where:
+- $\alpha$: Memory cost coefficient for materialized nodes
+- $\beta$: Computation cost coefficient  
+- $\text{materialization}(\sigma)$: 1 if node is cached, 0 otherwise
+- $\text{recomputation}(\sigma)$: $\mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma)$ if not cached, 0 otherwise
+
+This cost functional is a monoidal functor $C: \mathcal{C}_T \to (\mathbb{R}^+, +, 0)$, ensuring that:
 
 $C(g \circ f) \leq C(g) + C(f)$
 
-Cost flows from sources to dependents through the graph structure. When we compute a node's cost, we're summing its local computation cost with the costs flowing from its dependencies. This monoidal composition ensures that optimization decisions compose correctly—choosing the minimal-cost materialization strategy at each node yields a globally optimal strategy.
+Cost flows compositionally from sources to dependents through the graph structure.
 
-The optimizer handles two types of costs:
+### Sharing Penalty Model
 
-**Monoidal cost**: Flows through the category following composition laws. For a computed node, this is either the memory cost of materialization ($\alpha$) or the recomputation cost ($\beta \cdot \text{frequency} \cdot \text{computation\_cost}$).
+In addition to monoidal costs, the optimizer accounts for sharing penalties that arise when non-materialized nodes have multiple dependents:
 
-**Sharing penalty**: Accounts for redundant computation when a non-materialized node has multiple dependents. This breaks the monoidal structure slightly but captures the real cost of sharing in practice.
+$$\text{Sharing Penalty}(\sigma) = \begin{cases} 
+0 & \text{if } \sigma \text{ is materialized or } |\text{dependents}(\sigma)| \leq 1 \\
+(\text{dependents}(\sigma) - 1) \cdot \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma) & \text{otherwise}
+\end{cases}$$
 
-For frequently-accessed or deep nodes, caching wins. For cheap or rarely-accessed nodes, recomputation wins.
+### Total Cost
+
+The complete cost model combines both components:
+
+$$\text{Total Cost}(\sigma) = \text{Monoidal Cost}(\sigma) + \text{Sharing Penalty}(\sigma)$$
+
+The monoidal component ensures compositionality and global optimality, while the sharing penalty captures contextual costs that depend on usage patterns. For frequently-accessed or deep nodes, caching wins. For cheap or rarely-accessed nodes, recomputation wins. When a node has multiple dependents, materialization becomes more attractive to avoid redundant computation.
 
 ### Why Optimization is Sound
 

@@ -39,8 +39,9 @@ def test_record_execution_time_truncates_old_samples():
     for i in range(150):
         node.record_execution_time(0.1)
 
-    # Should keep only the last 100 samples
-    assert len(node.profiling_data["execution_times"]) == 100
+    # Should keep only recent samples (scaled with connectivity)
+    expected_samples = min(200, max(50, len(node.incoming) + len(node.outgoing) * 10))
+    assert len(node.profiling_data["execution_times"]) == expected_samples
     assert node.profiling_data["call_count"] == 150
 
 
