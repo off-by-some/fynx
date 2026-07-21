@@ -40,8 +40,6 @@ nav:
           - "@reactive": reference/reactive-decorator.md
   - Mathematical Foundations:
       - Mathematical Foundations: mathematical/mathematical-foundations.md
-  - Roadmap:
-      - v1.0 Roadmap: ../specs/v1.0-roadmap.md
 
 theme:
   name: material
@@ -127,4 +125,4 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 copyright: |
-  Cassidy Bridges &copy; 2025
+  Cassidy Bridges &copy; 2025-2026

@@ -36,7 +36,13 @@ Result: multiple reactive values that behave as a single atomic unit, updating a
 from typing import Callable, Iterable, TypeVar
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
-from .base import Observable, ReactiveContext
+from . import base as _base
+from .base import (
+    Observable,
+    ReactiveContext,
+    TransformPurityError,
+    _transform_purity_message,
+)
 from .computed import ComputedObservable
 from .interfaces import Mergeable
 from .operators import OperatorMixin, TupleMixin
@@ -115,22 +121,61 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         # where T represents a tuple type in the subclass but a single value in the parent
         super().__init__("merged", initial_tuple, compute_merged_value)  # type: ignore
         self._source_observables = list(observables)
-        self._cached_tuple = None  # Cache for tuple value
+        self._cached_tuple = initial_tuple  # Cache for tuple value
+        self._source_signature = self._current_source_signature()
+        self._is_dirty = False
 
         # Set up observers on all source observables to update our tuple
         def update_merged():
-            # Invalidate cache and update value
+            # Invalidate cache and let the notification drain recompute once.
             self._cached_tuple = None
-            new_value = tuple(obs.value for obs in self._source_observables)
-            # Use the computed observable's internal method to update value
-            self._set_computed_value(new_value)
+            self._is_dirty = True
+            if self._observers:
+                Observable._schedule_notification(self)
+            else:
+                self._version = getattr(self, "_version", 0) + 1
 
         # Set up dependency tracking for each source observable
         for obs in self._source_observables:
             obs.add_observer(update_merged)
 
+    def _source_values(self):
+        captured_dependencies = set()
+        Observable._dependency_capture_stack.append(captured_dependencies)
+        try:
+            return tuple(obs.value for obs in self._source_observables)
+        finally:
+            Observable._dependency_capture_stack.pop()
+
+    def _current_source_signature(self):
+        source_observables = getattr(self, "_source_observables", None)
+        if not source_observables:
+            return None
+        return tuple(
+            (id(observable), getattr(observable, "_version", 0))
+            for observable in source_observables
+        )
+
+    def _refresh_tuple(self) -> bool:
+        new_value = self._source_values()
+        self._cached_tuple = new_value
+        self._source_signature = self._current_source_signature()
+        self._is_dirty = False
+        if self._value != new_value:
+            self._value = new_value
+            self._version = getattr(self, "_version", 0) + 1
+            return True
+        return False
+
+    def _notify_observers(self) -> None:
+        """Refresh the product once per stabilization pass before notifying."""
+        if self._is_dirty or self._cached_tuple is None or self._source_changed():
+            if not self._refresh_tuple():
+                return
+        super()._notify_observers()
+
     @property
-    def value(self):
+    def value(self) -> tuple:
         """
         Get the current tuple value, using cache when possible.
 
@@ -154,12 +199,18 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
             print(merged.value)  # (15, 20) - cache invalidated and recomputed
             ```
         """
-        if self._cached_tuple is None:
-            self._cached_tuple = tuple(obs.value for obs in self._source_observables)
+        if _base._TRANSFORM_EVALUATION_STATE[0]:
+            raise TransformPurityError(_transform_purity_message("read", self._key))
+
+        if Observable._dependency_capture_stack:
+            Observable._dependency_capture_stack[-1].add(self)
+
+        if self._is_dirty or self._cached_tuple is None or self._source_changed():
+            self._refresh_tuple()
 
         return self._cached_tuple
 
-    def __enter__(self):
+    def __enter__(self) -> object:
         """
         Context manager entry for reactive blocks.
 
@@ -280,30 +331,20 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
             reactive: Decorator-based reactive functions
         """
 
-        def multi_observable_reaction():
-            # Disable automatic dependency tracking for merged observables
-            # since we don't want to add observers to source observables
-            old_context = Observable._current_context
-            Observable._current_context = None
-            try:
-                # Get values from all observables in the order they were merged
-                values = [obs.value for obs in self._source_observables]
-                func(*values)
-            finally:
-                Observable._current_context = old_context
+        def direct_reaction():
+            values = self.value
+            func(*values)
 
-        context = ReactiveContext(multi_observable_reaction, func, self)
+        direct_observers = getattr(self, "_direct_observers", None)
+        if direct_observers is None:
+            direct_observers = {}
+            self._direct_observers = direct_observers
+        existing_observer = direct_observers.pop(func, None)
+        if existing_observer is not None:
+            self.remove_observer(existing_observer)
 
-        # Register context globally for unsubscribe functionality
-        _all_reactive_contexts.add(context)
-
-        # Add to function mapping for O(1) unsubscribe
-        _func_to_contexts.setdefault(func, []).append(context)
-
-        # Track this merged observable as the dependency (not the source observables)
-        # since the observer is added to this merged observable
-        context.dependencies.add(self)
-        self.add_observer(context.run)
+        direct_observers[func] = direct_reaction
+        self.add_observer(direct_reaction)
 
         return self
 
@@ -341,6 +382,14 @@ class MergedObservable(ComputedObservable[T], Mergeable[T], OperatorMixin, Tuple
         See Also:
             subscribe: Add a subscription
         """
+        direct_observer = (
+            self._direct_observers.pop(func, None)
+            if getattr(self, "_direct_observers", None) is not None
+            else None
+        )
+        if direct_observer is not None:
+            self.remove_observer(direct_observer)
+
         if func in _func_to_contexts:
             # Filter contexts that are subscribed to this observable
             contexts_to_remove = [

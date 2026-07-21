@@ -5,6 +5,7 @@ Test for circular dependency detection in complex reactive chains.
 import pytest
 
 from fynx import Store, observable
+from fynx.observable.base import TransformPurityError
 
 
 class TestStore(Store):
@@ -85,17 +86,13 @@ def test_circular_dependency_with_complex_chains():
 
 
 def test_circular_dependency_should_be_detected():
-    """Test that actual circular dependencies are still detected."""
+    """Transforms that mutate observables are rejected at construction."""
 
     # Create a true circular dependency
     obs_a = observable(1)
 
-    # Create computed that modifies its source
-    computed_obs = obs_a >> (lambda x: (obs_a.set(x + 1), x)[1])
-
-    # The circular dependency is detected when the computed is triggered
-    with pytest.raises(RuntimeError, match="Circular dependency detected"):
-        obs_a.set(5)  # This should trigger the circular dependency error
+    with pytest.raises(TransformPurityError, match="inside a transform"):
+        obs_a >> (lambda x: (obs_a.set(x + 1), x)[1])
 
 
 def test_long_computed_chain_no_recursion():

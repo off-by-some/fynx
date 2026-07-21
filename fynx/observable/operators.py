@@ -84,7 +84,7 @@ quantity = observable(1)
 tax_rate = observable(0.08)
 
 subtotal = (price + quantity) >> (lambda p, q: p * q)
-tax = subtotal >> (lambda s: s * tax_rate.value)
+tax = (subtotal + tax_rate) >> (lambda s, rate: s * rate)
 total = (subtotal + tax) >> (lambda s, t: s + t)
 print(total.value)  # 10.8
 ```
@@ -92,12 +92,12 @@ print(total.value)  # 10.8
 Error Handling
 --------------
 
-Transformation function errors propagate normally—the reactive system doesn't swallow exceptions. Invalid operator usage raises TypeError with descriptive messages. Circular dependencies are detected during `.set()` operations and raise RuntimeError before creating infinite loops.
+Transformation function errors propagate normally—the reactive system doesn't swallow exceptions. Invalid operator usage raises TypeError with descriptive messages. Transform functions that read `.value` or call `.set()` on observables raise `TransformPurityError` with a hint to combine inputs explicitly or move effects to subscriptions. Circular dependencies are detected during `.set()` operations and raise RuntimeError before creating infinite loops.
 
 Best Practices
 --------------
 
-Keep transformation functions pure—no side effects, no external state access. Use named functions for complex operations rather than long lambda expressions. Break complex chains into intermediate variables for clarity. Handle edge cases explicitly—consider None values, empty collections, and boundary conditions.
+Keep transformation functions pure: use only the values passed as arguments, with no side effects and no hidden observable reads. Combine every reactive input first with `+` / `.alongside()`. Use named functions for complex operations rather than long lambda expressions. Break complex chains into intermediate variables for clarity. Handle edge cases explicitly—consider None values, empty collections, and boundary conditions.
 
 See Also
 --------
@@ -107,7 +107,7 @@ See Also
 - `fynx.observable.conditional`: Conditional observables created by the `&` operator
 """
 
-from typing import TYPE_CHECKING, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from .interfaces import Conditional, Mergeable
 from .operations import OperationsMixin
@@ -141,7 +141,7 @@ class OperatorMixin(OperationsMixin):
     need to support reactive composition operations.
     """
 
-    def __add__(self, other) -> "Mergeable":
+    def __add__(self, other: Any) -> "Mergeable":
         """
         Combine this observable with another using the + operator.
 
@@ -158,7 +158,7 @@ class OperatorMixin(OperationsMixin):
         """
         return self.alongside(other)  # type: ignore
 
-    def __radd__(self, other) -> "Mergeable":
+    def __radd__(self, other: Any) -> "Mergeable":
         """
         Support right-side addition for merging observables.
 
@@ -190,7 +190,7 @@ class OperatorMixin(OperationsMixin):
         """
         return self.then(func)
 
-    def __and__(self, condition) -> "Conditional":
+    def __and__(self, condition: Any) -> "Conditional":
         """
         Create a conditional observable using the & operator for filtered reactivity.
 
@@ -220,22 +220,19 @@ class OperatorMixin(OperationsMixin):
         """
         return self.negate()  # type: ignore
 
-    def __or__(self, other) -> "Observable":
+    def __or__(self, other: Any) -> "Observable":
         """
         Create a logical OR condition using the | operator.
 
-        This creates a conditional observable that only emits when the OR result
-        is truthy. If the initial OR result is falsy, raises ConditionalNeverMet.
-        The operation combines boolean observables with logical disjunction.
+        This creates a computed boolean observable that is True when either operand is
+        truthy and False otherwise. The operation combines boolean observables with
+        logical disjunction.
 
         Args:
             other: Another boolean observable to OR with
 
         Returns:
-            A conditional observable that only emits when OR is truthy
-
-        Raises:
-            ConditionalNeverMet: If initial OR result is falsy
+            A computed Observable[bool] containing the OR result.
         """
         return self.either(other)  # type: ignore
 
@@ -258,14 +255,17 @@ class TupleMixin:
 
     def __iter__(self):
         """Allow iteration over the tuple value."""
+        self._raise_if_transform_reads()  # type: ignore[attr-defined]
         return iter(self._value)  # type: ignore
 
     def __len__(self) -> int:
         """Return the number of combined observables."""
+        self._raise_if_transform_reads()  # type: ignore[attr-defined]
         return len(self._source_observables)  # type: ignore
 
     def __getitem__(self, index: int):
         """Allow indexing into the merged observable like a tuple."""
+        self._raise_if_transform_reads()  # type: ignore[attr-defined]
         if self._value is None:  # type: ignore
             raise IndexError("MergedObservable has no value")
         return self._value[index]  # type: ignore
@@ -293,16 +293,23 @@ class ValueMixin:
     - Transparent access to the wrapped observable
     """
 
+    def _raise_if_transform_reads(self) -> None:
+        self._observable._raise_if_transform_reads()  # type: ignore[attr-defined]
+
     def __eq__(self, other) -> bool:
+        self._raise_if_transform_reads()
         return self._current_value == other  # type: ignore
 
     def __str__(self) -> str:
+        self._raise_if_transform_reads()
         return str(self._current_value)  # type: ignore
 
     def __repr__(self) -> str:
+        self._raise_if_transform_reads()
         return repr(self._current_value)  # type: ignore
 
     def __len__(self) -> int:
+        self._raise_if_transform_reads()
         if self._current_value is None:  # type: ignore
             return 0
         if hasattr(self._current_value, "__len__"):  # type: ignore
@@ -310,6 +317,7 @@ class ValueMixin:
         return 0
 
     def __iter__(self):
+        self._raise_if_transform_reads()
         if self._current_value is None:  # type: ignore
             return iter([])
         if hasattr(self._current_value, "__iter__"):  # type: ignore
@@ -317,6 +325,7 @@ class ValueMixin:
         return iter([self._current_value])  # type: ignore
 
     def __getitem__(self, key):
+        self._raise_if_transform_reads()
         if self._current_value is None:  # type: ignore
             raise IndexError("observable value is None")
         if hasattr(self._current_value, "__getitem__"):  # type: ignore
@@ -326,6 +335,7 @@ class ValueMixin:
         )
 
     def __contains__(self, item) -> bool:
+        self._raise_if_transform_reads()
         if self._current_value is None:  # type: ignore
             return False
         if hasattr(self._current_value, "__contains__"):  # type: ignore
@@ -333,6 +343,7 @@ class ValueMixin:
         return False
 
     def __bool__(self) -> bool:
+        self._raise_if_transform_reads()
         return bool(self._current_value)  # type: ignore
 
     def _unwrap_operand(self, operand):
@@ -446,7 +457,7 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
     return obs._create_computed(func, obs)
 
 
-def and_operator(obs, condition):
+def and_operator(obs: Any, condition: Any) -> "Conditional":
     """
     Implement the `&` operator for creating conditional observables.
 

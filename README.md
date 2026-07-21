@@ -140,63 +140,39 @@ Think of it like an impossibly thorough test suite: one covering not just the ca
 
 ## Performance
 
-While the theory guarantees correctness; implementation determines speed. FynX delivers both—and the mathematics directly enables the performance.
+While the theory guarantees correctness, implementation determines speed. FynX's benchmark suite uses fixed-size workloads, fresh worker processes, correctness checks outside timed regions, and optional RxPY comparisons for the subset both libraries can express synchronously.
 
 ```bash
-# Run the full benchmark suite
-poetry install --with benchmark
-poetry run python scripts/benchmark.py
+# Run fixed-size FynX stress tests
+python benchmark2.py --quick
+
+# Include RxPY comparisons when reactivex is installed
+python benchmark2.py --quick --compare
 ```
 
-Below is a sample of the output from the above command:
+Sample comparison output from `python benchmark2.py --quick --compare` on one Apple Silicon / Python 3.10 run:
 
 ```
-FynX Benchmark Configuration:
-  TIME_LIMIT_SECONDS: 1.0
-  STARTING_N: 10
-  SCALE_FACTOR: 1.5
-
-╭───────────────────────── 🎯 FynX Benchmarks ────────────────────────────────────╮
-│                    FynX Performance Benchmark Suite                             │
-╰─────────────────────────────────────────────────────────────────────────────────╯
-
-Running Observable Creation benchmark...
-✓ Observable Creation: 756,789 ops/sec (810325 items)
-Running Individual Updates benchmark...
-✓ Individual Updates: 215,064 ops/sec (240097 items)
-Running Chain Propagation benchmark...
-✓ Chain Propagation: 47,412 ops/sec (47427 links, 21μs latency)
-Running Reactive Fan-out benchmark...
-✓ Reactive Fan-out: 42,032 ops/sec (47427 items)
-
-╭─────────────────────── 🎯 Real-World Performance Translation ───────────────────╮
-│ ✓ Can handle ~47,427 UI components reacting to single state change              │
-│ ✓ Supports component trees up to 47,427 levels deep                             │
-│ ✓ Processes 215K+ state updates per second                                      │
-│ ✓ Creates 757K+ observable objects per second                                   │
-│ ✓ Average propagation latency: 21μs per dependency link                         │
-╰──────────────────────────────────────────────────────────────────────────────── ╯
-
-                       ⚡ Latency Percentiles                        
-╔═══════════════════╦════════╦════════╦════════╦════════╗
-║ Operation         ║    p50 ║    p95 ║    p99 ║  p99.9 ║
-╠═══════════════════╬════════╬════════╬════════╬════════╣
-║ Single Update     ║  4.6μs ║  6.5μs ║ 10.2μs ║ 15.3μs ║
-║ Chain Link        ║ 21.1μs ║ 27.4μs ║ 40.1μs ║ 63.3μs ║
-║ Fan-out (per dep) ║ 23.8μs ║ 30.9μs ║ 42.8μs ║ 59.5μs ║
-╚═══════════════════╩════════╩════════╩════════╩════════╝
+compare-map          FynX  9.186ms   RxPY 11.501ms   1.25x
+compare-chain 1      FynX  1.250us   RxPY 1.500us    1.20x
+compare-chain 10     FynX  1.750us   RxPY 3.542us    2.02x
+compare-fanout 1     FynX  916ns     RxPY 1.250us    1.36x
+compare-fanout 10    FynX  2.208us   RxPY 3.000us    1.36x
+compare-accumulate   FynX 10.042ms   RxPY 12.756ms   1.27x
 ```
 
-The library processes over **215,000 state updates per second** and handles reactive graphs with **47,000+ dependent components** updating from a single source change using nothing but pure Python. This speed isn't accidental—it emerges from a categorical optimizer that rewrites your reactive graphs using proven algebraic transformations.
+The headline comparison is deliberately limited to equivalent synchronous workloads: source-map-sink, transformation chains, fan-out to lightweight sinks, and running accumulation. FynX-only workloads separately measure observable creation, subscribed and unsubscribed updates, chain propagation, fan-out, diamond convergence, and dynamic condition dependency switching.
 
-| Benchmark | Performance | Real-World Translation |
-|-----------|-------------|------------------------|
-| **Observable Creation** | 757K ops/sec | Create 750,000+ observable objects per second |
-| **Individual Updates** | 215K ops/sec | Process 215,000+ state changes per second |
-| **Chain Propagation** | 47K ops/sec | Support dependency chains 47,000+ levels deep |
-| **Reactive Fan-out** | 42K ops/sec | Update 42,000+ UI components from single state change |
+| Workload | What It Measures |
+|----------|------------------|
+| **Observable Creation** | Construction time, traced bytes per live observable, RSS delta |
+| **Independent Updates** | Setter throughput with no subscribers and with one subscriber |
+| **Chain Propagation** | Source mutation to final observer delivery through fixed-depth chains |
+| **Fan-out** | One source notifying many lightweight dependents |
+| **Diamond Graphs** | Converging-node recomputation counts and duplicate recomputation checks |
+| **Dynamic Conditions** | Callable condition dependency switching and stale subscription cleanup |
 
-Latency remains sub-microsecond for individual updates and averages 21μs per dependency link for complex chain propagation. This predictability matters—reactive systems shouldn't stutter when graphs grow large.
+The benchmark reports exactly what happened, rather than translating lightweight dependents into UI claims. That makes results easier to compare across commits, Python versions, and machines.
 
 The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
 
@@ -250,7 +226,20 @@ result_operator = (counter
     >> format_result)
 ```
 
-Each transformation creates a new observable that recalculates when its source changes. This chaining works predictably because `>>` implements functorial mapping—structure preservation under transformation.
+Each transformation creates a new observable that recalculates when its source changes. Transform functions are pure: they receive plain values as arguments and may not read or mutate observables from inside the function. If you need another reactive input, combine it first with `+` or `.alongside()`.
+
+```python
+price = observable(100.0)
+discount = observable(0.1)
+
+# Good: both reactive inputs are explicit
+discounted = (price + discount) >> (lambda p, d: p * (1 - d))
+
+# Error: discount.value is a hidden dependency inside the transform
+# discounted = price >> (lambda p: p * (1 - discount.value))
+```
+
+This chaining works predictably because `>>` implements functorial mapping—structure preservation under transformation.
 
 ## Combining Observables with `+` or `.alongside()`
 
@@ -306,7 +295,7 @@ needs_attention = is_error | is_warning
 # Alternative: needs_attention = is_error.either(is_warning)
 ```
 
-The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. The `needs_attention` observable emits when any error or warning condition is true. This filtering emerges from pullback constructions that create a "smart gate" filtering to the fiber where all conditions are True.
+The `preview_ready` observable emits only when all conditions align—file exists, it's valid, and processing is inactive. The `needs_attention` observable is a total boolean value: `True` when any error or warning condition is true, and `False` otherwise. Filtering emerges from pullback constructions through `&`; `|` and `~` build boolean conditions that can feed those gates.
 
 ## Reacting to Changes
 
@@ -314,7 +303,7 @@ React to observable changes using the [`@reactive`](https://off-by-some.github.i
 
 **The fundamental principle**: `@reactive` is for side effects only—UI updates, logging, network calls, and other operations that interact with the outside world. For deriving new values from existing data, use the `>>` operator instead. This separation keeps your reactive system predictable and maintainable.
 
-**Important note on timing**: Reactive functions don't fire immediately when created—they only fire when their dependencies *change*. This follows from FynX's pullback semantics in category theory. If you need initialization logic, handle it separately before setting up the reaction.
+**Important note on timing**: Reactive functions run immediately when attached to active observables or stores, then run again when dependencies change. If a conditional observable is inactive at setup time, the reaction waits until the condition becomes active.
 
 ```python
 from fynx import reactive
@@ -373,7 +362,7 @@ def process_data(data):
 process_data.unsubscribe()  # Stops reacting to changes
 ```
 
-**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `+`, `&`, `|`, and `~` for all data transformations and computations. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
+**Remember**: Use `@reactive` for side effects at your application's boundaries—where your pure reactive data flow meets the outside world. Use `>>`, `+`, `&`, `|`, and `~` for data transformations and computations. Inside a `>>` / `.then()` transform, use only the arguments FynX passes to your function; combine extra inputs first with `+` / `.alongside()`. This "functional core, reactive shell" pattern is what makes reactive systems both powerful and maintainable.
 
 ## Additional Examples
 
@@ -460,7 +449,7 @@ Support the evolution of reactive programming by [**starring the repository**](h
 </p>
 
 <p align="center">
-  © 2025 Cassidy Bridges • MIT Licensed
+  © 2025-2026 Cassidy Bridges • MIT Licensed
 </p>
 
 <br>

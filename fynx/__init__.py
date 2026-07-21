@@ -14,7 +14,7 @@ Core Concepts
 changes, all dependent computations and reactions automatically update.
 
 **Computed Values**: Derived values that automatically recalculate when their
-dependencies change, with built-in memoization for performance.
+explicit inputs change, with built-in memoization for performance.
 
 **Reactions**: Functions that run automatically when their observed dependencies
 change, enabling side effects like UI updates or API calls.
@@ -69,6 +69,7 @@ from .observable import (
     MergedObservable,
     Observable,
     ReactiveContext,
+    TransformPurityError,
 )
 from .observable import SubscriptableDescriptor as Subscriptable
 from .reactive import ReactiveFunctionWasCalled, reactive
@@ -81,6 +82,7 @@ __all__ = [
     "MergedObservable",
     "ConditionalObservable",
     "ConditionalNeverMet",
+    "TransformPurityError",
     "ReactiveContext",
     "ReactiveFunctionWasCalled",
     "observable",

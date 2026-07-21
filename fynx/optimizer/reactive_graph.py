@@ -118,6 +118,9 @@ class ReactiveGraph(DependencyGraph):
             elif isinstance(obs, ComputedObservable) and hasattr(
                 obs, "_source_observable"
             ):
+                if self._expand_runtime_fused_chain(obs, node, visited, queue):
+                    continue
+
                 source = obs._source_observable
                 if source is not None:
                     if source not in visited:
@@ -148,6 +151,64 @@ class ReactiveGraph(DependencyGraph):
                         cond_node = self.get_or_create_node(condition)  # type: ignore
                         node.incoming.add(cond_node)
                         cond_node.outgoing.add(node)
+
+    def _expand_runtime_fused_chain(
+        self,
+        observable: ComputedObservable,
+        node: DependencyNode,
+        visited: Set[Observable],
+        queue: Deque[Observable],
+    ) -> bool:
+        """Expose creation-time fused chains as optimizer graph structure."""
+        chain = self._runtime_fused_chain(observable)
+        source = (
+            getattr(chain[0], "_source_observable", None)
+            if chain
+            else getattr(observable, "_source_observable", None)
+        )
+
+        if (
+            getattr(observable, "_is_optimizer_virtual", False)
+            or source is None
+            or len(chain) <= 1
+        ):
+            return False
+
+        if source not in visited:
+            queue.append(source)
+        previous_node = self.get_or_create_node(source)
+
+        for chain_observable in chain:
+            chain_node = (
+                node
+                if chain_observable is observable
+                else self.get_or_create_node(chain_observable)
+            )
+            chain_node.computation_func = getattr(
+                chain_observable, "_fusion_func", None
+            )
+            chain_node.source_observable = previous_node.observable
+            chain_node.incoming.add(previous_node)
+            previous_node.outgoing.add(chain_node)
+            previous_node = chain_node
+
+        return True
+
+    def _runtime_fused_chain(
+        self, observable: ComputedObservable
+    ) -> List[ComputedObservable]:
+        chain = []
+        current = observable
+
+        while isinstance(current, ComputedObservable):
+            chain.append(current)
+            parent = getattr(current, "_fusion_parent", None)
+            if parent is None:
+                break
+            current = parent
+
+        chain.reverse()
+        return chain
 
     def apply_functor_composition_fusion(self) -> int:
         """

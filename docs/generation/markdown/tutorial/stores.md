@@ -123,6 +123,20 @@ print(CounterStore.counter)  # No .value needed
 CounterStore.counter = 5     # No .set() needed
 ```
 
+Inside a `>>` / `.then()` transform, Store attributes follow the same rule as standalone observables: combine them explicitly before transforming.
+
+```python
+class Pricing(Store):
+    price = observable(100.0)
+    discount = observable(0.1)
+
+# Good: explicit inputs
+discounted = (Pricing.price + Pricing.discount) >> (lambda p, d: p * (1 - d))
+
+# Error: hidden Store read inside the transform
+discounted = Pricing.price >> (lambda p: p * (1 - Pricing.discount.value))
+```
+
 ## Adding Computed Values
 
 The real power of Stores emerges when you add derived state using the `>>` operator:

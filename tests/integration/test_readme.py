@@ -292,8 +292,8 @@ class TestReadmeExamples:
         is_valid = quantity >> (lambda q: q > 0)
 
         total = ((price + quantity) >> (lambda p, q: p * q)) & is_valid
-        discounted = total >> (
-            lambda t: t * (1 - discount.value) if t is not None else 0
+        discounted = (total + discount) >> (
+            lambda t, d: t * (1 - d) if t is not None else 0
         )
 
         # Initial calculations

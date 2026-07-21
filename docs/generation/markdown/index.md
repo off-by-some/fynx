@@ -49,7 +49,7 @@ FynX has no required dependencies and works with Python 3.9 and above.
 
 ## Why Use FynX?
 
-**Transparent Reactivity**: FynX requires no special syntax. Use standard Python assignment, method calls, and attribute access—reactivity works automatically without wrapper objects or proxy patterns.
+**Transparent Reactivity**: FynX requires no special syntax for ordinary state and reactions. Use standard Python assignment, method calls, and attribute access—reactivity works automatically without wrapper objects or proxy patterns.
 
 **Automatic Dependency Tracking**: FynX observables track their dependents automatically during execution. You never manually register or unregister dependencies; the framework infers them from how your code actually runs.
 
@@ -66,7 +66,7 @@ Traditional imperative programming requires you to manually orchestrate updates:
 
 Reactive programming inverts this model. Instead of imperatively triggering updates, you declare relationships between data. When a value changes, the framework automatically propagates that change to everything that depends on it. Think of it like a spreadsheet: when you change a cell, all formulas referencing that cell recalculate automatically. FynX brings this same automatic dependency tracking and update propagation to Python.
 
-What makes FynX special is its transparency. You don't need to learn special syntax or wrap everything in framework-specific abstractions. Just use normal Python objects and assignment—FynX handles the reactivity behind the scenes through automatic dependency tracking.
+What makes FynX special is its transparency. You don't need to wrap everything in framework-specific abstractions. Just use normal Python objects and assignment for state, and make transform inputs explicit with `+` / `.alongside()` when a derived value depends on more than one observable. FynX handles the graph bookkeeping behind the scenes.
 
 
 
@@ -119,7 +119,7 @@ Observables are the foundation of reactivity. An observable is simply a value th
 
 ### Computed Values
 
-Computed values are derived data that automatically recalculates when their dependencies change. They provide memoization by default, meaning they only recompute when one of their inputs actually changes—not on every access. This makes them both convenient and performant for expensive calculations. Computed values form the intermediate nodes in your dependency graph, transforming observables into the exact shape your application needs.
+Computed values are derived data that automatically recalculates when their explicit inputs change. They provide memoization by default, meaning they only recompute when one of their inputs actually changes—not on every access. If a derivation needs multiple observables, combine them with `+` / `.alongside()` and transform the plain argument values. This makes computed values both convenient and performant for expensive calculations.
 
 ### Reactions
 
@@ -140,17 +140,17 @@ As you work with FynX, you'll find these patterns emerge naturally:
 
 **State Management**: Group related observables in Store classes to create logical boundaries in your application. Each store becomes a self-contained module of state with its own computed values and methods.
 
-**Derived Data**: Use computed values whenever you need data that depends on other data. The automatic memoization means you can freely access computed values without worrying about performance—they only recalculate when necessary.
+**Derived Data**: Use computed values whenever you need data that depends on other data. Put every reactive input on the left side of the transform, then use the function arguments on the right. The automatic memoization means you can freely access computed values without worrying about performance—they only recalculate when necessary.
 
 **Side Effects**: Attach reactions to observables for any effect that should happen in response to state changes: updating a UI, sending analytics, making API calls, or writing to a database.
 
-**Conditional Logic**: Use watch decorators to implement state machines, validation rules, or event filtering. This keeps conditional logic declarative and colocated with the relevant state.
+**Conditional Logic**: Use `&` / `.requiring()`, `|` / `.either()`, and `~` / `.negate()` to implement state machines, validation rules, or event filtering. This keeps conditional logic declarative and colocated with the relevant state.
 
-**Data Flow Composition**: Use FynX's operators (`+` for piping values, `>>` for chaining, `&` for combining) to build clear, expressive data transformation pipelines.
+**Data Flow Composition**: Use FynX's operators (`>>` for transforming, `+` for combining inputs, `&` for filtering, `|` for logical OR, and `~` for negation) to build clear, expressive data transformation pipelines.
 
 ## Documentation
 
-- [API Reference](generation/markdown/api.md) - Complete API documentation with organized sections
+- [API Reference](reference/api.md) - Complete API documentation with organized sections
 - [Examples](https://github.com/off-by-some/fynx/tree/main/examples) - Working examples and patterns
 - [GitHub Repository](https://github.com/off-by-some/fynx) - Source code and issues
 

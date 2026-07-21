@@ -145,7 +145,7 @@ is_online.set(True)   # is_offline becomes False, no output
 
 ## The | Operator: Logical OR
 
-The `|` operator creates logical OR conditions between boolean observables. It emits when ANY of the conditions is truthy:
+The `|` operator creates total boolean OR observables. The result is `True` when any condition is truthy and `False` otherwise:
 
 ```python
 is_error = observable(False)
@@ -165,11 +165,11 @@ needs_attention.subscribe(lambda needs_attention: {
 
 # Updates automatically when any condition changes
 is_error.set(True)    # Prints: "⚠️ System needs attention!"
-is_warning.set(False) # Still prints (is_error is True)
-is_error.set(False)   # Still prints (is_critical is False, but was True initially)
+is_warning.set(False) # Stays True because is_error is True
+is_error.set(False)   # Becomes False because all conditions are false
 ```
 
-The `|` operator creates conditional observables that only emit when the OR result is truthy. If all conditions are initially False, accessing the value will raise `ConditionalNeverMet` until at least one condition becomes True.
+The `|` operator does not gate away falsy results. It produces an ordinary boolean observable whose value can be safely read as `True` or `False`. Use `&` when you want that boolean condition to gate another observable.
 
 ### Combining OR with Other Operators
 

@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Any, Callable
 
 from .observable import Observable
 from .store import Store, StoreSnapshot
@@ -176,7 +176,7 @@ class ReactiveWrapper:
             self._subscriptions.append((merged, merged_handler))
 
 
-def reactive(*targets):
+def reactive(*targets: Any) -> Callable[[Callable], ReactiveWrapper]:
     """
     Create a reactive handler that works as a decorator.
 

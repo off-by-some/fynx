@@ -655,38 +655,29 @@ class TestOptimizationCorrectness:
         assert chain1.value == 10
         assert chain2.value == 10
 
-    def test_fusion_preserves_side_effects_order(self):
-        """Test that fusion preserves order of side effects during initial evaluation."""
-        base = observable(0)
-
-        # Functions with side effects that must happen in order
-        effects = []
+    def test_fusion_preserves_transform_order(self):
+        """Test that fusion preserves the order of pure transformations."""
+        base = observable("")
 
         def f1(x):
-            effects.append("f1")
-            return x + 1
+            return x + "a"
 
         def f2(x):
-            effects.append("f2")
-            return x + 2
+            return x + "b"
 
         def f3(x):
-            effects.append("f3")
-            return x + 3
+            return x + "c"
 
         chain = base >> f1 >> f2 >> f3
 
         # Force initial evaluation
         result = chain.value
 
-        # Side effects should happen in correct order during first evaluation
-        assert effects == ["f1", "f2", "f3"]
-        assert result == 6  # 0 + 1 + 2 + 3
+        assert result == "abc"
 
-        # After optimization, re-evaluation may not trigger side effects due to caching
-        # but the result should still be correct
+        # Cached reads preserve the same result without extra recomputation.
         result2 = chain.value
-        assert result2 == 6
+        assert result2 == "abc"
 
     def test_optimization_doesnt_change_observable_values(self):
         """Test that optimization doesn't change final observable values."""

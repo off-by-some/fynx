@@ -57,6 +57,8 @@ point = x + y  # Creates (x.value, y.value) that updates when either changes
 ```python
 doubled = counter >> (lambda x: x * 2)  # Computed value
 ```
+Transform functions use only their argument values. Combine extra reactive inputs
+first with `+` / `.alongside()` instead of reading `.value` inside the function.
 
 **Filter (`&`)**: Creates conditional observables that only emit when conditions are met:
 ```python
@@ -176,7 +178,7 @@ See Also
 - `fynx.reactive`: For reactive decorators and subscriptions
 """
 
-from .base import Observable, ReactiveContext
+from .base import Observable, ReactiveContext, TransformPurityError
 from .computed import ComputedObservable
 from .conditional import ConditionalNeverMet, ConditionalObservable
 from .descriptors import ObservableValue, SubscriptableDescriptor
@@ -201,6 +203,7 @@ __all__ = [
     "MergedObservable",
     "ConditionalObservable",
     "ConditionalNeverMet",
+    "TransformPurityError",
     "ReactiveContext",
     "ObservableValue",
     "SubscriptableDescriptor",

@@ -1,7 +1,6 @@
 import pytest
 
 from fynx.observable.base import Observable
-from fynx.observable.conditional import ConditionalNeverMet
 from fynx.observable.descriptors import ObservableValue
 from fynx.observable.operators import and_operator
 
@@ -34,15 +33,16 @@ def test_or_operator_creates_logical_or_condition():
 @pytest.mark.observable
 @pytest.mark.operators
 def test_or_operator_with_falsy_initial_values():
-    """The | operator raises ConditionalNeverMet when both initial values are falsy."""
+    """The | operator returns False when both initial values are falsy."""
     # Arrange
     is_error = Observable("error", False)
     is_warning = Observable("warning", False)
 
-    # Act & Assert
-    with pytest.raises(ConditionalNeverMet):
-        needs_attention = is_error | is_warning
-        _ = needs_attention.value
+    # Act
+    needs_attention = is_error | is_warning
+
+    # Assert
+    assert needs_attention.value is False
 
 
 @pytest.mark.unit
@@ -60,6 +60,10 @@ def test_or_operator_chaining():
 
     # Assert
     assert needs_attention.value is True  # True OR False OR False = True
+
+    # Test all false remains a valid value
+    is_error.set(False)
+    assert needs_attention.value is False
 
     # Test updates - keep at least one True to maintain the condition
     is_warning.set(True)

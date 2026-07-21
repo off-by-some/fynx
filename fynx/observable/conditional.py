@@ -51,6 +51,7 @@ Example:
 
 from typing import Any, Callable, List, Set, TypeVar, Union
 
+from .base import Observable as BaseObservable
 from .computed import ComputedObservable
 from .interfaces import Conditional, Observable
 from .operators import OperatorMixin
@@ -257,6 +258,9 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Store the original source and conditions for reference
         self._source_observable = source_observable
         self._conditions = conditions  # Keep original name for test compatibility
+        self._dynamic_condition_dependencies: Set[Observable] = set()
+        self._observed_dependencies: Set[Observable] = set()
+        self._dependency_observer = None
 
         # Process conditions and create optimized observables
         self._processed_conditions = self._process_conditions(
@@ -431,10 +435,18 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         if conditions is None:
             conditions = self._processed_conditions
 
-        for condition in conditions:
-            if not self._evaluate_single_condition(condition, source_value):
-                return False
-        return True
+        captured_dependencies: Set[Observable] = set()
+        BaseObservable._dependency_capture_stack.append(captured_dependencies)
+        try:
+            for condition in conditions:
+                if not self._evaluate_single_condition(condition, source_value):
+                    return False
+            return True
+        finally:
+            BaseObservable._dependency_capture_stack.pop()
+            captured_dependencies.difference_update(self._find_static_dependencies())
+            captured_dependencies.discard(self)
+            self._dynamic_condition_dependencies = captured_dependencies
 
     def _evaluate_single_condition(self, condition: Any, source_value: T) -> bool:
         """
@@ -473,6 +485,14 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         Includes the source observable and all condition observables.
         For nested conditionals, recursively finds dependencies.
         """
+        dependencies = self._find_static_dependencies()
+        dependencies.update(getattr(self, "_dynamic_condition_dependencies", set()))
+
+        # Filter out None values
+        return {dep for dep in dependencies if dep is not None}
+
+    def _find_static_dependencies(self) -> Set[Observable]:
+        """Find dependencies declared directly by source and observable conditions."""
         dependencies = set()
 
         # Only add the source observable if it's not a conditional
@@ -492,8 +512,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                 # For nested conditionals, add their dependencies
                 dependencies.update(condition._all_dependencies)
 
-        # Filter out None values
-        return {dep for dep in dependencies if dep is not None}
+        return dependencies
 
     def _extract_condition_dependencies(self, condition: Any) -> Set[Observable]:
         # Deprecated: dependencies are gathered via public Observable interface only
@@ -508,13 +527,29 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         def handle_value_change():
             """Handle changes to source or condition values."""
-            self._update_conditional_state()
+            self._is_dirty = True
+            BaseObservable._schedule_notification(self)
 
-        # Subscribe to all dependencies using public interface
-        for dependency in self._all_dependencies:
-            dependency.add_observer(handle_value_change)
+        self._dependency_observer = handle_value_change
+        self._sync_dependency_observers()
 
-    def _update_conditional_state(self) -> None:
+    def _sync_dependency_observers(self) -> None:
+        """Keep subscriptions aligned with static and captured predicate inputs."""
+        if self._dependency_observer is None:
+            return
+
+        target_dependencies = self._find_all_dependencies()
+
+        for dependency in self._observed_dependencies - target_dependencies:
+            dependency.remove_observer(self._dependency_observer)
+
+        for dependency in target_dependencies - self._observed_dependencies:
+            dependency.add_observer(self._dependency_observer)
+
+        self._observed_dependencies = target_dependencies
+        self._all_dependencies = target_dependencies
+
+    def _update_conditional_state(self, schedule_notifications: bool = True) -> bool:
         """
         Update the conditional state when dependencies change.
 
@@ -525,6 +560,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         # Check current condition state
         self._conditions_met = self._check_if_conditions_are_satisfied()
+        self._sync_dependency_observers()
 
         # Only update value and notify if conditions are satisfied AND value changes
         if self._conditions_met:
@@ -532,18 +568,19 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             current_source_value = self._get_root_source_value()
             if self._value != current_source_value:
                 self._value = current_source_value
+                self._version = getattr(self, "_version", 0) + 1
                 self._has_ever_had_valid_value = True
-                # Schedule notification to respect global topological ordering
-                from .base import Observable as _Obs
-
-                _Obs._pending_notifications.add(self)
+                if schedule_notifications and self._observers:
+                    BaseObservable._schedule_notification(self)
+                return True
             elif not self._has_ever_had_valid_value:
                 # Conditions just became met for the first time - notify even if value didn't change
                 self._value = current_source_value
+                self._version = getattr(self, "_version", 0) + 1
                 self._has_ever_had_valid_value = True
-                from .base import Observable as _Obs
-
-                _Obs._pending_notifications.add(self)
+                if schedule_notifications and self._observers:
+                    BaseObservable._schedule_notification(self)
+                return True
         else:
             # Conditions are not met - update internal state but don't notify
             # This handles the case where we're notified by source but conditions are unmet
@@ -551,10 +588,16 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                 # We had a valid value before, so we're transitioning from active to inactive
                 # Don't notify observers - this maintains pullback semantics
                 pass
+        return False
 
     def _notify_observers(self) -> None:
         """Notify observers only when conditions are satisfied."""
-        if self._conditions_met:
+        should_notify = True
+        if self._is_dirty:
+            self._is_dirty = False
+            should_notify = self._update_conditional_state(schedule_notifications=False)
+
+        if self._conditions_met and should_notify:
             super()._notify_observers()
 
     @property

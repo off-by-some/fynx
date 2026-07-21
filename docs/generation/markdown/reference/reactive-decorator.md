@@ -54,7 +54,7 @@ After unsubscribing, the function reverts to its original, non-reactive form. Yo
 
 ## A Crucial Detail: Initial State and Change Semantics
 
-Here's something that might surprise you: when you create a reactive function, it doesn't fire immediately with the current value. It only fires when the value *changes*.
+When you create a reactive function with an active observable or store, it runs immediately with the current value, then runs again whenever the dependency changes. Conditional observables are the exception: if the condition is inactive at setup time, the function waits until the condition becomes active.
 
 ```python
 ready = observable(True)  # Already true
@@ -63,15 +63,13 @@ ready = observable(True)  # Already true
 def on_ready(value):
     print(f"Ready: {value}")
 
-# Nothing prints yet, even though ready is True
+# Prints: "Ready: True"
 
 ready.set(False)  # Prints: "Ready: False"
 ready.set(True)   # Prints: "Ready: True"
 ```
 
-This behavior has deep roots in category theory—reactive functions form what's called a "pullback" in categorical semantics. The initial state isn't captured because you haven't pulled back through a change yet. You're observing the flow of changes, not the snapshot of current state.
-
-This matters enormously for initialization logic. If you need something to run immediately based on current state, you'll need to handle that separately. Reactive functions are about responding to transitions, not about reflecting static state.
+This immediate run is useful for initialization: attach the reaction, and the external system can be brought into sync with the current state right away. For conditionals, inactive setup means there is no valid gated value to deliver yet, so the first run occurs when the gate opens.
 
 ## Conditional Reactions: The MobX `when` Pattern
 
@@ -152,7 +150,7 @@ Here's the fundamental principle that makes reactive systems maintainable: **`@r
 
 When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>` or `+` operators. If you're communicating with the outside world, you want `@reactive`.
 
-This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. Your shell is reactions—the unavoidable side effects that make your application actually do something.
+This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. A transform should only use the values it receives as arguments; combine extra observables first with `+` / `.alongside()`. Your shell is reactions—the unavoidable side effects that make your application actually do something.
 
 Let's see this in a real example:
 
@@ -255,8 +253,9 @@ is_online = observable(False)
 # Only sync when user is logged in, has permission, and is online
 @reactive(user & has_permission & is_online)
 def sync_sensitive_data(should_sync):
-    if should_sync and user.get():
-        api.sync_user_data(user.get().id)
+    current_user = user.value
+    if should_sync and current_user is not None:
+        api.sync_user_data(current_user.id)
 
 # Later, when you want to stop syncing entirely:
 sync_sensitive_data.unsubscribe()

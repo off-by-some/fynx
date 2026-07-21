@@ -61,19 +61,19 @@ shipping_threshold = observable(50)
 def calculate_subtotal(items):
     return sum(item['price'] * item['quantity'] for item in items)
 
-def calculate_tax(subtotal):
-    return subtotal * tax_rate.value
+def calculate_tax(subtotal, rate):
+    return subtotal * rate
 
-def calculate_shipping(subtotal):
-    return 0 if subtotal >= shipping_threshold.value else 5.99
+def calculate_shipping(subtotal, threshold):
+    return 0 if subtotal >= threshold else 5.99
 
 def calculate_total(subtotal, tax, shipping):
     return subtotal + tax + shipping
 
 # Declarative transformations using .then()
 subtotal = cart_items.then(calculate_subtotal)
-tax = subtotal.then(calculate_tax)
-shipping = subtotal.then(calculate_shipping)
+tax = (subtotal + tax_rate).then(calculate_tax)
+shipping = (subtotal + shipping_threshold).then(calculate_shipping)
 total = (subtotal + tax + shipping).then(calculate_total)
 
 # Subscribe to see results
@@ -375,6 +375,21 @@ filtered = items & is_valid                # Pass observables, not .value
 
 The operators (`.then()`, `>>`, `+`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
 
+**Inside transforms, use the arguments FynX gives you:**
+
+```python
+price = observable(100.0)
+discount = observable(0.1)
+
+# Bad: discount.value is hidden inside the transform
+discounted = price >> (lambda p: p * (1 - discount.value))
+
+# Good: combine inputs first, then transform plain values
+discounted = (price + discount) >> (lambda p, d: p * (1 - d))
+```
+
+If a transform reads `.value` or calls `.set()` on any observable, FynX raises `TransformPurityError` and points you toward an explicit `+` / `.alongside()` form. This keeps transforms easy to reason about: everything they depend on appears on the left side of `>>`.
+
 **Inside subscribers and reactive functions, `.value` is fine:**
 
 ```python
@@ -389,13 +404,13 @@ counter.subscribe(print_count)
 def print_double_count_and_age(count):
     print(f"Double count: {count}, Age: {age.value}")
 
-# But if you need to read OTHER observables inside, use .value
+# This is an ordinary side read. It does not make age a source of this subscription.
 counter.subscribe(print_double_count_and_age)
 ```
 
-When your function is already being called reactively (through a subscription or decorator), using `.value` inside it to read other observables is perfectly appropriate. You're already in a reactive context.
+Inside subscribers and reactive functions, using `.value` to read another observable is allowed. With `subscribe()`, the subscription still runs when its subscribed observable changes. With `@reactive`, observables read during the function become tracked dependencies.
 
-**Rule of thumb:** If you want something to update automatically when the observable changes, don't use `.value`. If you just need to read the current value for immediate use, `.value` is correct.
+**Rule of thumb:** In `>>` / `.then()` transforms, use only the arguments FynX passes in. In `@reactive` functions and subscription callbacks, `.value` is for reading current state at the application's effect boundary.
 
 ## Observable Mutation Detection
 
@@ -413,9 +428,9 @@ items.set(items.value + [4])  # This DOES trigger subscribers
 
 FynX can't detect mutations to the objects inside observables. When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call `.set()` with the updated value—even if it's the same object reference—to trigger reactivity.
 
-## External State Dependencies
+## External State in Transforms
 
-Derived observables don't track external variables:
+Derived observables can close over ordinary Python values, but those values are not reactive inputs:
 
 ```python
 external_multiplier = 2
@@ -425,7 +440,7 @@ counter = observable(0)
 def multiply_by_external(c):
     return c * external_multiplier
 
-# This depends on external_multiplier, but FynX doesn't know
+# This depends on external_multiplier, which is not an observable
 doubled_method = counter.then(multiply_by_external)
 doubled_operator = counter >> multiply_by_external
 
@@ -433,7 +448,15 @@ external_multiplier = 3
 counter.set(5)  # Uses current multiplier value (3), result = 15
 ```
 
-If your transformation depends on variables outside the observable, FynX won't track those dependencies. Keep all reactive state inside observables for predictable behavior.
+If the extra value should be reactive, make it an observable and combine it explicitly:
+
+```python
+multiplier = observable(2)
+
+scaled = (counter + multiplier) >> (lambda count, factor: count * factor)
+```
+
+Transforms may not read `.value` from observables or call `.set()` on observables. FynX raises `TransformPurityError` for those cases and suggests the explicit `+` / `.alongside()` form or a reaction for side effects.
 
 ## Best Practices for Transformations
 

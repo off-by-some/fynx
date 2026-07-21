@@ -61,7 +61,7 @@ This is the bridge from passive state management (observables and stores) to act
 
 ## A Critical Detail: When Reactions Fire
 
-When you create a reactive function, it fires immediately with the current value of its dependencies, and then again whenever any dependency changes.
+When you create a reactive function with an active observable or store, it fires immediately with the current value of its dependencies, and then again whenever any dependency changes. Conditional observables are the exception: if the condition is inactive at setup time, the function waits until the condition becomes active.
 
 ```python
 ready = observable(True)  # Already true
@@ -76,9 +76,7 @@ ready.set(False)  # Prints: "Ready: False"
 ready.set(True)   # Prints: "Ready: True"
 ```
 
-This behavior has deep roots in category theory—reactive functions form what's called a "pullback" in categorical semantics. The initial state isn't captured because you haven't pulled back through a change yet. You're observing the flow of changes, not the snapshot of current state.
-
-This matters enormously for initialization logic. If you need something to run immediately based on current state, you'll need to handle that separately, perhaps by calling the function once manually before decorating it, or by setting up your initial state in a way that triggers the reaction. Reactive functions are about responding to transitions, not about reflecting static state.
+This immediate run is useful for initialization: attach the reaction, and the outside world can be brought into sync with the current state right away. For conditionals, inactive setup means there is no valid gated value to deliver yet, so the first run occurs when the gate opens.
 
 Understanding this execution model is crucial:
 
@@ -89,9 +87,9 @@ count = observable(0)
 def log_count(value):
     print(f"Count: {value}")
 
-# At this point, log_count has NOT run yet - no initial trigger
+# At this point, log_count has already run once with 0
 
-count.set(5)   # log_count runs for the first time
+count.set(5)   # log_count runs again
 # Output: "Count: 5"
 
 count.set(5)   # Same value - does log_count run?
@@ -449,7 +447,7 @@ Here's the fundamental principle that makes reactive systems maintainable: **`@r
 
 When you're tempted to use `@reactive`, ask yourself: "Am I computing a new value from existing data, or am I sending information outside my application?" If you're computing, you want `>>`, `+`, `&`, or `~` operators. If you're communicating with the outside world, you want `@reactive`.
 
-This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. Your shell is reactions—the unavoidable side effects that make your application actually do something.
+This distinction creates what we call the "functional core, reactive shell" pattern. Your core is pure transformations—testable, predictable, composable. A transform should only use the values it receives as arguments; combine extra observables first with `+` / `.alongside()`. Your shell is reactions—the unavoidable side effects that make your application actually do something.
 
 ```python
 # ===== FUNCTIONAL CORE (Pure) =====
@@ -638,8 +636,9 @@ is_online = observable(False)
 # Only sync when user is logged in, has permission, and is online
 @reactive(user & has_permission & is_online)
 def sync_sensitive_data(should_sync):
-    if should_sync and user.get():
-        api.sync_user_data(user.get().id)
+    current_user = user.value
+    if should_sync and current_user is not None:
+        api.sync_user_data(current_user.id)
 
 # Later, when you want to stop syncing entirely:
 sync_sensitive_data.unsubscribe()
@@ -722,21 +721,27 @@ def increment_forever(value):
 
 Solution: Reactive functions should perform *side effects*, not modify the observables they're watching. Use computed observables for transformations.
 
-**Reactive functions don't track .get() or .value reads**
+**Prefer explicit reaction inputs**
 
 ```python
-# BAD: Hidden dependency
+# Harder to scan: the second dependency is inside the function body
 other_count = observable(10)
 
 @reactive(count)
 def show_sum(value):
-    print(f"Sum: {value + other_count.get()}")  # Hidden dependency
+    print(f"Sum: {value + other_count.value}")
 
 count.set(5)  # Prints: "Sum: 15"
-other_count.set(20)  # Doesn't trigger show_sum - bug!
+other_count.set(20)
 ```
 
-Solution: Make all dependencies explicit in the decorator.
+FynX tracks `.value` reads during reactive execution, so this still updates. For code that teammates can understand at a glance, prefer making reaction inputs explicit:
+
+```python
+@reactive(count, other_count)
+def show_sum(value, other):
+    print(f"Sum: {value + other}")
+```
 
 **Reactive functions receive values, not observables**
 
@@ -810,7 +815,7 @@ def update_tooltip(position):
 The `@reactive` decorator transforms functions into automatic reactions that run whenever observables change:
 
 * **Declarative subscriptions** — No manual `.subscribe()` calls to manage
-* **Runs on changes only** — No initial execution; waits for first change (pullback semantics)
+* **Runs immediately when active** — Active observables and stores run once at setup, then again on changes; inactive conditionals wait until their gate opens
 * **Works with any observable** — Standalone, Store attributes, computed values, merged observables
 * **Boolean operators for conditions** — Use `&`, `+`, `~` to create conditional reactions (like MobX's `when`)
 * **Multiple observable support** — Derive combined observables first, then react

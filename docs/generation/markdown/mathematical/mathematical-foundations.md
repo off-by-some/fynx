@@ -6,11 +6,37 @@ Picture a temperature sensor in your application. Right now it reads 72°F. A mo
 
 Most reactive programming libraries handle this straightforwardly enough. You create an observable, transform it a few times, connect some UI elements, and things work. Then you add another layer. Then another. Somewhere around the fifth or sixth transformation, you notice something odd. An update happens in an unexpected order. You add a `console.log` to debug it, and suddenly everything works perfectly. You remove the log. It breaks again.
 
-These aren't bugs in your code—they're symptoms of systems without firm foundations. When the mathematics isn't right, reactive programming becomes a house of cards. Each new feature is a gamble.
+These aren't always bugs in your code. Often they're symptoms of systems whose rules are hard to state. When a reactive library does not say exactly what a transformation, combination, or filter means, every new feature becomes harder to reason about.
 
-FynX takes a different path. The reactive behavior isn't just tested—it's proven. When you compose observables in FynX, there's exactly one way the system can behave, and category theory proves it's the correct way. This isn't about making programming more abstract. It's about making it more reliable.
+FynX takes a different path. Its API is designed around a small algebra of observables: transform with `>>`, combine with `+`, filter with `&`, choose with `|`, and negate with `~`. Category theory gives useful names for these patterns and, more importantly, tells us which rewrites are safe under FynX's semantic contract.
 
 Let's explore how.
+
+---
+
+## What We Mean by "Same"
+
+Before talking about functors or products, we need one plain-English definition.
+
+Two FynX expressions are equivalent when, for the same sequence of source updates, they expose the same public values and active/inactive states through the public API. They do not have to be the same Python object. They do not have to allocate the same number of intermediate nodes. They do not promise the same private evaluation counts or memory layout.
+
+That distinction matters. This expression:
+
+```python
+obs >> (lambda x: x)
+```
+
+creates a derived observable. It is not `obs` by object identity. But as a value-level expression, it reflects the same values as `obs` whenever the source changes.
+
+FynX's algebra relies on a few practical assumptions:
+
+- Transform functions used with `>>` / `.then()` are pure. They may only use the plain argument values FynX passes in.
+- Extra observable inputs must be made explicit with `+` / `.alongside()`.
+- Transform functions may not read `.value` from observables or call `.set()` on observables. FynX raises `TransformPurityError` for those cases.
+- Side effects belong at the boundary: `.subscribe()` or `@reactive`.
+- FynX's core propagation model is synchronous and state-like: an observable always has a current value unless a conditional gate is inactive.
+
+With that contract in place, the mathematical structures below are more than decoration. They explain why the API composes cleanly and why certain optimizations preserve the behavior users can observe.
 
 ---
 
@@ -52,7 +78,9 @@ The first law says: if you lift the identity function (which does nothing), you 
 
 $$\mathcal{O}(\text{id}_A) = \text{id}_{\mathcal{O}(A)}$$
 
-In code: `obs >> (lambda x: x)` behaves exactly like `obs`. This seems obvious, but it's actually a strong constraint. It means lifting can't introduce side effects. It can't change timing. It must be transparent.
+In code: `obs >> (lambda x: x)` has the same value behavior as `obs`. It may be a different Python object, and internally it may have a different subscription or caching structure, but it represents the same changing value.
+
+This works because transforms are pure. The identity transform cannot mutate state, read hidden observables, or perform effects at surprising times. FynX enforces the most important observable-specific part of that rule at runtime: reading or mutating an observable from inside a transform raises `TransformPurityError`.
 
 The second law is more interesting. If you have two functions $f$ and $g$, then composing them first and then lifting should give the same result as lifting each separately and then composing:
 
@@ -65,7 +93,7 @@ result = obs >> (lambda x: g(f(x)))
 result = obs >> f >> g
 ```
 
-You can split function chains or merge them freely. The order of operations is preserved exactly. There's no hidden complexity. The functor law guarantees they mean the same thing.
+You can split function chains or merge them freely as value-level expressions. The order of functions is preserved, and the public result is the same under the transform-purity contract.
 
 ### Why This Matters
 
@@ -81,11 +109,11 @@ FynX can internally transform this into:
 obs >> (lambda x: h(g(f(x))))
 ```
 
-This isn't a risky optimization that might change behavior. The composition law *proves* it's safe. The mathematics tells us exactly which rewrites preserve semantics.
+This is not a benchmark-specific trick. Under the transform contract above, the two expressions have the same public value behavior. The mathematics tells us why this rewrite is safe for pure transformations.
 
-This is why FynX stays efficient even with transformation chains thousands of levels deep. They're not actually thousands of separate observables—they're fused into single operations, and the functor structure guarantees this fusion is valid.
+This is why FynX stays efficient even with deep transformation chains. Fusion removes intermediate reactive-node overhead such as dispatch, subscriptions, and graph traversal. It does not magically remove the work of arbitrary Python functions: evaluating `n` meaningful transformations is still `O(n)` in the number of functions. The win is that the reactive machinery does much less work around those functions.
 
-The elegance here is worth pausing to appreciate. You write code naturally, chaining transformations as makes sense to you. The mathematical structure beneath ensures both correctness and performance follow automatically.
+The elegance here is worth pausing to appreciate. You write code naturally, chaining transformations as makes sense to you. The mathematical structure gives FynX a disciplined way to keep that code predictable while trimming unnecessary machinery.
 
 ---
 
@@ -106,29 +134,31 @@ full_name_data: Observable[tuple[str, str]] = first_name + last_name
 
 The `+` operator creates this combination. But what exactly has happened here? Category theory gives us a precise answer: we've constructed a product.
 
-The product satisfies an elegant isomorphism:
+For FynX's state-like observables, the product satisfies an elegant relationship:
 
 $$\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$$
 
-This says that combining two observables produces an observable of pairs, and these two perspectives—"two observables" versus "one observable of pairs"—are mathematically equivalent. The $\cong$ symbol means there's a natural way to go between them, and these translations are inverses.
+This says that combining two current-value observables produces an observable of current-value pairs. In FynX, `a + b` means "the latest value of `a` alongside the latest value of `b`." When either source changes, the pair reflects the new current snapshot.
+
+This is not the only possible meaning of "combine" in reactive programming. Stream libraries often distinguish `zip`, `combine_latest`, and other event-combination operators. FynX chooses the state-like product semantics because ordinary application state usually needs the current values together.
 
 ### The Universal Property
 
 Products come with something called a universal property. The term sounds abstract, but the idea is practical: the product is the "most general" way to capture "both A and B together."
 
-Formally, if you have any way of using two observables together, that usage factors uniquely through their product. This means you can't have two different approaches to combining the same observables that behave differently. The product captures the unique correct way.
+Formally, once this product has been selected, any computation that consumes the paired current values can be expressed through the product and a downstream transform. That is the practical meaning of the universal property here: build the pair once, then map from that pair into whatever shape you need.
 
 In practice, this manifests in a useful way. Consider:
 
 ```python
 product = first_name + last_name
 
-full_name = product >> (lambda t: f"{t[0]} {t[1]}")
-initials = product >> (lambda t: f"{t[0][0]}.{t[1][0]}.")
-display = product >> (lambda t: f"{t[1]}, {t[0]}")
+full_name = product >> (lambda first, last: f"{first} {last}")
+initials = product >> (lambda first, last: f"{first[0]}.{last[0]}.")
+display = product >> (lambda first, last: f"{last}, {first}")
 ```
 
-All three computations need both names. The universal property proves they're all talking about the *same* product. FynX computes `first_name + last_name` once, not three times. The optimizer can safely share this computation because the mathematics guarantees all three uses refer to the same mathematical object.
+All three computations need both names. The universal property tells us that using a shared product is semantically valid: there is one canonical current pair of first and last name. When the runtime or optimizer can establish that repeated products have the same sources and the same operational context, it may safely share that work. The mathematics justifies the sharing; the implementation still has to recognize when sharing is available.
 
 ### Symmetry and Associativity
 
@@ -152,7 +182,7 @@ right = first_name + (last_name + city)
 
 The nesting differs, but structurally, all three observables are combined correctly. Changes to any propagate through as expected.
 
-These properties aren't just mathematical curiosities. They tell the optimizer it can rearrange products safely, share common subproducts, and factor computations in whatever way is most efficient.
+These properties aren't just mathematical curiosities. They give the optimizer permission to rearrange or share products when it can do so without changing the public behavior of the graph.
 
 ---
 
@@ -160,15 +190,20 @@ These properties aren't just mathematical curiosities. They tell the optimizer i
 
 ### Starting with Code
 
-Suppose you're building a data dashboard. You have a stream of sensor readings, but you only want to display readings that meet certain quality criteria:
+Suppose you're building a data dashboard. You have a sensor reading that changes over time, but you only want to display readings that meet certain quality criteria:
 
 ```python
 sensor_reading: Observable[float] = observable(42.5)
 
-# Define quality conditions
+# Define quality conditions over the current value
 is_in_range = sensor_reading >> (lambda x: 0 <= x <= 100)
-is_stable = sensor_reading >> (lambda x: abs(x - x) < 5)  # simplified
 has_signal = sensor_reading >> (lambda x: x is not None)
+
+# Stability is a temporal idea, so make the previous reading explicit.
+previous_reading: Observable[float] = observable(40.0)
+is_stable = (sensor_reading + previous_reading) >> (
+    lambda current, previous: abs(current - previous) < 5
+)
 
 # Only show readings that pass all quality checks
 valid_reading = sensor_reading & is_in_range & is_stable & has_signal
@@ -224,43 +259,54 @@ min_price = observable(0.0)
 max_price = observable(1000.0)
 in_stock_only = observable(True)
 
-# Product stream from database
+# Product list from database
 products = observable([...])
 
-# Conditions for filtering
-matches_category = products >> (lambda p: p.category == selected_category.value)
-within_budget = products >> (lambda p: min_price.value <= p.price <= max_price.value)
-is_available = products >> (lambda p: not in_stock_only.value or p.stock > 0)
-
-# Only show products meeting all criteria
-filtered_products = products & matches_category & within_budget & is_available
+# Keep every reactive input explicit
+filtered_products = (
+    products
+    + selected_category
+    + min_price
+    + max_price
+    + in_stock_only
+) >> (
+    lambda items, category, min_p, max_p, stock_only: [
+        product
+        for product in items
+        if product.category == category
+        and min_p <= product.price <= max_p
+        and (not stock_only or product.stock > 0)
+    ]
+)
 
 # Dashboard automatically updates as users adjust filters
 display(filtered_products)
 ```
 
-As users move sliders or toggle checkboxes, `filtered_products` reactively updates—showing only items that pass all active filters. The conditional observable handles state transitions automatically.
+As users move sliders or toggle checkboxes, `filtered_products` reactively updates—showing only items that pass all active filters. The dependencies are visible in the expression itself, which keeps the graph easy to inspect and optimize.
 
 **Example 2: ETL Pipeline with Data Quality Gates**
 
 ```python
 # Raw data ingestion
-raw_records = observable(None)
+raw_record = observable({"id": "r-1", "timestamp": 100, "value": 42})
+last_processed_time = observable(90)
+processed_ids = observable(set())
 
 # Data quality conditions
-has_required_fields = raw_records >> (lambda r: all(k in r for k in ['id', 'timestamp', 'value']))
-timestamp_valid = raw_records >> (lambda r: r['timestamp'] > last_processed_time)
-value_in_bounds = raw_records >> (lambda r: -1000 <= r['value'] <= 1000)
-no_duplicates = raw_records >> (lambda r: r['id'] not in processed_ids)
+has_required_fields = raw_record >> (lambda r: all(k in r for k in ['id', 'timestamp', 'value']))
+timestamp_valid = (raw_record + last_processed_time) >> (lambda r, last: r['timestamp'] > last)
+value_in_bounds = raw_record >> (lambda r: -1000 <= r['value'] <= 1000)
+no_duplicates = (raw_record + processed_ids) >> (lambda r, seen: r['id'] not in seen)
 
 # Only process records that pass quality gates
-processable_records = raw_records & has_required_fields & timestamp_valid & value_in_bounds & no_duplicates
+processable_record = raw_record & has_required_fields & timestamp_valid & value_in_bounds & no_duplicates
 
 # Transform only valid records
-transformed = processable_records >> transform_logic
+transformed = processable_record >> transform_logic
 ```
 
-The ETL pipeline automatically filters out malformed, duplicate, or out-of-bounds records. Each record either passes all quality gates and gets processed, or fails at least one gate and gets routed to error handling.
+The ETL pipeline automatically filters out malformed, duplicate, or out-of-bounds records. Each record either passes all quality gates and gets processed, or fails at least one gate.
 
 **Example 3: Form Validation State Machine**
 
@@ -270,6 +316,7 @@ username = observable("")
 email = observable("")
 password = observable("")
 age = observable(0)
+form_state = username + email + password + age
 
 # Validation conditions
 username_valid = username >> (lambda u: len(u) >= 3 and u.isalnum())
@@ -278,7 +325,7 @@ password_strong = password >> (lambda p: len(p) >= 8 and any(c.isupper() for c i
 age_appropriate = age >> (lambda a: 13 <= a <= 120)
 
 # Form only submittable when all validations pass
-can_submit = username & username_valid & email_valid & password_strong & age_appropriate
+can_submit = form_state & username_valid & email_valid & password_strong & age_appropriate
 
 # Button state automatically reflects validation
 submit_button.enabled = can_submit.is_active
@@ -308,7 +355,7 @@ The pullback is a new object (often written $X \times_Z Y$) along with projectio
 
 The pullback consists of pairs $(x, y)$ where $f(x) = g(y)$—elements that "agree" when mapped to the common codomain.
 
-FynX applies this construction in a specialized way. Each condition is a function from the source observable to booleans:
+FynX applies this construction in a specialized, state-like way. A condition may be a boolean observable derived from the same source, or from a product of several sources. The key requirement is that at any moment it has a current truth value.
 
 ```
 Source Observable ---c_i--→ Observable[Bool]
@@ -324,17 +371,17 @@ We're interested in values where all conditions map to `True`. Visually, for a s
     Source Observable ---c--→ Observable[Bool]
 ```
 
-This is a pullback along the morphism selecting `True` from the boolean domain. The conditional observable is the fiber over `True`—the subset of source values where the condition holds.
+This is a pullback-like fiber over `True`: the conditional observable exposes the source value only while the condition is true.
 
-For multiple conditions, we're taking the intersection of multiple such fibers:
+For multiple conditions over one shared state, we're taking the intersection of multiple such fibers:
 
 $$\text{ConditionalObservable}(s, c_1, \ldots, c_n) \cong \{ x \in s \mid c_1(x) \wedge c_2(x) \wedge \cdots \wedge c_n(x) \}$$
 
-Each condition creates a checkpoint. The conditional observable represents values that clear all checkpoints—the pullback ensures this subset is well-defined categorically.
+When conditions come from several observables, you can think of the shared state as the product of those inputs first, then the conditions select the part of that state where every check is true. That keeps the model honest: a password check, a confirmation check, and a terms checkbox are not all predicates on an email string. They are predicates on the form state as a whole.
 
 ### Special Properties
 
-Here's something interesting. General pullbacks in category theory don't necessarily commute or associate. But FynX's pullbacks do, and there's a specific reason why.
+Here's something interesting. General pullbacks in category theory don't necessarily commute or associate. But FynX's boolean gates do, under the public semantics described above, and there's a specific reason why.
 
 All our conditions map to the same codomain ($\mathbb{B}$). They all filter to the same fiber (`True`). And logical AND is both commutative and associative. These structural properties of Boolean algebra transfer to our pullback construction:
 
@@ -344,7 +391,7 @@ $$\text{data} \& c_1 \& c_2 \equiv \text{data} \& c_2 \& c_1$$
 **Associativity**: Grouping doesn't matter:
 $$(\text{data} \& c_1) \& c_2 \equiv \text{data} \& (c_1 \& c_2)$$
 
-This is specific to how FynX constructs pullbacks. In the general category-theoretic setting, these properties don't always hold. But in our Boolean filtering context, they do, and this enables useful optimizations.
+This is specific to FynX's Boolean filtering contract. In the general category-theoretic setting, these properties don't always hold. In FynX, pure boolean conditions can be combined because `and` over truth values is associative and commutative, and the conditional observable exposes the source only when all conditions are active.
 
 ### States and Transitions
 
@@ -363,17 +410,17 @@ def value(self):
         raise ConditionalNeverMet("Conditions never satisfied")
 ```
 
-You can only access the value when you're in the fiber—when all conditions hold. This isn't just good error handling. It's implementing the mathematical structure correctly.
+You can only access the value when you're in the fiber—when all conditions hold. The distinction between "never active" and "inactive after being active" is extra temporal bookkeeping layered on top of the basic fiber idea. It gives better runtime errors without changing the simple rule: no active condition, no exposed value.
 
 ### Optimization Through Structure
 
-Because our conditional pullbacks commute and associate, FynX can fuse them:
+Because pure boolean conditions compose with `and`, FynX can fuse compatible conditional chains:
 
 $$\text{obs} \& c_1 \& c_2 \& c_3 \equiv \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
 
-Instead of three separate conditional observables checking conditions in sequence, the optimizer creates one conditional with a combined predicate. This isn't changing semantics—the pullback structure proves these are equivalent. But checking one combined condition is faster than chaining through multiple conditionals.
+Instead of three separate conditional observables checking conditions in sequence, compatible conditions can be represented as one conditional with a combined predicate. This preserves public behavior when the conditions are pure, synchronous, and no one observes the intermediate conditional nodes as separate values.
 
-The mathematics doesn't just ensure correctness. It reveals where optimizations are valid.
+The mathematics doesn't make every filter optimization automatically valid. It tells us the assumptions under which the optimization is valid.
 
 ---
 
@@ -389,32 +436,35 @@ password = observable("")
 confirmation = observable("")
 terms_accepted = observable(False)
 
+# Product: the form state as one current-value tuple
+form_state = email + password + confirmation + terms_accepted
+
 # Functors: lift validation functions
 is_valid_email = email >> (lambda e: "@" in e and e.count("@") == 1 and not e.startswith("@") and not e.endswith("@") and all(part for part in e.split("@")[1].split(".") if part))
 is_strong_password = password >> (lambda p: len(p) >= 8)
 
-# Product: combine related fields
-passwords_match = (password + confirmation) >> (lambda pc: pc[0] == pc[1])
+# Product + functor: compare related fields
+passwords_match = (password + confirmation) >> (lambda p, c: p == c)
 
-# Pullback: form is valid only when all conditions hold
-form_valid = email & is_valid_email & is_strong_password & passwords_match & terms_accepted
+# Pullback-like gate: expose form_state only when all conditions hold
+valid_form = form_state & is_valid_email & is_strong_password & passwords_match & terms_accepted
 
 # Functor: create submission payload when valid
-submission = form_valid >> (lambda e: {
-    "email": email.value,
-    "password": password.value
+submission = valid_form >> (lambda state: {
+    "email": state[0],
+    "password": state[1]
 })
 ```
 
-This pipeline has multiple source observables, derived validations, a product combining related fields, a pullback filtering to valid states, and a final transformation. Each piece uses one of the structures we've discussed.
+This pipeline has multiple source observables, derived validations, a product representing the form state, a pullback-like gate filtering to valid states, and a final transformation. Each piece uses one of the structures we've discussed.
 
-The composition works correctly because each structure has precise semantics. Functors transform values predictably. Products combine observables in a well-defined way. Pullbacks filter with exact conditions. And the universal properties guarantee these pieces fit together uniquely.
+The composition works because each structure has a clear contract. Functors transform explicit values. Products combine current values in a well-defined tuple. Gates expose a value only while their boolean conditions are true. You do not need to know the category-theory names to use these patterns, but the names help explain why the pieces fit together.
 
-### The Categorical Guarantee
+### The Categorical View
 
-When you write complex reactive graphs like this, you're not hoping the library handles edge cases correctly. The categorical structure proves it must. Functoriality ensures transformations compose without surprises. Products combine values in the unique correct way. Pullbacks filter with precise state transitions. Universal properties prove there's only one valid way these pieces can interact.
+When you write complex reactive graphs like this, you're relying on a small set of rules rather than a pile of special cases. Functoriality explains why pure transformations compose without surprises. Products explain why related current values can be bundled and reused. Pullback-like gates explain why conditional values are available only when their conditions hold.
 
-This is what mathematical foundations really provide—not abstraction for its own sake, but constraints that force implementations to be correct.
+This is what mathematical foundations provide here: not a machine-checked proof of every line of Python, but a disciplined model that constrains the API, guides the implementation, and gives tests clear laws to check.
 
 ---
 
@@ -422,23 +472,23 @@ This is what mathematical foundations really provide—not abstraction for its o
 
 ### Automatic Optimization
 
-FynX achieves strong performance—215K+ state updates per second, dependency chains 47,427 levels deep, 47,000+ components updating efficiently—all in pure Python. This performance comes from automatic optimization guided by the mathematical structures we've explored.
+FynX achieves strong performance in fixed-size synchronous benchmarks while preserving the algebraic semantics described above. The benchmark suite reports concrete graph operations—source updates, chain propagation, fan-out notification, diamond convergence, and dynamic condition switching—rather than translating lightweight dependents into UI claims.
 
-The optimizer applies four types of rewrites, each justified by category theory.
+The optimizer and runtime fast paths use several rewrite ideas inspired by the algebra above. The important standard is simple: a rewrite is only valid when it preserves FynX's public semantics under the purity and synchronization assumptions already stated.
 
 ### Functor Composition Fusion
 
-The composition law proves that sequential transformations can safely fuse:
+The composition law explains why sequential pure transformations can fuse:
 
 $$\text{obs} \gg f \gg g \gg h \rightarrow \text{obs} \gg (h \circ g \circ f)$$
 
-Instead of creating intermediate observables for each `>>`, FynX fuses the entire chain into a single computed observable. This is why deep chains stay efficient—they're not actually thousands of separate observables, just composed functions in one observable.
+Instead of forcing every `>>` in a chain to behave like a separately notified runtime node, FynX can represent compatible chains as composed functions over the original source. This is why deep chains stay efficient: arbitrary functions still run in order, but the reactive graph does less bookkeeping.
 
-The functor laws don't just allow this optimization—they prove it's semantics-preserving.
+The functor laws explain why this is semantics-preserving for pure transforms when intermediate nodes are not being observed as distinct effect boundaries.
 
 ### Product Factorization
 
-The universal property of products proves that multiple computations needing the same product can share it:
+The universal property of products explains why multiple computations needing the same product may share it:
 
 ```python
 # User writes:
@@ -453,25 +503,25 @@ result2 = product >> g
 result3 = product >> h
 ```
 
-The product is computed once. When 47,000 components depend on a single product, they all reference the same computation. The universal property proves this factorization is valid.
+Because repeated products with the same sources have equivalent current-value semantics, sharing them is safe when the runtime can establish that the sources and operational context match. The universal property justifies the rewrite; recognizing and applying it is an implementation concern.
 
 ### Pullback Fusion
 
-The commutativity and associativity of Boolean pullbacks allow combining sequential filters:
+The commutativity and associativity of FynX's boolean gates allow combining sequential filters:
 
 $$\text{obs} \& c_1 \& c_2 \& c_3 \rightarrow \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
 
-Multiple conditional checks become one. The algebraic structure proves this fusion preserves semantics.
+Multiple compatible conditional checks can become one. The algebraic structure explains why this preserves public behavior for pure boolean conditions.
 
 ### Cost-Based Materialization
 
-The optimizer decides whether to cache or recompute each node using a two-stage cost model that combines monoidal composition with sharing penalties:
+The optimizer uses a two-stage cost model to estimate whether a node is better cached or recomputed. Think of this as a practical, compositional heuristic rather than a formal proof of global optimality.
 
-### Monoidal Cost Model
+### Compositional Cost Model
 
-The base cost functional respects the monoidal structure of the reactive category:
+The base cost estimate flows through the dependency graph:
 
-$$\text{Monoidal Cost}(\sigma) = \alpha \cdot \text{materialization}(\sigma) + \beta \cdot \text{recomputation}(\sigma) + \sum_{\tau \in \text{dependencies}(\sigma)} \text{Monoidal Cost}(\tau)$$
+$$\text{Base Cost}(\sigma) = \alpha \cdot \text{materialization}(\sigma) + \beta \cdot \text{recomputation}(\sigma) + \sum_{\tau \in \text{dependencies}(\sigma)} \text{Base Cost}(\tau)$$
 
 Where:
 - $\alpha$: Memory cost coefficient for materialized nodes
@@ -479,15 +529,15 @@ Where:
 - $\text{materialization}(\sigma)$: 1 if node is cached, 0 otherwise
 - $\text{recomputation}(\sigma)$: $\mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma)$ if not cached, 0 otherwise
 
-This cost functional is a monoidal functor $C: \mathcal{C}_T \to (\mathbb{R}^+, +, 0)$, ensuring that:
+This additive shape mirrors the way composed graphs accumulate work:
 
-$C(g \circ f) \leq C(g) + C(f)$
+$$\text{cost of a derived node} \approx \text{local cost} + \text{cost of its dependencies}$$
 
-Cost flows compositionally from sources to dependents through the graph structure.
+Fusion and sharing can make the optimized cost lower than the naive sum, which is why this is best understood as a cost model for engineering decisions, not as a proof by itself.
 
 ### Sharing Penalty Model
 
-In addition to monoidal costs, the optimizer accounts for sharing penalties that arise when non-materialized nodes have multiple dependents:
+In addition to base costs, the optimizer accounts for sharing penalties that arise when non-materialized nodes have multiple dependents:
 
 $$\text{Sharing Penalty}(\sigma) = \begin{cases} 
 0 & \text{if } \sigma \text{ is materialized or } |\text{dependents}(\sigma)| \leq 1 \\
@@ -498,15 +548,15 @@ $$\text{Sharing Penalty}(\sigma) = \begin{cases}
 
 The complete cost model combines both components:
 
-$$\text{Total Cost}(\sigma) = \text{Monoidal Cost}(\sigma) + \text{Sharing Penalty}(\sigma)$$
+$$\text{Total Cost}(\sigma) = \text{Base Cost}(\sigma) + \text{Sharing Penalty}(\sigma)$$
 
-The monoidal component ensures compositionality and global optimality, while the sharing penalty captures contextual costs that depend on usage patterns. For frequently-accessed or deep nodes, caching wins. For cheap or rarely-accessed nodes, recomputation wins. When a node has multiple dependents, materialization becomes more attractive to avoid redundant computation.
+The base component keeps the estimate local and compositional, while the sharing penalty captures contextual costs that depend on usage patterns. For frequently-accessed or deep nodes, caching may win. For cheap or rarely-accessed nodes, recomputation may win. When a node has multiple dependents, materialization becomes more attractive because it can avoid redundant computation.
 
 ### Why Optimization is Sound
 
-These aren't heuristics discovered through profiling. Each rewrite is justified by category theory. Composition collapse follows from functor laws. Product factorization follows from universal properties. Pullback fusion follows from Boolean algebra structure. Materialization follows from monoidal cost composition.
+These aren't benchmark tricks discovered through profiling. The rewrite ideas come from the algebraic structure and are guarded by FynX's public semantics. Composition collapse follows from functor laws. Product factorization follows from product semantics. Pullback-style fusion follows from Boolean algebra structure. Materialization follows from a compositional cost estimate.
 
-The optimizer can be aggressive because the mathematics proves when rewrites preserve semantics. This is optimization guided by proof.
+The optimizer can be aggressive where the semantic contract is clear, and conservative where operational details would be visible. This is optimization guided by algebra and verified by implementation tests, rather than a claim that every optimization choice is globally optimal.
 
 ---
 
@@ -518,12 +568,17 @@ Behind every FynX program is a directed acyclic graph. Nodes are observables. Ed
 
 This graph structure is fundamental to how reactivity works. When A changes, everything reachable from A through outgoing edges needs to update. The acyclic property is crucial—if the graph had cycles, you'd have circular dependencies, and the system couldn't compute a stable state.
 
-FynX detects cycles at runtime:
+FynX guards against the cycles that can arise during reactive execution, especially when a computation or reaction tries to mutate something it currently depends on:
 
 ```python
-if current_context and self in current_context.dependencies:
-    raise RuntimeError("Circular dependency detected!")
+if transform_is_running:
+    raise TransformPurityError("Move mutations to .subscribe() or @reactive")
+
+if current_context and observable in current_context.dependencies:
+    raise RuntimeError("Circular dependency detected")
 ```
+
+The optimizer's graph utilities also include DFS/Kahn-style cycle checks for graph analysis. In everyday use, the most important rule is simpler: derived values should derive; effects and mutations belong at the edge of the system.
 
 ### Topological Order
 
@@ -537,35 +592,41 @@ c = b >> (lambda x: x + 10)
 
 If `a` changes to 5, both `b` and `c` need updating. But `c` depends on `b`, so we must update `b` first. Otherwise `c` would read a stale value and compute incorrectly.
 
-FynX processes updates in topological order—dependencies before dependents:
+FynX processes pending notifications in dependency order—dependencies before dependents. Conceptually, this looks like Kahn's algorithm over the pending part of the graph:
 
 ```python
-def _topological_sort_notifications(cls, observables):
-    sources = []      # No dependencies
-    computed = []     # Depend on sources
-    conditionals = [] # Depend on others
-    return sources + computed + conditionals
+def order_notifications(pending):
+    incoming_count = count_pending_dependencies(pending)
+    ready = nodes_with_no_pending_dependencies(incoming_count)
+    ordered = []
+
+    while ready:
+        node = ready.pop(0)
+        ordered.append(node)
+        for dependent in pending_dependents(node):
+            incoming_count[dependent] -= 1
+            if incoming_count[dependent] == 0:
+                ready.append(dependent)
+
+    return ordered
 ```
 
 This ensures that when an observable evaluates, all its dependencies have already been updated. It's not an optimization—it's a correctness requirement.
 
 ### Batched Processing
 
-FynX batches notifications for efficiency. When multiple observables change in quick succession, all changes are collected, sorted topologically, and processed in one sweep:
+FynX uses stabilization passes for efficiency. A root mutation begins notification, and any dependent notifications queued during that propagation are drained together before the system returns to idle:
 
 ```python
 _pending_notifications: Set["Observable"] = set()
 
-def set(self, value):
-    if self._value != value:
-        self._value = value
-        Observable._pending_notifications.add(self)
-        if not Observable._notification_scheduled:
-            Observable._notification_scheduled = True
-            Observable._process_notifications()
+def schedule_notification(observable):
+    _pending_notifications.add(observable)
+    if not _notification_scheduled:
+        process_notifications()
 ```
 
-This batching provides two benefits: each observable updates once per batch rather than once per dependency change, and all dependents see a consistent snapshot of their dependencies.
+This is not the same as a user-visible transaction block where arbitrary sequential `set()` calls are delayed until later. Separate top-level `set()` calls usually propagate synchronously. The batching boundary is the current stabilization pass: changes that arise while propagation is already happening are collected, ordered by dependency edges, and drained together.
 
 ---
 
@@ -573,47 +634,36 @@ This batching provides two benefits: each observable updates once per batch rath
 
 ### The Numbers
 
-FynX's benchmark suite measures fundamental operations:
+FynX's benchmark suite measures fundamental operations with fixed sizes and fresh worker processes. A sample quick comparison run on Apple Silicon / Python 3.10 reported:
 
-- Observable creation: 756,789 ops/sec (810,325 items)
-- Individual updates: 215,064 ops/sec (240,097 items)
-- Chain propagation: 47,412 ops/sec (47,427 links, 21μs latency)
-- Reactive fan-out: 42,032 ops/sec (47,427 items)
+| Workload | FynX median | RxPY median | Ratio |
+|----------|------------:|------------:|------:|
+| Source → map → sink, 10K events | 9.186 ms | 11.501 ms | 1.25x |
+| One-map chain | 1.250 us | 1.500 us | 1.20x |
+| Ten-map chain | 1.750 us | 3.542 us | 2.02x |
+| Fan-out to 1 sink | 916 ns | 1.250 us | 1.36x |
+| Fan-out to 10 sinks | 2.208 us | 3.000 us | 1.36x |
+| Running accumulation, 10K events | 10.042 ms | 12.756 ms | 1.27x |
 
-```
-                       ⚡ Latency Percentiles
-╔═══════════════════╦════════╦════════╦════════╦════════╗
-║ Operation         ║    p50 ║    p95 ║    p99 ║  p99.9 ║
-╠═══════════════════╬════════╬════════╬════════╬════════╣
-║ Single Update     ║  4.6μs ║  6.5μs ║ 10.2μs ║ 15.3μs ║
-║ Chain Link        ║ 21.1μs ║ 27.4μs ║ 40.1μs ║ 63.3μs ║
-║ Fan-out (per dep) ║ 23.8μs ║ 30.9μs ║ 42.8μs ║ 59.5μs ║
-╚═══════════════════╩════════╩════════╩════════╩════════╝
-```
+The FynX-only rows additionally report construction memory, update latency percentiles, diamond recomputation counts, and dynamic condition dependency cleanup.
 
 ### Scaling Properties
 
-The categorical structure provides specific scaling characteristics:
+The algebraic structure suggests specific scaling goals, and the implementation is tuned around those goals:
 
 **Linear in dependencies**: Each dependency adds constant cost, as it must.
 
-**Sublinear in depth**: Fusion keeps deep chains efficient. A 1,000-level chain may fuse into a single operation, giving logarithmic rather than linear behavior in practice.
+**Lower overhead in deep chains**: Fusion removes intermediate reactive-node overhead. Evaluating `n` arbitrary transformations is still linear in the number of transformations, but graph propagation can avoid behaving like `n` separately subscribed nodes.
 
-**Constant in fan-out**: Product sharing makes fan-out nearly independent of dependent count. The product is computed once whether 10 or 10,000 components use it.
+**Linear in fan-out**: Each dependent still needs a notification. Product sharing avoids redundant upstream work, so the per-dependent cost stays low and predictable.
 
-**Batched amortization**: Multiple changes in a batch share topological sorting costs, so amortized cost per change decreases as batches grow.
+**Stabilization-pass amortization**: Notifications queued during propagation share ordering and drain costs within that pass.
 
-These properties follow from the categorical structure. The theory predicts how performance scales.
+These properties are engineering consequences of the algebraic design. The benchmark suite measures whether the implementation is actually achieving them.
 
-### Real-World Performance Translation
+### Reading Benchmark Results
 
-The benchmark results translate to impressive real-world capabilities:
-
-- Can handle ~47,427 UI components reacting to single state change
-- Supports component trees up to 47,427 levels deep
-- Processes 215K+ state updates per second
-- Creates 757K+ observable objects per second
-- Average propagation latency: 21μs per dependency link
+Treat the benchmark results as measurements of exactly the structures named in the output: lightweight observables, transformations, subscribers, fan-out dependents, and diamond graphs. A UI can be built on those primitives, but the benchmark does not claim to render or update UI components.
 
 ---
 
@@ -627,10 +677,10 @@ FynX's contribution is applying these structures specifically to reactive observ
 
 ## Conclusion
 
-We've explored how category theory provides foundations for reactive programming—not as abstract theory, but as practical structure. Functors ensure transformations compose predictably. Products combine observables in a principled way. Pullbacks filter with precise semantics. And these same structures that guarantee correctness reveal optimization opportunities.
+We've explored how category theory provides a useful foundation for reactive programming—not as abstract theory, but as practical structure. Functors explain why pure transformations compose predictably. Products explain how current values combine. Pullback-like fibers explain conditional observables. And these same structures reveal optimization opportunities.
 
-The mathematical foundations serve three purposes: they prove compositions work correctly, they show where optimizations preserve semantics, and they enable natural composition of observables.
+The mathematical foundations serve three purposes: they give users a simple mental model, they show where optimizations should preserve semantics, and they give the implementation concrete laws to test.
 
-Understanding these foundations isn't required to use FynX effectively. The `>>`, `+`, and `&` operators work intuitively without knowing category theory. But the mathematics explains why the library behaves as it does, why certain design decisions were made, and why optimizations are valid.
+Understanding these foundations isn't required to use FynX effectively. The `>>`, `+`, `&`, `|`, and `~` operators work intuitively without knowing category theory. But the mathematics explains why the library behaves as it does, why certain design decisions were made, and why some optimizations are valid under FynX's public contract.
 
-Category theory transforms reactive programming from a collection of patterns into a structured system with provable properties. The elegance is that complexity becomes composability. Theory becomes tool. And mathematics guides engineering toward correctness.
+Category theory transforms reactive programming from a collection of patterns into a structured system with explicit laws. The elegance is that complexity becomes composability. Theory becomes tool. And mathematics guides engineering toward correctness without forcing users to become mathematicians first.

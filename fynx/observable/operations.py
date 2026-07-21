@@ -18,7 +18,7 @@ We provide five core operations:
 - `alongside(other)` merges observables into tuples (equivalent to `+` operator)
 - `requiring(*conditions)` composes boolean conditions with AND logic (equivalent to `&` operator)
 - `negate()` inverts boolean values (equivalent to `~` operator)
-- `either(other)` creates OR conditions between boolean observables
+- `either(other)` creates boolean OR observables
 
 Result: a fluent API that reads like natural language while maintaining the precision of reactive programming. The methods compose naturally—chain transformations, nest conditions, build complex reactive pipelines from simple operations.
 """
@@ -79,7 +79,7 @@ class OperationsMixin:
         producing new computed values. The function receives observable values as arguments
         and returns a result that becomes the computed observable's value.
 
-        The method handles two cases: single observables and merged observables. For single observables, it applies the function to the observable's value directly. For merged observables, it unpacks the tuple and passes values as separate arguments. That distinction enables functions that work with both single values and coordinate pairs.
+        The method handles two cases: single observables and merged observables. For single observables, it applies the function to the observable's value directly. For merged observables, it unpacks the tuple and passes values as separate arguments. That distinction enables functions that work with both single values and coordinate pairs. Transform functions may only use those explicit argument values; reading or mutating observables inside the transform raises TransformPurityError with a fix-it hint.
 
         The computed observable subscribes to its source and updates automatically when dependencies change. It also registers with the current OptimizationContext for automatic optimization. That registration enables the framework to track dependencies, detect optimization opportunities, and manage reactive graph structure.
         """
@@ -87,51 +87,115 @@ class OperationsMixin:
         ComputedObservable = _ComputedObservable()
         OptimizationContext = _OptimizationContext()
 
-        if isinstance(observable, MergedObservable):
-            # For merged observables, apply func to the tuple values
-            merged_computed_obs: "Observable" = ComputedObservable(
-                None, None, func, observable
+        source_observable = observable
+        computation_func = func
+        unpack_source = isinstance(observable, MergedObservable)
+
+        def evaluate_transform(callback):
+            from . import base as observable_base
+
+            transform_state = observable_base._TRANSFORM_EVALUATION_STATE
+            previous_transform_state = transform_state[0]
+            transform_state[0] = True
+            try:
+                return callback()
+            finally:
+                transform_state[0] = previous_transform_state
+
+        def declared_source_dependencies(source):
+            return {source}
+
+        if (
+            isinstance(observable, ComputedObservable)
+            and not isinstance(observable, MergedObservable)
+            and getattr(observable, "_source_observable", None) is not None
+            and getattr(observable, "_computation_func", None) is not None
+        ):
+            previous = observable
+            source_observable = previous._source_observable
+            previous_unpack = getattr(
+                previous,
+                "_fusion_unpack_source",
+                getattr(previous, "_unpack_source", False),
             )
+            fusion_funcs = tuple(previous._get_fusion_funcs())
 
-            def update_merged_computed():
-                values = tuple(obs.value for obs in observable._source_observables)
-                result = func(*values)
-                merged_computed_obs._set_computed_value(result)
+            def computation_func(source_value):
+                if not fusion_funcs:
+                    intermediate = source_value
+                elif previous_unpack and isinstance(source_value, tuple):
+                    intermediate = fusion_funcs[0](*source_value)
+                    for fusion_func in fusion_funcs[1:]:
+                        intermediate = fusion_func(intermediate)
+                else:
+                    intermediate = source_value
+                    for fusion_func in fusion_funcs:
+                        intermediate = fusion_func(intermediate)
+                return func(intermediate)
 
-            # Initial computation
-            update_merged_computed()
-
-            # Subscribe to changes in the source observable
-            observable.subscribe(lambda *args: update_merged_computed())
-
-            # Register with current optimization context for automatic optimization
-            context = OptimizationContext.current()
-            if context is not None:
-                context.register_observable(merged_computed_obs)
-
-            return merged_computed_obs
+            unpack_source = False
+            source_version_before = getattr(source_observable, "_version", 0)
+            source_value = source_observable.value
+            initial_value = evaluate_transform(lambda: computation_func(source_value))
+            dynamic_dependencies = set()
+            activate_immediately = (
+                getattr(source_observable, "_version", 0) != source_version_before
+            )
+        elif unpack_source:
+            source_version_before = getattr(source_observable, "_version", 0)
+            source_value = source_observable.value
+            initial_value = evaluate_transform(lambda: computation_func(*source_value))
+            dynamic_dependencies = set()
+            activate_immediately = (
+                getattr(source_observable, "_version", 0) != source_version_before
+            )
         else:
-            # For single observables
-            single_computed_obs: "Observable" = ComputedObservable(
-                None, None, func, observable
+            source_version_before = getattr(source_observable, "_version", 0)
+            source_value = source_observable.value
+            initial_value = evaluate_transform(lambda: computation_func(source_value))
+            dynamic_dependencies = set()
+            activate_immediately = (
+                getattr(source_observable, "_version", 0) != source_version_before
             )
 
-            def update_single_computed():
-                result = func(observable.value)
-                single_computed_obs._set_computed_value(result)
+        computed_obs: "Observable" = ComputedObservable(
+            None,
+            initial_value,
+            computation_func,
+            source_observable,
+            unpack_source=unpack_source,
+        )
 
-            # Initial computation
-            update_single_computed()
+        # Register with current optimization context for analysis and global rewrites.
+        context = OptimizationContext.current()
+        if context is not None:
+            context.register_observable(computed_obs)
 
-            # Subscribe to changes
-            observable.subscribe(lambda val: update_single_computed())
+        if isinstance(computed_obs, ComputedObservable):
+            dynamic_dependencies.discard(computed_obs)
+            dynamic_dependencies.difference_update(
+                declared_source_dependencies(source_observable)
+            )
+            computed_obs._dynamic_dependencies = dynamic_dependencies
+            computed_obs._source_signature = computed_obs._current_source_signature()
+            computed_obs._fusion_func = func
+            computed_obs._fusion_unpack_source = (
+                previous_unpack if "previous" in locals() else unpack_source
+            )
+            if "previous" in locals():
+                computed_obs._fusion_parent = previous
+                computed_obs._fusion_funcs = []
+                computed_obs._captures_dynamic_dependencies = False
+            else:
+                computed_obs._fusion_parent = None
+                computed_obs._fusion_funcs = [func]
+                computed_obs._captures_dynamic_dependencies = False
 
-            # Register with current optimization context for automatic optimization
-            context = OptimizationContext.current()
-            if context is not None:
-                context.register_observable(single_computed_obs)
+            if activate_immediately:
+                computed_obs._force_eager = True
+                computed_obs._activate_dependencies()
 
-            return single_computed_obs
+        return computed_obs
 
     def then(self, func: Callable[[T], U]) -> "Observable[U]":
         """
@@ -145,8 +209,10 @@ class OperationsMixin:
         The method creates a ComputedObservable that applies the given function to this observable's value. When the source changes, the computed observable recalculates automatically. That automatic recalculation eliminates manual updates—you declare the transformation, and the framework maintains it.
 
         Args:
-            func: A function to apply to the observable's value. For merged observables,
-                  the function receives unpacked tuple values as separate arguments.
+            func: A pure function to apply to the observable's value. For merged
+                  observables, the function receives unpacked tuple values as
+                  separate arguments. If the function needs another observable,
+                  combine that observable first with `+` / `.alongside()`.
 
         Returns:
             A new computed observable with the transformed value. The computed observable
@@ -301,32 +367,28 @@ class OperationsMixin:
 
     def either(self, other: "Observable") -> "Observable":
         """
-        Create an OR condition between this observable and another.
+        Create a boolean OR observable between this observable and another.
 
-        This method combines two boolean observables with OR logic, creating a conditional
-        observable that only emits when at least one is True. The result represents the
-        logical OR of both values—the system works if either source is active. If both
-        are False, accessing the value raises ConditionalNeverMet.
+        This method combines two boolean observables with OR logic, creating a computed
+        observable that is True when either source is truthy and False otherwise. The
+        result is a total boolean observable, making it suitable as a reusable condition
+        for `&` / `.requiring()` and for further boolean composition.
 
-        The method creates a computed observable that calculates the OR of both boolean values, then wraps it in a ConditionalObservable that filters based on truthiness. That filtering ensures the result only emits when the OR condition is satisfied. If the initial OR result is falsy, accessing the value raises ConditionalNeverMet—the gate has never opened.
+        The method creates a computed observable that calculates the logical OR of both
+        boolean values. It does not gate or suppress falsy values; both True and False are
+        valid values of the resulting observable.
 
         Args:
             other: Another boolean observable to OR with. Both this observable and other
-                   should contain boolean values.
+                   should contain boolean-like values.
 
         Returns:
-            A conditional observable that only emits when the OR result is truthy. The
-            observable updates automatically when either source changes.
-
-        Raises:
-            ConditionalNeverMet: If the initial OR result is falsy (both observables
-                                are False). Accessing `.value` before any condition is
-                                satisfied raises this exception.
+            A computed Observable[bool] that updates automatically when either source
+            changes.
 
         Example:
             ```python
             from fynx import observable
-            from fynx.observable.conditional import ConditionalNeverMet
 
             is_error = observable(True)
             is_warning = observable(False)
@@ -337,20 +399,6 @@ class OperationsMixin:
             is_admin = observable(False)
             can_proceed = has_permission.either(is_admin)
             print(can_proceed.value)  # True
-
-            # If both are False initially, accessing value raises ConditionalNeverMet
-            both_false_1 = observable(False)
-            both_false_2 = observable(False)
-            try:
-                result = both_false_1.either(both_false_2)
-                _ = result.value  # Raises ConditionalNeverMet
-            except ConditionalNeverMet:
-                print("Both conditions are False—gate never opens")
             ```
         """
-        # Create a computed observable for the OR result
-        or_result = self.alongside(other).then(lambda a, b: a or b)
-
-        # Return conditional observable that filters based on truthiness
-        # Use a callable condition to avoid timing issues with computed observables
-        return or_result & (lambda x: bool(x))
+        return self.alongside(other).then(lambda a, b: bool(a) or bool(b))

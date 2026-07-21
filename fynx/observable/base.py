@@ -17,6 +17,7 @@ Result: values that look and feel like regular Python values, but propagate chan
 
 from typing import (
     Callable,
+    Dict,
     List,
     Optional,
     Set,
@@ -30,6 +31,26 @@ from .interfaces import ReactiveContext as ReactiveContextInterface
 from .operators import OperatorMixin
 
 T = TypeVar("T")
+
+
+_TRANSFORM_EVALUATION_STATE = [False]
+
+
+def _transform_purity_message(action: str, key: str) -> str:
+    verb = "read" if action == "read" else "mutated"
+    operation = "Reading" if action == "read" else "Mutating"
+    return (
+        f"Observable '{key}' was {verb} inside a transform (`>>` / `.then()`).\n"
+        f"{operation} observables from inside a transform makes dependencies implicit.\n"
+        "FynX transforms are pure: they may only use values passed as arguments.\n"
+        "Hint: pass every reactive input explicitly with `+` / `.alongside()`, for example:\n"
+        "    (price + discount) >> (lambda price, discount: price * (1 - discount))\n"
+        "Move side effects and mutations to `.subscribe()` or `@reactive`."
+    )
+
+
+class TransformPurityError(RuntimeError):
+    """Raised when a transform tries to read or mutate observables implicitly."""
 
 
 class ReactiveContext(ReactiveContextInterface):
@@ -206,11 +227,17 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     # Stack of reactive contexts being computed (for proper cycle detection)
     _context_stack: List["ReactiveContext"] = []
+    _computation_dependency_stack: List[Set["Observable"]] = []
+    _dependency_capture_stack: List[Set["Observable"]] = []
 
     # High-performance notification system with cycle detection
     _pending_notifications: Set["Observable"] = set()
     _notification_scheduled: bool = False
     _currently_notifying: Set["Observable"] = set()  # Prevent cycles
+
+    def _raise_if_transform_reads(self) -> None:
+        if _TRANSFORM_EVALUATION_STATE[0]:
+            raise TransformPurityError(_transform_purity_message("read", self._key))
 
     def __init__(
         self, key: Optional[str] = None, initial_value: Optional[T] = None
@@ -226,6 +253,11 @@ class Observable(ObservableInterface[T], OperatorMixin):
         self._key = key or "<unnamed>"
         self._value = initial_value
         self._observers: Set[Callable] = set()
+        self._version = 0
+        self._is_notifying = False
+        self._fast_observers = None
+        self._single_fast_observer = None
+        self._direct_callbacks = None
 
     @property
     def key(self) -> str:
@@ -261,6 +293,11 @@ class Observable(ObservableInterface[T], OperatorMixin):
                 print(f"Value: {val}")
             ```
         """
+        self._raise_if_transform_reads()
+
+        if Observable._dependency_capture_stack:
+            Observable._dependency_capture_stack[-1].add(self)
+
         # Track dependency if we're in a reactive context
         if Observable._current_context is not None:
             Observable._current_context.add_dependency(self)
@@ -296,28 +333,99 @@ class Observable(ObservableInterface[T], OperatorMixin):
         Note:
             Equality is checked using the `!=` operator, so custom objects should implement proper equality comparison if needed.
         """
+        if _TRANSFORM_EVALUATION_STATE[0]:
+            raise TransformPurityError(_transform_purity_message("mutate", self._key))
+
         # Check for circular dependency: check if the current context
         # is computing a value that depends on this observable
         current_context = Observable._current_context
+        is_notifying = self._is_notifying
+        direct_callbacks = self._direct_callbacks
+        if is_notifying and direct_callbacks:
+            error_msg = f"Circular dependency detected in reactive computation!\n"
+            error_msg += f"Observable '{self._key}' is being modified while notifying observers.\n"
+            error_msg += f"This creates a circular dependency."
+            raise RuntimeError(error_msg)
+
         if current_context and self in current_context.dependencies:
             error_msg = f"Circular dependency detected in reactive computation!\n"
             error_msg += f"Observable '{self._key}' is being modified while computing a value that depends on it.\n"
             error_msg += f"This creates a circular dependency."
             raise RuntimeError(error_msg)
 
+        if Observable._computation_dependency_stack:
+            error_msg = f"Circular dependency detected in reactive computation!\n"
+            error_msg += (
+                f"Observable '{self._key}' is being modified while computing a value.\n"
+            )
+            error_msg += f"This creates a circular dependency."
+            raise RuntimeError(error_msg)
+
         # Only update and notify if the value actually changed
         if self._value != value:
             self._value = value
-            # Add to pending notifications for batched processing
-            Observable._pending_notifications.add(self)
-            # Schedule notification if not already scheduled and not currently notifying
+            self._version += 1
+            observers = self._observers
+            fast_observers = self._fast_observers
+
+            if observers:
+                single_direct_callback = getattr(self, "_single_direct_callback", None)
+                if (
+                    single_direct_callback is not None
+                    and len(observers) == 1
+                    and not fast_observers
+                    and not Observable._notification_scheduled
+                    and not is_notifying
+                ):
+                    self._is_notifying = True
+                    try:
+                        single_direct_callback(value)
+                    finally:
+                        self._is_notifying = False
+
+                    if (
+                        Observable._pending_notifications
+                        and not Observable._notification_scheduled
+                    ):
+                        Observable._notification_scheduled = True
+                        Observable._process_notifications()
+                    return
+
+            single_fast_observer = self._single_fast_observer
             if (
-                not Observable._notification_scheduled
-                and self not in Observable._currently_notifying
+                single_fast_observer is not None
+                and not observers
+                and not Observable._notification_scheduled
+                and not is_notifying
             ):
-                Observable._notification_scheduled = True
-                # Process immediately for high performance (no deferral overhead)
-                Observable._process_notifications()
+                self._is_notifying = True
+                try:
+                    single_fast_observer(value)
+                finally:
+                    self._is_notifying = False
+
+                if (
+                    Observable._pending_notifications
+                    and not Observable._notification_scheduled
+                ):
+                    Observable._notification_scheduled = True
+                    Observable._process_notifications()
+                return
+            if (
+                direct_callbacks
+                and len(direct_callbacks) == len(observers)
+                and not fast_observers
+                and not Observable._notification_scheduled
+                and not is_notifying
+            ):
+                Observable._notify_direct_callbacks_then_drain(self, value)
+                return
+            if not observers and not fast_observers:
+                return
+            if fast_observers and not observers:
+                Observable._notify_fast_observers_then_drain(self, value)
+                return
+            Observable._notify_inline_then_drain(self)
         else:
             # Even if the value didn't change, we still check for circular dependencies
             # in case the setter is being called from within its own computation
@@ -327,13 +435,144 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """Notify all registered observers that this observable has changed."""
         # Create a copy of observers to avoid "Set changed size during iteration"
         # Prevent re-entrant notifications on this observable
-        if self not in Observable._currently_notifying:
-            Observable._currently_notifying.add(self)
+        if not getattr(self, "_is_notifying", False):
+            self._is_notifying = True
             try:
-                for observer in list(self._observers):
+                for observer in self._observers_for_notification():
                     observer()
             finally:
-                Observable._currently_notifying.discard(self)
+                self._is_notifying = False
+
+    def _observers_for_notification(self) -> tuple:
+        """Return a stable observer snapshot for notification dispatch."""
+        snapshot = getattr(self, "_observer_snapshot", ())
+        if len(snapshot) != len(self._observers):
+            snapshot = tuple(self._observers)
+            self._observer_snapshot = snapshot
+        return snapshot
+
+    def _fast_observers_for_notification(self) -> tuple:
+        """Return a stable source-only observer snapshot."""
+        fast_observers = getattr(self, "_fast_observers", None)
+        if not fast_observers:
+            return ()
+        snapshot = getattr(self, "_fast_observer_snapshot", ())
+        if len(snapshot) != len(fast_observers):
+            snapshot = tuple(fast_observers)
+            self._fast_observer_snapshot = snapshot
+        return snapshot
+
+    def _direct_callbacks_for_notification(self) -> tuple:
+        """Return a stable direct value-callback snapshot."""
+        direct_callbacks = getattr(self, "_direct_callbacks", None)
+        if not direct_callbacks:
+            return ()
+        snapshot = getattr(self, "_direct_callback_snapshot", ())
+        if len(snapshot) != len(direct_callbacks):
+            snapshot = tuple(direct_callbacks)
+            self._direct_callback_snapshot = snapshot
+        return snapshot
+
+    def _refresh_single_direct_callback(self) -> None:
+        direct_callbacks = getattr(self, "_direct_callbacks", None)
+        self._single_direct_callback = (
+            next(iter(direct_callbacks))
+            if direct_callbacks and len(direct_callbacks) == 1
+            else None
+        )
+
+    @classmethod
+    def _schedule_notification(cls, observable: "Observable") -> None:
+        """Queue an observable for the current stabilization pass."""
+        cls._pending_notifications.add(observable)
+        if not cls._notification_scheduled and not getattr(
+            observable, "_is_notifying", False
+        ):
+            cls._notification_scheduled = True
+            cls._process_notifications()
+
+    @classmethod
+    def _notify_inline_then_drain(cls, observable: "Observable") -> None:
+        """Notify a root mutation immediately, then drain queued dependents."""
+        if cls._notification_scheduled or getattr(observable, "_is_notifying", False):
+            cls._schedule_notification(observable)
+            return
+
+        cls._notification_scheduled = True
+        try:
+            observable._is_notifying = True
+            try:
+                fast_observers = observable._fast_observers_for_notification()
+                if len(fast_observers) == 1:
+                    fast_observers[0](observable._value)
+                else:
+                    for observer in fast_observers:
+                        observer(observable._value)
+
+                observers = observable._observers_for_notification()
+                if len(observers) == 1:
+                    observers[0]()
+                else:
+                    for observer in observers:
+                        observer()
+            finally:
+                observable._is_notifying = False
+
+            if cls._pending_notifications:
+                cls._process_notifications()
+            else:
+                cls._notification_scheduled = False
+        except Exception:
+            cls._notification_scheduled = False
+            raise
+
+    @classmethod
+    def _notify_fast_observers_then_drain(cls, observable: "Observable", value) -> None:
+        """Dispatch source-only transform observers without generic observer wrapping."""
+        if cls._notification_scheduled or getattr(observable, "_is_notifying", False):
+            cls._schedule_notification(observable)
+            return
+
+        cls._notification_scheduled = True
+        try:
+            observable._is_notifying = True
+            try:
+                observers = observable._fast_observers_for_notification()
+                if len(observers) == 1:
+                    observers[0](value)
+                else:
+                    for observer in observers:
+                        observer(value)
+            finally:
+                observable._is_notifying = False
+
+            if cls._pending_notifications:
+                cls._process_notifications()
+            else:
+                cls._notification_scheduled = False
+        except Exception:
+            cls._notification_scheduled = False
+            raise
+
+    @classmethod
+    def _notify_direct_callbacks_then_drain(
+        cls, observable: "Observable", value
+    ) -> None:
+        """Dispatch plain subscriptions directly at the effect boundary."""
+        observable._is_notifying = True
+        try:
+            callback = getattr(observable, "_single_direct_callback", None)
+            if callback is not None:
+                callback(value)
+            else:
+                for callback in observable._direct_callbacks_for_notification():
+                    callback(value)
+        finally:
+            observable._is_notifying = False
+
+        if cls._pending_notifications and not cls._notification_scheduled:
+            cls._notification_scheduled = True
+            cls._process_notifications()
 
     @classmethod
     def _process_notifications(cls) -> None:
@@ -362,27 +601,69 @@ class Observable(ObservableInterface[T], OperatorMixin):
         a conditional observable checks its condition values, they have been updated
         with the latest values.
         """
-        # 1. Source observables (no computation) first
-        # 2. Computed observables
-        # 3. Conditional observables last (they depend on others)
+        if len(observables) <= 1:
+            return list(observables)
 
-        sources = []
-        computed = []
-        conditionals = []
+        pending = set(observables)
+        ordered_seed = sorted(pending, key=cls._notification_sort_key)
+        incoming_count = {obs: 0 for obs in ordered_seed}
+        outgoing = {obs: [] for obs in ordered_seed}
 
-        for obs in observables:
-            from .computed import ComputedObservable
-            from .conditional import ConditionalObservable
+        for obs in ordered_seed:
+            for dependency in cls._observable_dependencies(obs):
+                if dependency in pending:
+                    incoming_count[obs] += 1
+                    outgoing[dependency].append(obs)
 
-            if isinstance(obs, ConditionalObservable):
-                conditionals.append(obs)
-            elif isinstance(obs, ComputedObservable):
-                computed.append(obs)
-            else:
-                sources.append(obs)
+        ready = [obs for obs in ordered_seed if incoming_count[obs] == 0]
+        ordered = []
 
-        # Return sources first, then computed, then conditionals
-        return sources + computed + conditionals
+        while ready:
+            observable = ready.pop(0)
+            ordered.append(observable)
+
+            for dependent in sorted(
+                outgoing[observable], key=cls._notification_sort_key
+            ):
+                incoming_count[dependent] -= 1
+                if incoming_count[dependent] == 0:
+                    ready.append(dependent)
+                    ready.sort(key=cls._notification_sort_key)
+
+        if len(ordered) == len(ordered_seed):
+            return ordered
+
+        # If a cycle or incomplete dependency view slips through, keep the old
+        # source/computed/conditional ordering as a conservative fallback.
+        remaining = [obs for obs in ordered_seed if obs not in set(ordered)]
+        return ordered + remaining
+
+    @classmethod
+    def _notification_sort_key(cls, observable: "Observable") -> tuple:
+        from .computed import ComputedObservable
+        from .conditional import ConditionalObservable
+
+        if isinstance(observable, ConditionalObservable):
+            rank = 2
+        elif isinstance(observable, ComputedObservable):
+            rank = 1
+        else:
+            rank = 0
+        return (rank, id(observable))
+
+    @classmethod
+    def _observable_dependencies(cls, observable: "Observable") -> Set["Observable"]:
+        from .computed import ComputedObservable
+        from .conditional import ConditionalObservable
+        from .merged import MergedObservable
+
+        if isinstance(observable, ConditionalObservable):
+            return set(getattr(observable, "_all_dependencies", set()))
+        if isinstance(observable, MergedObservable):
+            return set(getattr(observable, "_source_observables", []))
+        if isinstance(observable, ComputedObservable):
+            return set(observable._runtime_dependencies())
+        return set()
 
     def add_observer(self, observer: Callable) -> None:
         """
@@ -392,6 +673,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             observer: A callable that takes no arguments
         """
         self._observers.add(observer)
+        self._observer_snapshot = ()
 
     def remove_observer(self, observer: Callable) -> None:
         """
@@ -401,6 +683,28 @@ class Observable(ObservableInterface[T], OperatorMixin):
             observer: The observer function to remove
         """
         self._observers.discard(observer)
+        self._observer_snapshot = ()
+
+    def add_fast_observer(self, observer: Callable) -> None:
+        """Add an internal source-only observer that receives the new value."""
+        fast_observers = getattr(self, "_fast_observers", None)
+        if fast_observers is None:
+            fast_observers = set()
+            self._fast_observers = fast_observers
+        fast_observers.add(observer)
+        self._fast_observer_snapshot = ()
+        self._single_fast_observer = observer if len(fast_observers) == 1 else None
+
+    def remove_fast_observer(self, observer: Callable) -> None:
+        """Remove an internal source-only observer."""
+        fast_observers = getattr(self, "_fast_observers", None)
+        if fast_observers is None:
+            return
+        fast_observers.discard(observer)
+        self._fast_observer_snapshot = ()
+        self._single_fast_observer = (
+            next(iter(fast_observers)) if len(fast_observers) == 1 else None
+        )
 
     def subscribe(self, func: Callable) -> "Observable[T]":
         """
@@ -439,10 +743,28 @@ class Observable(ObservableInterface[T], OperatorMixin):
             reactive: Decorator-based subscription with automatic dependency tracking
         """
 
-        def single_reaction():
-            func(self.value)
+        direct_observers = getattr(self, "_direct_observers", None)
+        if direct_observers is None:
+            direct_observers = {}
+            self._direct_observers = direct_observers
+        direct_callbacks = getattr(self, "_direct_callbacks", None)
+        if direct_callbacks is None:
+            direct_callbacks = set()
+            self._direct_callbacks = direct_callbacks
 
-        self._create_subscription_context(single_reaction, func, self)
+        existing_observer = direct_observers.pop(func, None)
+        if existing_observer is not None:
+            self.remove_observer(existing_observer)
+            direct_callbacks.discard(func)
+
+        def direct_reaction():
+            func(self._value)
+
+        direct_observers[func] = direct_reaction
+        direct_callbacks.add(func)
+        self._direct_callback_snapshot = ()
+        self._refresh_single_direct_callback()
+        self.add_observer(direct_reaction)
         return self
 
     def unsubscribe(self, func: Callable) -> None:
@@ -452,6 +774,19 @@ class Observable(ObservableInterface[T], OperatorMixin):
         Args:
             func: The function to unsubscribe from this observable
         """
+        direct_observer = (
+            self._direct_observers.pop(func, None)
+            if getattr(self, "_direct_observers", None) is not None
+            else None
+        )
+        if direct_observer is not None:
+            self.remove_observer(direct_observer)
+            direct_callbacks = getattr(self, "_direct_callbacks", None)
+            if direct_callbacks is not None:
+                direct_callbacks.discard(func)
+                self._direct_callback_snapshot = ()
+                self._refresh_single_direct_callback()
+
         self._dispose_subscription_contexts(
             func, lambda ctx: ctx.subscribed_observable is self
         )
@@ -537,6 +872,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
                 print("Observable is falsy")
             ```
         """
+        self._raise_if_transform_reads()
         return bool(self._value)
 
     def __str__(self) -> str:
@@ -557,6 +893,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             message = "User: " + str(obs)  # Works with str() conversion
             ```
         """
+        self._raise_if_transform_reads()
         return str(self._value)
 
     def __repr__(self) -> str:
@@ -572,6 +909,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             print(repr(obs))  # Observable('counter', 42)
             ```
         """
+        self._raise_if_transform_reads()
         return f"Observable({self._key!r}, {self._value!r})"
 
     def __eq__(self, other: object) -> bool:
@@ -598,6 +936,9 @@ class Observable(ObservableInterface[T], OperatorMixin):
             obs1 == 10        # False (5 != 10)
             ```
         """
+        self._raise_if_transform_reads()
+        if isinstance(other, Observable):
+            other._raise_if_transform_reads()
         if isinstance(other, Observable):
             return self._value == other._value
         return self._value == other
