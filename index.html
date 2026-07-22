@@ -644,6 +644,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="tutorial/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1063,74 +1086,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Roadmap
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Roadmap
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../specs/v1.0-roadmap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    v1.0 Roadmap
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -1352,15 +1307,16 @@
 </code></pre></div>
 <p>FynX has no required dependencies and works with Python 3.9 and above.</p>
 <h2 id="why-use-fynx">Why Use FynX?<a class="headerlink" href="#why-use-fynx" title="Permanent link">&para;</a></h2>
-<p><strong>Transparent Reactivity</strong>: FynX requires no special syntax. Use standard Python assignment, method calls, and attribute access—reactivity works automatically without wrapper objects or proxy patterns.</p>
+<p><strong>Transparent Reactivity</strong>: FynX requires no special syntax for ordinary state and reactions. Use standard Python assignment, method calls, and attribute access—reactivity works automatically without wrapper objects or proxy patterns.</p>
 <p><strong>Automatic Dependency Tracking</strong>: FynX observables track their dependents automatically during execution. You never manually register or unregister dependencies; the framework infers them from how your code actually runs.</p>
-<p><strong>Lazy Evaluation with Memoization</strong>: Computed values only recalculate when their dependencies change, and only when accessed. This combines the convenience of automatic updates with the performance of intelligent caching.</p>
+<p><strong>Lazy Evaluation with Memoization</strong>: Computed values only recalculate when their dependencies change, and only when accessed. Subscribers create the effect boundary for notifications, so unobserved work stays lazy while observed effects still run automatically.</p>
 <p><strong>Composable Architecture</strong>: Observables, computed values, and reactions compose naturally. You can nest stores, chain computed values, and combine reactions to build complex reactive systems from simple, reusable pieces.</p>
-<p><strong>Expressive Operators</strong>: FynX provides intuitive operators (<code>+</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>~</code>, <code>|</code>) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.</p>
+<p><strong>Expressive Operators</strong>: FynX provides intuitive operators (<code>+</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>~</code>, <code>|</code>, <code>@</code>) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.</p>
+<p><strong>Typed Composition</strong>: FynX ships a <code>py.typed</code> marker and inline annotations for its operator algebra. Store fields such as <code>total = observable(0)</code> appear as <code>ObservableValue[int]</code>, standalone observables appear as <code>Observable[int]</code>, chained products stay flat, <code>&gt;&gt;</code> preserves the transform return type, <code>&amp;</code> / <code>|</code> / <code>~</code> produce <code>Observable[bool]</code>, and <code>@</code> preserves the gated source type.</p>
 <h2 id="understanding-reactive-programming">Understanding Reactive Programming<a class="headerlink" href="#understanding-reactive-programming" title="Permanent link">&para;</a></h2>
 <p>Traditional imperative programming requires you to manually orchestrate updates: when data changes, you must explicitly call update methods, refresh UI components, or invalidate caches. This creates brittle, error-prone code where it's easy to forget an update or create inconsistent states.</p>
 <p>Reactive programming inverts this model. Instead of imperatively triggering updates, you declare relationships between data. When a value changes, the framework automatically propagates that change to everything that depends on it. Think of it like a spreadsheet: when you change a cell, all formulas referencing that cell recalculate automatically. FynX brings this same automatic dependency tracking and update propagation to Python.</p>
-<p>What makes FynX special is its transparency. You don't need to learn special syntax or wrap everything in framework-specific abstractions. Just use normal Python objects and assignment—FynX handles the reactivity behind the scenes through automatic dependency tracking.</p>
+<p>What makes FynX special is its transparency. You don't need to wrap everything in framework-specific abstractions. Just use normal Python objects and assignment for state, and make transform inputs explicit with <code>+</code> / <code>.alongside()</code> when a derived value depends on more than one observable. FynX handles the graph bookkeeping behind the scenes.</p>
 <h2 id="quick-start-example">Quick Start Example<a class="headerlink" href="#quick-start-example" title="Permanent link">&para;</a></h2>
 <p>Here's a complete example showing how FynX's concepts work together:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span><span class="p">,</span> <span class="n">reactive</span>
@@ -1377,21 +1333,23 @@
 <a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">)</span>
 <a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># React to any change in name or age</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">age</span><span class="p">)</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_user_change</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">age</span><span class="p">):</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User updated: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># React only when specific conditions are met</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">is_adult_online</span> <span class="o">=</span> <span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">is_online</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">online</span><span class="p">:</span> <span class="n">online</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">age</span><span class="p">:</span> <span class="n">age</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">))</span>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">is_adult_online</span><span class="p">)</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_adult_online</span><span class="p">(</span><span class="n">is_adult_online_state</span><span class="p">):</span>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a>    <span class="k">if</span> <span class="n">is_adult_online_state</span><span class="p">:</span>
-<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adult user </span><span class="si">{</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is now online!&quot;</span><span class="p">)</span>
-<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>
-<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a><span class="c1"># Changes trigger appropriate reactions automatically</span>
-<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>      <span class="c1"># Prints: User updated: Bob, 30</span>
-<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="mi">25</span>          <span class="c1"># Prints: User updated: Bob, 25</span>
-<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">is_online</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Prints: Adult user Bob is now online!</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="c1"># @reactive fires immediately with the current values, then again on every change</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">UserStore</span><span class="o">.</span><span class="n">age</span><span class="p">)</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_user_change</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">age</span><span class="p">):</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;User updated: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">age</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="c1"># Prints immediately: User updated: Alice, 30</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
+<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># React only when specific conditions are met</span>
+<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">is_adult_online</span> <span class="o">=</span> <span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">is_online</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">online</span><span class="p">:</span> <span class="n">online</span><span class="p">))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">age</span><span class="p">:</span> <span class="n">age</span> <span class="o">&gt;=</span> <span class="mi">18</span><span class="p">))</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">is_adult_online</span><span class="p">)</span>
+<a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="k">def</span><span class="w"> </span><span class="nf">on_adult_online</span><span class="p">(</span><span class="n">is_adult_online_state</span><span class="p">):</span>
+<a id="__codelineno-1-25" name="__codelineno-1-25" href="#__codelineno-1-25"></a>    <span class="k">if</span> <span class="n">is_adult_online_state</span><span class="p">:</span>
+<a id="__codelineno-1-26" name="__codelineno-1-26" href="#__codelineno-1-26"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adult user </span><span class="si">{</span><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is now online!&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-27" name="__codelineno-1-27" href="#__codelineno-1-27"></a>
+<a id="__codelineno-1-28" name="__codelineno-1-28" href="#__codelineno-1-28"></a><span class="c1"># Changes trigger appropriate reactions automatically</span>
+<a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>      <span class="c1"># Prints: User updated: Bob, 30</span>
+<a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">age</span> <span class="o">=</span> <span class="mi">25</span>          <span class="c1"># Prints: User updated: Bob, 25</span>
+<a id="__codelineno-1-31" name="__codelineno-1-31" href="#__codelineno-1-31"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">is_online</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># Prints: Adult user Bob is now online!</span>
 </code></pre></div>
 <p>Notice how natural the code looks—no explicit update calls, no subscription management, just straightforward Python that happens to be reactive.</p>
 <h2 id="core-concepts">Core Concepts<a class="headerlink" href="#core-concepts" title="Permanent link">&para;</a></h2>
@@ -1399,7 +1357,7 @@
 <h3 id="observables">Observables<a class="headerlink" href="#observables" title="Permanent link">&para;</a></h3>
 <p>Observables are the foundation of reactivity. An observable is simply a value that FynX watches for changes. When you modify an observable, FynX automatically notifies everything that depends on it. Think of observables as the source nodes in your application's dependency graph—they're the raw state that drives everything else.</p>
 <h3 id="computed-values">Computed Values<a class="headerlink" href="#computed-values" title="Permanent link">&para;</a></h3>
-<p>Computed values are derived data that automatically recalculates when their dependencies change. They provide memoization by default, meaning they only recompute when one of their inputs actually changes—not on every access. This makes them both convenient and performant for expensive calculations. Computed values form the intermediate nodes in your dependency graph, transforming observables into the exact shape your application needs.</p>
+<p>Computed values are derived data that follows explicit inputs. They provide memoization by default, meaning unobserved values recompute only when read after an input changes, not on every access. If a derivation has subscribers, FynX maintains it eagerly enough to deliver notifications. If a derivation needs multiple observables, combine them with <code>+</code> / <code>.alongside()</code> and transform the plain argument values. This makes computed values both convenient and performant for expensive calculations.</p>
 <h3 id="reactions">Reactions<a class="headerlink" href="#reactions" title="Permanent link">&para;</a></h3>
 <p>Reactions are side effects that execute automatically when their observed dependencies change. Use reactions for actions like updating a UI, making an API call, logging, or any other effect that should happen in response to state changes. While observables and computed values represent your data, reactions represent what your application does with that data.</p>
 <h3 id="stores">Stores<a class="headerlink" href="#stores" title="Permanent link">&para;</a></h3>
@@ -1409,13 +1367,13 @@
 <h2 id="common-patterns">Common Patterns<a class="headerlink" href="#common-patterns" title="Permanent link">&para;</a></h2>
 <p>As you work with FynX, you'll find these patterns emerge naturally:</p>
 <p><strong>State Management</strong>: Group related observables in Store classes to create logical boundaries in your application. Each store becomes a self-contained module of state with its own computed values and methods.</p>
-<p><strong>Derived Data</strong>: Use computed values whenever you need data that depends on other data. The automatic memoization means you can freely access computed values without worrying about performance—they only recalculate when necessary.</p>
+<p><strong>Derived Data</strong>: Use computed values whenever you need data that depends on other data. Put every reactive input on the left side of the transform, then use the function arguments on the right. The automatic memoization means you can freely access computed values without worrying about performance—they only recalculate when necessary.</p>
 <p><strong>Side Effects</strong>: Attach reactions to observables for any effect that should happen in response to state changes: updating a UI, sending analytics, making API calls, or writing to a database.</p>
-<p><strong>Conditional Logic</strong>: Use watch decorators to implement state machines, validation rules, or event filtering. This keeps conditional logic declarative and colocated with the relevant state.</p>
-<p><strong>Data Flow Composition</strong>: Use FynX's operators (<code>+</code> for piping values, <code>&gt;&gt;</code> for chaining, <code>&amp;</code> for combining) to build clear, expressive data transformation pipelines.</p>
+<p><strong>Conditional Logic</strong>: Use <code>&amp;</code> / <code>.all()</code>, <code>|</code> / <code>.either()</code>, and <code>~</code> / <code>.negate()</code> to build boolean conditions, then <code>@</code> / <code>.requiring()</code> to gate values. This keeps conditional logic declarative and colocated with the relevant state.</p>
+<p><strong>Data Flow Composition</strong>: Use FynX's operators (<code>&gt;&gt;</code> for transforming, <code>+</code> for combining inputs, <code>&amp;</code> for logical AND, <code>|</code> for logical OR, <code>~</code> for negation, and <code>@</code> for gating) to build clear, expressive data transformation pipelines.</p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="generation/markdown/api.md">API Reference</a> - Complete API documentation with organized sections</li>
+<li><a href="reference/api/">API Reference</a> - Complete API documentation with organized sections</li>
 <li><a href="https://github.com/off-by-some/fynx/tree/main/examples">Examples</a> - Working examples and patterns</li>
 <li><a href="https://github.com/off-by-some/fynx">GitHub Repository</a> - Source code and issues</li>
 </ul>
@@ -1452,7 +1410,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Cassidy Bridges &copy; 2025
+      Cassidy Bridges &copy; 2025-2026
 
     </div>
   

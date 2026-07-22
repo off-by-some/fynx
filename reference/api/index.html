@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://off-by-some.github.io/fynx/reference/api/">
       
       
-        <link rel="prev" href="../../tutorial/using-reactive/">
+        <link rel="prev" href="../../tutorial/best-practices/">
       
       
         <link rel="next" href="../observable/">
@@ -461,6 +461,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -565,9 +588,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#a-mental-model-for-fynx" class="md-nav__link">
+  <a href="#imperative-vs-declarative" class="md-nav__link">
     <span class="md-ellipsis">
-      A Mental Model for FynX
+      Imperative vs. Declarative
     </span>
   </a>
   
@@ -1122,74 +1145,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Roadmap
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Roadmap
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../specs/v1.0-roadmap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    v1.0 Roadmap
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -1217,9 +1172,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#a-mental-model-for-fynx" class="md-nav__link">
+  <a href="#imperative-vs-declarative" class="md-nav__link">
     <span class="md-ellipsis">
-      A Mental Model for FynX
+      Imperative vs. Declarative
     </span>
   </a>
   
@@ -1431,12 +1386,10 @@
 
 
 <h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
-<p>This reference provides comprehensive documentation of FynX's public API. FynX is a reactive programming library that makes your application state respond automatically to changes—think of it as a spreadsheet for your code, where updating one cell automatically recalculates all the formulas that depend on it.</p>
-<h2 id="a-mental-model-for-fynx">A Mental Model for FynX<a class="headerlink" href="#a-mental-model-for-fynx" title="Permanent link">&para;</a></h2>
-<p>Before diving into the API details, it helps to understand FynX's core philosophy:</p>
-<p><strong>Traditional programming is imperative</strong>: You tell your code exactly when to update things. Change a variable here, update the UI there, recalculate this value over there. You're responsible for remembering all the connections.</p>
-<p><strong>FynX is declarative</strong>: You describe <em>relationships</em> between values, and FynX handles the updates automatically. Change a value once, and everything that depends on it updates correctly, in the right order, every time.</p>
-<p>This mental shift—from managing updates to declaring relationships—is what makes thinking reactively so powerful.</p>
+<p>This is the public API reference for FynX, a reactive programming library. Values are observables; when one changes, everything computed from it recalculates on its own, the way a spreadsheet cell updates every formula that references it.</p>
+<h2 id="imperative-vs-declarative">Imperative vs. Declarative<a class="headerlink" href="#imperative-vs-declarative" title="Permanent link">&para;</a></h2>
+<p><strong>Traditional (imperative)</strong>: you write the code that updates the UI, recalculates a value, and writes it back, every time a variable changes, and you're responsible for remembering every place that needs updating.</p>
+<p><strong>FynX (declarative)</strong>: you describe the relationship between values once. Change a value, and everything that depends on it updates in the right order.</p>
 <h2 id="your-learning-path">Your Learning Path<a class="headerlink" href="#your-learning-path" title="Permanent link">&para;</a></h2>
 <p>FynX's API is designed to be learned progressively, with each concept building on the previous one:</p>
 <ol>
@@ -1450,17 +1403,17 @@
 <h3 id="observables-reactive-values">Observables: Reactive Values<a class="headerlink" href="#observables-reactive-values" title="Permanent link">&para;</a></h3>
 <p>Observables are containers for values that change over time. Unlike regular variables, they automatically notify anyone who's interested when their values change.</p>
 <p><strong><a href="../observable/">Observable</a></strong> — The foundation of FynX. Create observables with <code>observable(initial_value)</code>, read them with <code>.value</code>, write them with <code>.set(new_value)</code>. Every other FynX feature builds on this simple primitive.</p>
-<p><strong><a href="../computed-observable/">ComputedObservable</a></strong> — Values that automatically recalculate when their dependencies change. Create them with the <code>&gt;&gt;</code> operator: <code>full_name = (first + last) &gt;&gt; (lambda f, l: f"{f} {l}")</code>. The <code>&gt;&gt;</code> operator transforms observables through functions, creating a new computed observable. Alternatively, use the <code>.then(func)</code> method on observables for the same result. FynX tracks dependencies automatically and ensures computed values always stay up-to-date.</p>
+<p><strong><a href="../computed-observable/">ComputedObservable</a></strong> — Values that automatically recalculate when their explicit sources change. Create them with the <code>&gt;&gt;</code> operator: <code>full_name = (first + last) &gt;&gt; (lambda f, l: f"{f} {l}")</code>. The <code>&gt;&gt;</code> operator transforms observable values through pure functions. Alternatively, use the <code>.then(func)</code> method on observables for the same result. Transform functions may only use their arguments; combine additional observables first with <code>+</code> or <code>.alongside()</code>.</p>
 <p><strong><a href="../merged-observable/">MergedObservable</a></strong> — Combine multiple observables into a single reactive tuple using the <code>+</code> operator: <code>position = x + y + z</code>. When any source changes, subscribers receive all values as a tuple. This is the foundation for reactive relationships that depend on multiple values.</p>
-<p><strong><a href="../conditional-observable/">ConditionalObservable</a></strong> — Observables that emit when conditions are satisfied. Create them with the <code>&amp;</code> operator: <code>valid_submission = form_data &amp; is_valid</code>. This enables sophisticated reactive logic without cluttering your code with conditional checks.</p>
+<p><strong><a href="../conditional-observable/">ConditionalObservable</a></strong> — Observables that emit when conditions are satisfied. Create them with the <code>@</code> operator or <code>.requiring()</code>: <code>valid_submission = form_data @ is_valid</code>. This enables sophisticated reactive logic without cluttering your code with conditional checks.</p>
 <p><strong><a href="../observable-descriptors/">Observable Descriptors</a></strong> — The mechanism behind Store class attributes. When you write <code>name = observable("Alice")</code> in a Store class, you're creating a descriptor that provides clean property access without <code>.value</code> or <code>.set()</code>.</p>
-<p><strong><a href="../observable-operators/">Observable Operators</a></strong> — The operators (<code>+</code>, <code>&gt;&gt;</code>, <code>&amp;</code>, <code>~</code>) and methods (<code>.then()</code>, <code>.requiring()</code>) that let you compose observables into reactive pipelines. The <code>&gt;&gt;</code> operator is the primary way to transform observables, passing values through functions. Understanding these operators unlocks FynX's full expressive power.</p>
+<p><strong><a href="../observable-operators/">Observable Operators</a></strong> — The operators (<code>&gt;&gt;</code>, <code>+</code>, <code>&amp;</code>, <code>|</code>, <code>~</code>, <code>@</code>) and methods (<code>.then()</code>, <code>.alongside()</code>, <code>.all()</code>, <code>.either()</code>, <code>.negate()</code>, <code>.requiring()</code>) that let you compose observables into reactive pipelines. <code>&gt;&gt;</code> transforms observables through pure functions; the rest make multiple inputs and conditions explicit.</p>
 <h3 id="stores-organizing-state">Stores: Organizing State<a class="headerlink" href="#stores-organizing-state" title="Permanent link">&para;</a></h3>
 <p>While standalone observables are useful for small scripts, real applications need structure. Stores group related observables and computed values into cohesive units.</p>
-<p><strong><a href="../store/">Store &amp; @observable</a></strong> — Create Store classes that encapsulate related state. Use <code>@observable</code> to make class attributes reactive, or use <code>observable()</code> as a class attribute descriptor. This gives you clean property access: <code>UserStore.name = "Alice"</code> instead of <code>user_name.set("Alice")</code>. Stores are where FynX really shines in application development.</p>
+<p><strong><a href="../store/">Store &amp; @observable</a></strong> — Create Store classes that encapsulate related state. Use <code>@observable</code> to make class attributes reactive, or use <code>observable()</code> as a class attribute descriptor. This gives you clean property access: <code>UserStore.name = "Alice"</code> instead of <code>user_name.set("Alice")</code>.</p>
 <h3 id="decorators-declarative-reactions">Decorators: Declarative Reactions<a class="headerlink" href="#decorators-declarative-reactions" title="Permanent link">&para;</a></h3>
 <p>Decorators let you declare what should happen when observables change, without manually managing subscriptions.</p>
-<p><strong><a href="../reactive-decorator/">@reactive</a></strong> — Run functions automatically when dependencies change. This is how you implement side effects—logging, UI updates, API calls—that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes. Use with conditional observables for event-driven reactions: <code>@reactive(condition &amp; other_condition)</code>.</p>
+<p><strong><a href="../reactive-decorator/">@reactive</a></strong> — Run functions automatically when dependencies change: logging, UI updates, API calls, anything that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes. Use with conditional observables for event-driven reactions: <code>@reactive(payload @ ready)</code>.</p>
 <h2 id="api-quick-reference">API Quick Reference<a class="headerlink" href="#api-quick-reference" title="Permanent link">&para;</a></h2>
 <h3 id="creating-reactive-state">Creating Reactive State<a class="headerlink" href="#creating-reactive-state" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">observable</span><span class="p">,</span> <span class="n">Store</span>
@@ -1518,11 +1471,14 @@
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="c1"># Or use .then() method</span>
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">doubled</span> <span class="o">=</span> <span class="n">count</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span>
 <a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Filter conditionally</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="c1"># Build boolean conditions</span>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">should_save</span> <span class="o">=</span> <span class="n">has_changes</span> <span class="o">&amp;</span> <span class="n">is_valid</span>
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Negate conditions</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">is_idle</span> <span class="o">=</span> <span class="o">~</span><span class="n">is_busy</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="c1"># Gate values conditionally</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="n">valid_payload</span> <span class="o">=</span> <span class="n">payload</span> <span class="o">@</span> <span class="n">should_save</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="c1"># Negate conditions</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="n">is_idle</span> <span class="o">=</span> <span class="o">~</span><span class="n">is_busy</span>
 </code></pre></div>
 <h2 id="complete-example-putting-it-all-together">Complete Example: Putting It All Together<a class="headerlink" href="#complete-example-putting-it-all-together" title="Permanent link">&para;</a></h2>
 <p>Here's how these concepts work together in a realistic scenario:</p>
@@ -1547,31 +1503,33 @@
 <a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>    <span class="k">lambda</span> <span class="n">sub</span><span class="p">,</span> <span class="n">disc</span><span class="p">:</span> <span class="n">sub</span> <span class="o">-</span> <span class="n">disc</span>
 <a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="p">)</span>
 <a id="__codelineno-5-21" name="__codelineno-5-21" href="#__codelineno-5-21"></a>
-<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="c1"># Conditional observable for checkout eligibility</span>
+<a id="__codelineno-5-22" name="__codelineno-5-22" href="#__codelineno-5-22"></a><span class="c1"># Boolean observable for checkout eligibility</span>
 <a id="__codelineno-5-23" name="__codelineno-5-23" href="#__codelineno-5-23"></a><span class="n">has_items</span> <span class="o">=</span> <span class="n">ShoppingCartStore</span><span class="o">.</span><span class="n">items</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <a id="__codelineno-5-24" name="__codelineno-5-24" href="#__codelineno-5-24"></a><span class="n">total_positive</span> <span class="o">=</span> <span class="n">total</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="n">t</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
 <a id="__codelineno-5-25" name="__codelineno-5-25" href="#__codelineno-5-25"></a><span class="n">can_checkout</span> <span class="o">=</span> <span class="n">has_items</span> <span class="o">&amp;</span> <span class="n">total_positive</span>
 <a id="__codelineno-5-26" name="__codelineno-5-26" href="#__codelineno-5-26"></a>
 <a id="__codelineno-5-27" name="__codelineno-5-27" href="#__codelineno-5-27"></a><span class="c1"># React to changes automatically</span>
-<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
-<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="k">def</span><span class="w"> </span><span class="nf">update_ui_total</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
-<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;💰 New total: $</span><span class="si">{</span><span class="n">t</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>
-<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="c1"># React to checkout eligibility using conditional observables</span>
-<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">can_checkout</span><span class="p">)</span>
-<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="k">def</span><span class="w"> </span><span class="nf">enable_checkout_button</span><span class="p">(</span><span class="n">can_checkout_val</span><span class="p">):</span>
-<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a>    <span class="k">if</span> <span class="n">can_checkout_val</span><span class="p">:</span>
-<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Checkout button enabled&quot;</span><span class="p">)</span>
-<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>
-<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a><span class="c1"># Use the store</span>
-<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a><span class="n">ShoppingCartStore</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a>    <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Widget&#39;</span><span class="p">,</span> <span class="s1">&#39;price&#39;</span><span class="p">:</span> <span class="mf">10.00</span><span class="p">,</span> <span class="s1">&#39;quantity&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
-<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="p">]</span>
-<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a><span class="c1"># Output: 💰 New total: $20.00</span>
-<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="c1"># Output: ✅ Checkout button enabled</span>
-<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a>
-<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="n">ShoppingCartStore</span><span class="o">.</span><span class="n">discount_code</span> <span class="o">=</span> <span class="s2">&quot;SAVE20&quot;</span>
-<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a><span class="c1"># Output: 💰 New total: $16.00</span>
+<a id="__codelineno-5-28" name="__codelineno-5-28" href="#__codelineno-5-28"></a><span class="c1"># @reactive fires immediately with the current value, then again on every change</span>
+<a id="__codelineno-5-29" name="__codelineno-5-29" href="#__codelineno-5-29"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">total</span><span class="p">)</span>
+<a id="__codelineno-5-30" name="__codelineno-5-30" href="#__codelineno-5-30"></a><span class="k">def</span><span class="w"> </span><span class="nf">update_ui_total</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+<a id="__codelineno-5-31" name="__codelineno-5-31" href="#__codelineno-5-31"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;💰 New total: $</span><span class="si">{</span><span class="n">t</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-32" name="__codelineno-5-32" href="#__codelineno-5-32"></a><span class="c1"># Output immediately: 💰 New total: $0.00</span>
+<a id="__codelineno-5-33" name="__codelineno-5-33" href="#__codelineno-5-33"></a>
+<a id="__codelineno-5-34" name="__codelineno-5-34" href="#__codelineno-5-34"></a><span class="c1"># React to checkout eligibility using conditional observables</span>
+<a id="__codelineno-5-35" name="__codelineno-5-35" href="#__codelineno-5-35"></a><span class="nd">@reactive</span><span class="p">(</span><span class="n">can_checkout</span><span class="p">)</span>
+<a id="__codelineno-5-36" name="__codelineno-5-36" href="#__codelineno-5-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">enable_checkout_button</span><span class="p">(</span><span class="n">can_checkout_val</span><span class="p">):</span>
+<a id="__codelineno-5-37" name="__codelineno-5-37" href="#__codelineno-5-37"></a>    <span class="k">if</span> <span class="n">can_checkout_val</span><span class="p">:</span>
+<a id="__codelineno-5-38" name="__codelineno-5-38" href="#__codelineno-5-38"></a>        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;✅ Checkout button enabled&quot;</span><span class="p">)</span>
+<a id="__codelineno-5-39" name="__codelineno-5-39" href="#__codelineno-5-39"></a>
+<a id="__codelineno-5-40" name="__codelineno-5-40" href="#__codelineno-5-40"></a><span class="c1"># Use the store</span>
+<a id="__codelineno-5-41" name="__codelineno-5-41" href="#__codelineno-5-41"></a><span class="n">ShoppingCartStore</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-5-42" name="__codelineno-5-42" href="#__codelineno-5-42"></a>    <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Widget&#39;</span><span class="p">,</span> <span class="s1">&#39;price&#39;</span><span class="p">:</span> <span class="mf">10.00</span><span class="p">,</span> <span class="s1">&#39;quantity&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+<a id="__codelineno-5-43" name="__codelineno-5-43" href="#__codelineno-5-43"></a><span class="p">]</span>
+<a id="__codelineno-5-44" name="__codelineno-5-44" href="#__codelineno-5-44"></a><span class="c1"># Output: 💰 New total: $20.00</span>
+<a id="__codelineno-5-45" name="__codelineno-5-45" href="#__codelineno-5-45"></a><span class="c1"># Output: ✅ Checkout button enabled</span>
+<a id="__codelineno-5-46" name="__codelineno-5-46" href="#__codelineno-5-46"></a>
+<a id="__codelineno-5-47" name="__codelineno-5-47" href="#__codelineno-5-47"></a><span class="n">ShoppingCartStore</span><span class="o">.</span><span class="n">discount_code</span> <span class="o">=</span> <span class="s2">&quot;SAVE20&quot;</span>
+<a id="__codelineno-5-48" name="__codelineno-5-48" href="#__codelineno-5-48"></a><span class="c1"># Output: 💰 New total: $16.00</span>
 </code></pre></div>
 <h2 id="documentation-conventions">Documentation Conventions<a class="headerlink" href="#documentation-conventions" title="Permanent link">&para;</a></h2>
 <p>Throughout this reference, we follow consistent patterns:</p>
@@ -1588,13 +1546,13 @@
 <h3 id="building-an-application">Building an application?<a class="headerlink" href="#building-an-application" title="Permanent link">&para;</a></h3>
 <p>Focus on: <a href="../store/">Store</a>, <a href="../observable-operators/">Observable Operators</a> (especially <code>&gt;&gt;</code>), <a href="../reactive-decorator/">@reactive</a></p>
 <h3 id="need-complex-state-logic">Need complex state logic?<a class="headerlink" href="#need-complex-state-logic" title="Permanent link">&para;</a></h3>
-<p>Dive into: <a href="../observable-operators/">Observable Operators</a>, <a href="../conditional-observable/">ConditionalObservable</a>, <a href="../reactive-decorator/">@reactive</a></p>
+<p>See: <a href="../observable-operators/">Observable Operators</a>, <a href="../conditional-observable/">ConditionalObservable</a>, <a href="../reactive-decorator/">@reactive</a></p>
 <h3 id="performance-optimization">Performance optimization?<a class="headerlink" href="#performance-optimization" title="Permanent link">&para;</a></h3>
 <p>See: <a href="../computed-observable/">ComputedObservable</a> for memoization, <a href="../observable/">Observable</a> for subscription management</p>
 <h3 id="curious-about-implementation">Curious about implementation?<a class="headerlink" href="#curious-about-implementation" title="Permanent link">&para;</a></h3>
 <p>Explore: <a href="../observable-descriptors/">Observable Descriptors</a> to understand how the magic works</p>
 <hr />
-<p>For conceptual introductions and tutorials, return to the <a href="../../index.md">main documentation</a>.</p>
+<p>For conceptual introductions and tutorials, return to the <a href="../../">main documentation</a>.</p>
 
 
 
@@ -1624,7 +1582,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Cassidy Bridges &copy; 2025
+      Cassidy Bridges &copy; 2025-2026
 
     </div>
   

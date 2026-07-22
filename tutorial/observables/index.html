@@ -586,6 +586,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1005,74 +1028,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Roadmap
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Roadmap
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../specs/v1.0-roadmap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    v1.0 Roadmap
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -1197,7 +1152,7 @@
 
 
 <h1 id="observables-the-foundation-of-reactivity">Observables: The Foundation of Reactivity<a class="headerlink" href="#observables-the-foundation-of-reactivity" title="Permanent link">&para;</a></h1>
-<p>An observable is a value that changes over time and tells you when it changes. That's it. Everything else in FynX—every operator, every decorator, every pattern—builds on this simple idea.</p>
+<p>An observable is a value that changes over time and tells you when it changes. That's it. Every operator, decorator, and pattern in FynX builds on that one idea.</p>
 <p>Think of a regular Python variable:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">count</span> <span class="o">=</span> <span class="mi">1</span>
@@ -1292,7 +1247,7 @@
 <a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
 <a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">counter</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># No output - logger no longer subscribed</span>
 </code></pre></div>
-<p>You must pass the exact same function reference to <code>unsubscribe()</code> that you passed to <code>subscribe()</code>. This is why lambda functions can be tricky—you can't easily unsubscribe them later. For cleanup-critical code, use named functions.</p>
+<p>You must pass the exact same function reference to <code>unsubscribe()</code> that you passed to <code>subscribe()</code>, so a lambda passed inline can't be unsubscribed later - there's no reference to it. Use named functions for anything you'll need to clean up.</p>
 <h2 id="observables-vs-regular-variables">Observables vs. Regular Variables<a class="headerlink" href="#observables-vs-regular-variables" title="Permanent link">&para;</a></h2>
 <p>Let's make the difference concrete. Here's state management without observables:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Traditional approach</span>
@@ -1312,18 +1267,21 @@
 <p>Here's the same thing with observables:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Reactive approach</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">items</span> <span class="o">=</span> <span class="n">observable</span><span class="p">([])</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">item_list</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">item_list</span><span class="p">))</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">total</span> <span class="o">=</span> <span class="n">items</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">item_list</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">&#39;price&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">item_list</span><span class="p">))</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">update_ui</span><span class="p">)</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">save_to_storage</span><span class="p">)</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">notify_analytics</span><span class="p">)</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="c1"># Now just update the observable</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">items</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">items</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Widget&#39;</span><span class="p">,</span> <span class="s1">&#39;price&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}])</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># All three functions run automatically</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># total recalculates automatically</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Or, to use fynx&#39;s syntactic sugar:</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="c1"># total = items &gt;&gt; (lambda item_list: sum(item[&#39;price&#39;] for item in item_list))</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">update_ui</span><span class="p">)</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">save_to_storage</span><span class="p">)</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="n">items</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">notify_analytics</span><span class="p">)</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># Now just update the observable</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">items</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">items</span><span class="o">.</span><span class="n">value</span> <span class="o">+</span> <span class="p">[{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Widget&#39;</span><span class="p">,</span> <span class="s1">&#39;price&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}])</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="c1"># All three functions run automatically</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="c1"># total recalculates automatically</span>
 </code></pre></div>
-<p>You declare the relationships once. Changes propagate automatically. There's no way to forget a synchronization step because there are no synchronization steps—just state changes.</p>
+<p>You declare the relationships once, and changes propagate automatically - there's no separate synchronization step to remember, because there isn't one.</p>
 <h2 id="what-observables-enable">What Observables Enable<a class="headerlink" href="#what-observables-enable" title="Permanent link">&para;</a></h2>
 <p>Observables are containers, but they're programmable containers. They carry their dependencies with them. When you build reactive systems, you're constructing graphs where nodes (observables) automatically update when their upstream dependencies change.</p>
 <p>Consider a simple example:</p>
@@ -1331,15 +1289,17 @@
 <a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">quantity</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 <a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
 <a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="c1"># This creates a computed observable (we&#39;ll explore these deeply in the next section)</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">total</span> <span class="o">=</span> <span class="p">(</span><span class="n">base_price</span> <span class="o">+</span> <span class="n">quantity</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">price</span><span class="p">,</span> <span class="n">qty</span><span class="p">:</span> <span class="n">price</span> <span class="o">*</span> <span class="n">qty</span><span class="p">)</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">total</span> <span class="o">=</span> <span class="n">base_price</span><span class="o">.</span><span class="n">alongside</span><span class="p">(</span><span class="n">quantity</span><span class="p">)</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="k">lambda</span> <span class="n">price</span><span class="p">,</span> <span class="n">qty</span><span class="p">:</span> <span class="n">price</span> <span class="o">*</span> <span class="n">qty</span><span class="p">)</span>
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">total</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total: $</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">base_price</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">150</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Total: $300&quot;</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">quantity</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>      <span class="c1"># Prints: &quot;Total: $450&quot;</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="c1"># Or, to use fynx&#39;s syntactic sugar:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="c1"># total = (base_price + quantity) &gt;&gt; (lambda price, qty: price * qty)</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">total</span><span class="o">.</span><span class="n">subscribe</span><span class="p">(</span><span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total: $</span><span class="si">{</span><span class="n">t</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="n">base_price</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">150</span><span class="p">)</span>  <span class="c1"># Prints: &quot;Total: $300&quot;</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="n">quantity</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>      <span class="c1"># Prints: &quot;Total: $450&quot;</span>
 </code></pre></div>
-<p>Notice what didn't happen: you never manually recalculated <code>total</code>. You never explicitly called the subscriber. The reactive graph did all that work for you. You just changed the base values and watched the effects cascade.</p>
-<p>This is what observables enable: <strong>declarative state management</strong>. You describe what relationships should exist, and FynX ensures they hold.</p>
+<p><code>total</code> was never manually recalculated, and the subscriber was never explicitly called - both happened because <code>base_price</code> and <code>quantity</code> changed.</p>
 <h2 id="when-to-use-observables">When to Use Observables<a class="headerlink" href="#when-to-use-observables" title="Permanent link">&para;</a></h2>
 <p>Observables shine in situations where:</p>
 <ul>
@@ -1350,17 +1310,16 @@
 </ul>
 <p>Observables add overhead compared to plain variables. For simple scripts or one-off calculations, that overhead isn't worth it. But for interactive applications, data pipelines, or anything with non-trivial state management, observables pay for themselves quickly.</p>
 <h2 id="whats-next">What's Next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
-<p>Observables are more than containers—they're nodes in a reactive graph. But standalone observables are just the beginning. The real power emerges when you learn to:</p>
+<p>Standalone observables are the starting point. From here you'll learn to:</p>
 <ul>
-<li><strong>Transform observables</strong> using the <code>&gt;&gt;</code> operator to create derived values that update automatically</li>
-<li><strong>Combine observables</strong> using the <code>+</code> operator to work with multiple sources of data</li>
-<li><strong>Filter observables</strong> using the <code>&amp;</code> operator to apply conditional logic and control when data flows</li>
-<li><strong>Create logical OR conditions</strong> using the <code>|</code> operator to combine boolean observables</li>
-<li><strong>Organize observables</strong> into Stores for cleaner application architecture</li>
-<li><strong>Automate reactions</strong> with decorators that eliminate subscription boilerplate</li>
+<li><strong><a href="../derived-observables/">Transform observables</a></strong> using the <code>&gt;&gt;</code> operator to create derived values that update automatically</li>
+<li><strong><a href="../derived-observables/">Combine observables</a></strong> using the <code>+</code> operator to work with multiple sources of data</li>
+<li><strong><a href="../conditionals/">Build boolean conditions</a></strong> using the <code>&amp;</code>, <code>|</code>, and <code>~</code> operators</li>
+<li><strong><a href="../conditionals/">Gate observables</a></strong> using the <code>@</code> operator to control when data flows</li>
+<li><strong><a href="../stores/">Organize observables</a></strong> into Stores for cleaner application architecture</li>
+<li><strong><a href="../using-reactive/">Automate reactions</a></strong> with decorators that eliminate subscription boilerplate</li>
 </ul>
-<p>Each of these builds on the foundation you've just learned. Observables are simple, but their composition creates sophisticated reactive systems.</p>
-<p>The insight to carry forward: <strong>observables aren't just containers—they're nodes in a reactive graph</strong>. When you change one node, effects ripple through the entire structure automatically. That's the power FynX gives you.</p>
+<p>Each of these builds on what's here: an observable holds a value and notifies whoever's listening when it changes. Everything else in FynX is built out of that.</p>
 
 
 
@@ -1390,7 +1349,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Cassidy Bridges &copy; 2025
+      Cassidy Bridges &copy; 2025-2026
 
     </div>
   

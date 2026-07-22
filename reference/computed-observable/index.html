@@ -461,6 +461,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -695,6 +718,15 @@
   <a href="#using-named-functions" class="md-nav__link">
     <span class="md-ellipsis">
       Using Named Functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transform-purity" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transform Purity
     </span>
   </a>
   
@@ -962,74 +994,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Roadmap
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Roadmap
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../specs/v1.0-roadmap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    v1.0 Roadmap
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -1078,6 +1042,15 @@
   <a href="#using-named-functions" class="md-nav__link">
     <span class="md-ellipsis">
       Using Named Functions
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transform-purity" class="md-nav__link">
+    <span class="md-ellipsis">
+      Transform Purity
     </span>
   </a>
   
@@ -1154,6 +1127,18 @@
 <a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="c1"># Or with &gt;&gt; operator</span>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">count</span> <span class="o">&gt;&gt;</span> <span class="n">double</span> <span class="o">&gt;&gt;</span> <span class="n">add_one</span>
 </code></pre></div>
+<h2 id="transform-purity">Transform Purity<a class="headerlink" href="#transform-purity" title="Permanent link">&para;</a></h2>
+<p>Transform functions receive plain values. They should not read <code>.value</code> from another observable, and they should not call <code>.set()</code> on any observable. Put every reactive input on the left side of the transform:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">price</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mf">100.0</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">discount</span> <span class="o">=</span> <span class="n">observable</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># Good: both values are passed as arguments</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">discounted</span> <span class="o">=</span> <span class="p">(</span><span class="n">price</span> <span class="o">+</span> <span class="n">discount</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">d</span><span class="p">))</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Error: discount.value is hidden from the graph</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">discounted</span> <span class="o">=</span> <span class="n">price</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">discount</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
+</code></pre></div>
+<p>When this rule is violated, FynX raises <code>TransformPurityError</code> with a hint to combine inputs using <code>+</code> / <code>.alongside()</code> or move mutations and other effects to <code>.subscribe()</code> / <code>@reactive</code>.</p>
 <h2 id="key-properties">Key Properties<a class="headerlink" href="#key-properties" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Reactive</strong>: Automatically update when source observables change</li>
@@ -1190,7 +1175,7 @@
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Cassidy Bridges &copy; 2025
+      Cassidy Bridges &copy; 2025-2026
 
     </div>
   

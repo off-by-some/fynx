@@ -461,6 +461,29 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorial/best-practices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Best Practices
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -783,11 +806,11 @@
         <li class="md-nav__item">
   <a href="#fynx.store--fynx-store-reactive-state-management-components" class="md-nav__link">
     <span class="md-ellipsis">
-      FynX Store - Reactive State Management Components
+      FynX Store - reactive state management components
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="FynX Store - Reactive State Management Components">
+    <nav class="md-nav" aria-label="FynX Store - reactive state management components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1143,74 +1166,6 @@
   
 
     
-      
-      
-  
-  
-  
-  
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    Roadmap
-    
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Roadmap
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../../specs/v1.0-roadmap.md" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    v1.0 Roadmap
-    
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
   </ul>
 </nav>
                   </div>
@@ -1249,11 +1204,11 @@
         <li class="md-nav__item">
   <a href="#fynx.store--fynx-store-reactive-state-management-components" class="md-nav__link">
     <span class="md-ellipsis">
-      FynX Store - Reactive State Management Components
+      FynX Store - reactive state management components
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="FynX Store - Reactive State Management Components">
+    <nav class="md-nav" aria-label="FynX Store - reactive state management components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1483,48 +1438,40 @@
 <a id="fynx.store"></a>
     <div class="doc doc-contents first">
 
-        <h2 id="fynx.store--fynx-store-reactive-state-management-components">FynX Store - Reactive State Management Components<a class="headerlink" href="#fynx.store--fynx-store-reactive-state-management-components" title="Permanent link">&para;</a></h2>
-<p>Consider a filing cabinet: each drawer holds related documents, and you can watch
-the cabinet to know when anything inside changes. That cabinet is a Store—a container
-that groups related reactive values together and provides unified change notification.</p>
-<p>Stores organize reactive state into logical units. Instead of scattering observables
-throughout your codebase, Stores group related data together and provide methods for
-subscribing to changes, serializing state, and managing the reactive lifecycle. This
-gives you structured state management—each Store becomes a cohesive unit that you can
-observe, persist, and compose.</p>
-<p>We apply that pattern to application architecture. Stores work well for application
-state like user preferences and theme settings, feature state like shopping carts and
-user profiles, component state that needs sharing across multiple components, and business
-logic that computes derived values from raw data. That organization reduces coupling
-and makes state changes predictable.</p>
+        <h2 id="fynx.store--fynx-store-reactive-state-management-components">FynX Store - reactive state management components<a class="headerlink" href="#fynx.store--fynx-store-reactive-state-management-components" title="Permanent link">&para;</a></h2>
+<p>A Store groups related observables into a single container with unified
+change notification, instead of scattering them through the codebase. It
+works well for application state (preferences, theme), feature state
+(shopping carts, user profiles), component state shared across several
+components, or derived values computed from raw data.</p>
 <h3 id="fynx.store--core-components">Core Components<a class="headerlink" href="#fynx.store--core-components" title="Permanent link">&para;</a></h3>
 <p><strong>Store</strong>: Base class for reactive state containers. Store classes define observable
 attributes using the <code>observable()</code> descriptor, and Store provides methods for subscribing
-to changes and managing state. The metaclass intercepts attribute assignment, allowing
-<code>Store.attr = value</code> syntax to work seamlessly with observables.</p>
+to changes and managing state. The metaclass intercepts attribute assignment, so
+<code>Store.attr = value</code> works directly with observables.</p>
 <p><strong>observable</strong>: Descriptor function that creates observable attributes on Store classes.
-Use this to define reactive properties in your Store subclasses. The metaclass converts
-these to descriptors that provide transparent reactive access.</p>
+Use this to define reactive properties in your Store subclasses. The returned
+Observable is itself a typed descriptor, so class access returns an ObservableValue
+with the right static type while preserving reactive operators.</p>
 <p><strong>StoreSnapshot</strong>: Immutable snapshot of store state at a specific point in time. Useful
 for debugging, logging, and ensuring consistent state access during reactive callbacks.
 Each snapshot captures all observable values at creation time.</p>
-<p><strong>StoreMeta</strong>: Metaclass that automatically converts observable attributes to descriptors
-and provides type hint compatibility for mypy. This metaclass processes class definitions
-to wrap observables in descriptors and handles inheritance of observable attributes.</p>
+<p><strong>StoreMeta</strong>: Metaclass that records observable attributes, provides class-level
+assignment (<code>Store.attr = value</code>), and gives inherited Store fields owner-specific
+backing observables so subclasses do not share mutable state accidentally.</p>
 <h3 id="fynx.store--key-features">Key Features<a class="headerlink" href="#fynx.store--key-features" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Automatic Observable Management</strong>: Store metaclass handles observable creation and
-  descriptor wrapping, including support for inherited observables from parent classes</li>
-<li><strong>Unified Subscriptions</strong>: Subscribe to all changes in a store with a single callback
-  that receives a StoreSnapshot, or subscribe to individual observables directly</li>
-<li><strong>State Serialization</strong>: Save and restore store state with <code>to_dict()</code> and <code>load_state()</code>.
-  The <code>to_dict()</code> method serializes all observables including computed ones; use
-  <code>_get_primitive_observable_attrs()</code> to filter out computed observables for persistence</li>
-<li><strong>Type Safety</strong>: Full type hint support for better IDE experience and static analysis</li>
-<li><strong>Memory Efficient</strong>: Automatic cleanup through subscription context management and
-  efficient change detection that avoids redundant updates</li>
-<li><strong>Composable</strong>: Multiple stores operate independently, allowing you to organize state
-  by domain without cross-store dependencies</li>
+<li>Store's metaclass records observable descriptors and resolves inherited
+  ones to owner-specific backing observables, so subclasses never share
+  mutable state by accident</li>
+<li>Subscribe to every change in a store with one callback that receives a
+  StoreSnapshot, or subscribe to individual observables directly</li>
+<li>Save and restore state with <code>to_dict()</code> and <code>load_state()</code>. <code>to_dict()</code>
+  serializes every observable including computed ones; use
+  <code>_get_primitive_observable_attrs()</code> to filter those out for persistence</li>
+<li>Full type hints, so class access gets the right static type</li>
+<li>Stores operate independently, so you can organize state by domain without
+  creating cross-store dependencies</li>
 </ul>
 <h3 id="fynx.store--basic-usage">Basic Usage<a class="headerlink" href="#fynx.store--basic-usage" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">fynx</span><span class="w"> </span><span class="kn">import</span> <span class="n">Store</span><span class="p">,</span> <span class="n">observable</span>
@@ -1579,9 +1526,9 @@ update automatically when their dependencies change:</p>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">first_name</span> <span class="o">=</span> <span class="s2">&quot;Jane&quot;</span>
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">UserStore</span><span class="o">.</span><span class="n">full_name</span><span class="p">)</span>  <span class="c1"># &quot;Jane Doe&quot; (automatically updated)</span>
 </code></pre></div>
-<p>That pattern lets you define derived state alongside raw data. The computed observables
-participate in store subscriptions—when you subscribe to a store, computed values trigger
-updates just like primitive observables.</p>
+<p>Computed observables participate in store subscriptions the same way -
+subscribing to a store triggers updates for computed values just like
+primitive ones.</p>
 <h4 id="fynx.store--state-persistence">State Persistence<a class="headerlink" href="#fynx.store--state-persistence" title="Permanent link">&para;</a></h4>
 <p>Stores can serialize their state to dictionaries and restore from them. This enables
 persistence across sessions or state transfer between components:</p>
@@ -1611,8 +1558,8 @@ serializes everything for simplicity.</p>
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">AppStore</span><span class="o">.</span><span class="n">theme</span> <span class="o">=</span> <span class="s2">&quot;dark&quot;</span>
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="n">UserStore</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Bob&quot;</span>
 </code></pre></div>
-<p>That independence means you can compose complex applications from focused stores. Each
-store manages its own domain without creating cross-store dependencies.</p>
+<p>That independence lets you compose complex applications out of focused
+stores, each managing its own domain.</p>
 <h3 id="fynx.store--common-patterns">Common Patterns<a class="headerlink" href="#fynx.store--common-patterns" title="Permanent link">&para;</a></h3>
 <p><strong>Singleton Stores</strong>: Use class-level access for global state. Since Store attributes
 are class-level, each Store class acts as a singleton:</p>
@@ -1673,13 +1620,11 @@ The metaclass handles descriptor creation for inherited observables:</p>
 
 
         <p>Base class for reactive state containers with observable attributes.</p>
-<p>Store groups related observable values together and manages their lifecycle
-as a cohesive unit. Store subclasses define observable attributes using the
-<code>observable()</code> descriptor, and Store provides methods for subscribing to changes,
+<p>Store subclasses define observable attributes with the <code>observable()</code>
+descriptor; Store provides methods for subscribing to changes,
 serializing state, and managing reactive relationships.</p>
-<p>The metaclass intercepts attribute assignment, allowing <code>Store.attr = value</code> syntax
-to work seamlessly with observables. When you assign to a store attribute, the
-metaclass delegates to the underlying observable's <code>set()</code> method, which triggers
+<p>The metaclass intercepts attribute assignment so <code>Store.attr = value</code>
+delegates to the underlying observable's <code>set()</code> method, triggering
 reactive updates.</p>
 <p>Key Features:
 - Automatic observable attribute detection and management through metaclass
@@ -1713,8 +1658,8 @@ reactive updates.</p>
 
 <details class="note" open>
   <summary>Note</summary>
-  <p>Store uses a metaclass to intercept attribute assignment, allowing
-<code>Store.attr = value</code> syntax to work seamlessly with observables. The
+  <p>Store uses a metaclass to intercept attribute assignment, so
+<code>Store.attr = value</code> works directly with observables. The
 <code>subscribe()</code> method is a classmethod that takes a function, not a decorator.
 Use <code>@reactive(Store)</code> from <code>fynx.reactive</code> for decorator syntax.</p>
 </details>
@@ -1841,8 +1786,10 @@ Use <code>@reactive(Store)</code> from <code>fynx.reactive</code> for decorator 
     <div class="doc doc-contents ">
 
 
-        <p>Metaclass for Store to automatically convert observable attributes to descriptors
-and adjust type hints for mypy compatibility.</p>
+        <p>Metaclass for Store observable registration and class-level assignment.</p>
+<p>Observable instances are already typed descriptors. StoreMeta records them,
+resolves inherited descriptors to owner-specific backing observables, and
+intercepts class assignment so <code>Store.attr = value</code> delegates to <code>.set()</code>.</p>
 
 
 
@@ -1968,6 +1915,10 @@ and adjust type hints for mypy compatibility.</p>
 
 
 <a href="#fynx.store.observable" class="headerlink" title="Permanent link">&para;</a></h2>
+          <div class="doc-overloads">
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">observable</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Observable</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+</code></pre></div><div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">observable</span><span class="p">(</span><span class="n">initial_value</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Observable</span><span class="p">[</span><span class="n">T</span><span class="p">]</span>
+</code></pre></div>          </div>
 <div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">observable</span><span class="p">(</span><span class="n">initial_value</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
@@ -2016,7 +1967,7 @@ and adjust type hints for mypy compatibility.</p>
       <div class="md-copyright">
   
     <div class="md-copyright__highlight">
-      Cassidy Bridges &copy; 2025
+      Cassidy Bridges &copy; 2025-2026
 
     </div>
   
