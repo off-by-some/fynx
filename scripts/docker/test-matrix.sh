@@ -79,9 +79,9 @@ for index in "${!pids[@]}"; do
     python_version="${PYTHONS[$index]}"
     pid="${pids[$index]}"
     if wait "$pid"; then
-        echo "✓ Python ${python_version}"
+        echo "[OK] Python ${python_version}"
     else
-        echo "✗ Python ${python_version}"
+        echo "[FAIL] Python ${python_version}"
         failed=1
         failed_versions+=("$python_version")
     fi
