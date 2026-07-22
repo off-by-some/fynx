@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeGuard, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
+
+from typing_extensions import TypeGuard
 
 from ..types import ConditionOperand, ObservableOperand, UnwrappedCondition
 
