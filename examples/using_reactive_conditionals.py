@@ -20,8 +20,7 @@ from fynx import Store, observable, reactive
 def basic_watch_example():
     """Demonstrate basic @reactive functionality with an age threshold.
 
-    This example shows how @reactive triggers only when a condition transitions
-    from False to True, not on every change.
+    This example shows how @reactive can watch a derived boolean condition.
     """
     print("=== Basic @reactive Example ===")
     print("Watching for when a user becomes an adult (age >= 18)")
@@ -35,6 +34,8 @@ def basic_watch_example():
     @reactive(is_adult)
     def on_becomes_adult_basic(is_adult_value):
         if is_adult_value:
+            # Reactions are effect boundaries, so reading another current value
+            # here is fine. Transforms should receive explicit arguments instead.
             print(f"User became an adult at age {age.value}")
 
     # Demonstrate the transition behavior
@@ -46,16 +47,16 @@ def basic_watch_example():
     print(f"Age set to: {age.value} (condition became true, triggered!)")
 
     age.set(19)
-    print(f"Age set to: {age.value} (condition stays true, no additional trigger)")
+    print(f"Age set to: {age.value} (condition stays true, handler still sees True)")
 
     print()
 
 
 def multiple_conditions_and_example():
-    """Demonstrate multiple conditions with AND logic.
+    """Demonstrate total boolean AND logic.
 
-    When multiple condition functions are passed to @reactive, all must be true
-    for the decorated function to trigger. This implements logical AND behavior.
+    Product-plus-transform creates a boolean observable that can represent both
+    true and false states.
     """
     print("=== Multiple Conditions AND Logic ===")
     print("Both conditions must be true: has items AND is logged in")
@@ -64,7 +65,7 @@ def multiple_conditions_and_example():
     has_items = observable(False)
     is_logged_in = observable(False)
 
-    # Create conditional observables for AND logic
+    # Create a total boolean observable for AND logic
     ready_to_checkout = (has_items + is_logged_in) >> (lambda h, l: h and l)
 
     @reactive(ready_to_checkout)
@@ -87,12 +88,12 @@ def multiple_conditions_and_example():
 
 
 def conditional_observable_or_example():
-    """Demonstrate ConditionalObservable with the | operator.
+    """Demonstrate total boolean OR values with the | operator.
 
-    The | operator creates ConditionalObservable objects that combine multiple
-    boolean observables with OR logic, emitting when ANY condition is true.
+    The | operator creates a boolean observable that is True when any input is
+    truthy and False otherwise.
     """
-    print("=== ConditionalObservable with | Operator ===")
+    print("=== Boolean OR with | Operator ===")
     print("Using | operator for OR conditions: is_error | is_warning | is_critical")
     print()
 
@@ -127,13 +128,12 @@ def conditional_observable_or_example():
 
 
 def conditional_observable_and_example():
-    """Demonstrate ConditionalObservable with the & operator.
+    """Demonstrate gated reactions with the & operator.
 
-    The & operator creates ConditionalObservable objects that combine multiple
-    boolean observables with AND logic. This provides a more concise syntax
-    for complex conditions.
+    The & operator gates a source observable by conditions. It is useful when
+    you want a reaction only while conditions are active.
     """
-    print("=== ConditionalObservable with & Operator ===")
+    print("=== Gated Reactions with & Operator ===")
     print(
         "Using & operator for AND conditions: has_items & is_logged_in & payment_valid"
     )
@@ -250,12 +250,14 @@ def complex_conditions_example():
     # Create conditional observable for complex conditions
     is_comfortable = (temperature + humidity) >> (lambda t, h: t > 25 and h < 60)
 
-    @reactive(is_comfortable)
-    def on_comfortable_complex(comfortable_value):
-        if comfortable_value:
-            print(
-                f"Climate became comfortable (temp: {temperature.value}, humidity: {humidity.value})"
-            )
+    comfortable_climate = (temperature + humidity) & is_comfortable
+
+    @reactive(comfortable_climate)
+    def on_comfortable_complex(climate_values):
+        current_temperature, current_humidity = climate_values
+        print(
+            f"Climate became comfortable (temp: {current_temperature}, humidity: {current_humidity})"
+        )
 
     # Demonstrate the complex condition logic
     print("Initial state: temperature=20, humidity=50")
@@ -301,21 +303,19 @@ def one_time_vs_repeating_events_example():
     # Create conditional observables for milestone tracking
     is_first_login = login_count >> (lambda count: count == 1)
 
-    @reactive(is_first_login)
-    def on_first_login_milestone(is_first_value):
-        if is_first_value:
-            print(f"First login milestone reached at login #{login_count.value}")
+    first_login_count = login_count & is_first_login
 
-    last_milestone = observable(0)
-    is_milestone_login = (login_count + last_milestone) >> (
-        lambda count, last: count >= last + 10
-    )
+    @reactive(first_login_count)
+    def on_first_login_milestone(count):
+        print(f"First login milestone reached at login #{count}")
 
-    @reactive(is_milestone_login)
-    def on_login_milestone_repeat(is_milestone_value):
-        if is_milestone_value:
-            last_milestone.set(login_count.value)
-            print(f"Login milestone reached: {login_count.value} total logins")
+    is_milestone_login = login_count >> (lambda count: count > 0 and count % 10 == 0)
+
+    milestone_login_count = login_count & is_milestone_login
+
+    @reactive(milestone_login_count)
+    def on_login_milestone_repeat(count):
+        print(f"Login milestone reached: {count} total logins")
 
     # Simulate user logins
     print("Simulating user logins:")
@@ -343,6 +343,9 @@ def computed_observables_combination_example():
     print()
 
     class ShoppingCartStore(Store):
+        # FynX tracks assignments, not in-place list mutation. Use
+        # `ShoppingCartStore.items = ShoppingCartStore.items.value + [item]`
+        # instead of `ShoppingCartStore.items.value.append(item)`.
         items = observable([])
         shipping_address = observable(None)
         payment_method = observable(None)
@@ -364,7 +367,9 @@ def computed_observables_combination_example():
 
     # Demonstrate the checkout flow
     print("Building checkout state:")
-    ShoppingCartStore.items = [{"name": "Widget", "price": 10}]
+    ShoppingCartStore.items = ShoppingCartStore.items.value + [
+        {"name": "Widget", "price": 10}
+    ]
     print("Added items to cart")
 
     ShoppingCartStore.shipping_address = "123 Main St"
@@ -379,13 +384,13 @@ def computed_observables_combination_example():
 
 
 def conditional_observable_with_computed_example():
-    """Demonstrate ConditionalObservable combined with computed values.
+    """Demonstrate gated reactions combined with computed values.
 
-    This example shows how to mix the & operator (for AND conditions) with
-    computed observables to create sophisticated conditional logic.
+    This example uses & to pass the cart total only when every condition is
+    active.
     """
-    print("=== ConditionalObservable with Computed Values ===")
-    print("Combining & operator with computed observables")
+    print("=== Gated Reactions with Computed Values ===")
+    print("Using & to pass cart total only when computed conditions are true")
     print()
 
     user_logged_in = observable(False)
@@ -395,9 +400,13 @@ def conditional_observable_with_computed_example():
     # Computed observable: cart meets minimum total
     has_minimum_total = cart_total >> (lambda total: total >= 50)
 
-    @reactive(user_logged_in & data_loaded & has_minimum_total)
-    def on_ready_with_minimum_computed(condition_value):
-        print(f"Ready for premium checkout (total: ${cart_total.value})")
+    premium_checkout_total = (
+        cart_total & user_logged_in & data_loaded & has_minimum_total
+    )
+
+    @reactive(premium_checkout_total)
+    def on_ready_with_minimum_computed(total):
+        print(f"Ready for premium checkout (total: ${total})")
 
     # Demonstrate the combined logic
     print("Setting up conditions:")
@@ -516,6 +525,8 @@ def order_processing_pipeline_example():
     print()
 
     class OrderStore(Store):
+        # Reassign a new list when adding items; in-place append does not emit
+        # reactive updates.
         items = observable([])
         payment_verified = observable(False)
         inventory_reserved = observable(False)

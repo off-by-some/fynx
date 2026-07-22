@@ -5,6 +5,7 @@ import pytest
 from fynx.observable import Observable
 from fynx.observable.conditional import ConditionalNotMet
 from fynx.observable.descriptors import ObservableValue, SubscriptableDescriptor
+from fynx.store import Store, observable
 
 
 @pytest.mark.unit
@@ -34,6 +35,18 @@ def test_observable_value_maintains_value_synchronization():
     # Assert - ObservableValue reflects the change
     assert obs_value.value == "updated"
     assert obs_value == "updated"
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_observable_value_delegates_formatting_to_wrapped_value():
+    """ObservableValue supports f-string format specs like the wrapped value."""
+
+    class Price(Store):
+        amount = observable(12.345)
+
+    assert f"{Price.amount:.2f}" == "12.35"
 
 
 @pytest.mark.unit
@@ -71,6 +84,37 @@ def test_observable_value_supports_subscription_to_changes():
 
     # Assert - Receives notifications
     assert received == ["updated"]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_store_observable_value_does_not_proxy_list_mutators():
+    """Store list attributes expose reactive operations, not list mutator methods."""
+
+    class Cart(Store):
+        items = observable([1, 2])
+
+    with pytest.raises(AttributeError, match="append"):
+        Cart.items.append(3)
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_store_observable_value_mutation_bypasses_notifications():
+    """Mutating Store.attr.value changes the object without notifying observers."""
+
+    class Cart(Store):
+        items = observable([1, 2])
+
+    observed = []
+    Cart.items.subscribe(observed.append)
+
+    Cart.items.value.append(3)
+
+    assert Cart.items.value == [1, 2, 3]
+    assert observed == []
 
 
 @pytest.mark.unit
@@ -122,6 +166,27 @@ def test_subscriptable_descriptor_creates_class_level_observables():
     # Assert - Returns ObservableValue with correct initial value
     assert isinstance(result, ObservableValue)
     assert result.value == "initial"
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_observable_value_access_does_not_subscribe_internal_wrapper_callbacks():
+    """Repeated descriptor access should not retain wrapper subscriptions."""
+
+    class TestStore(Store):
+        attr = observable("initial")
+
+    observable_instance = TestStore._observables["attr"]
+    observer_count = len(observable_instance._observers)
+    direct_callback_count = len(observable_instance._direct_callbacks)
+
+    for _ in range(100):
+        value = TestStore.attr
+        assert value.value == "initial"
+
+    assert len(observable_instance._observers) == observer_count
+    assert len(observable_instance._direct_callbacks) == direct_callback_count
 
 
 @pytest.mark.unit

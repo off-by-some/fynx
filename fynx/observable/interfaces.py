@@ -1,50 +1,18 @@
 """
-FynX Observable Interfaces - Abstract Base Classes for Reactive Programming
-===========================================================================
+FynX Observable Interfaces - abstract base classes for reactive programming
+==============================================================================
 
-This module defines the abstract interfaces that all reactive components must implement.
-These ABCs establish contracts specifying required methods and behaviors without dictating
-implementation details. That separation enables runtime type checking and polymorphism
-while preventing circular dependencies.
+This module defines the abstract interfaces that reactive components
+implement. Classes depend on these ABCs rather than the concrete
+implementations, which avoids circular imports and lets `isinstance(obj,
+Observable)` work regardless of an object's concrete class.
 
-The ABCs function as runtime type signatures: `isinstance(obj, Observable)` verifies
-that an object implements the observable contract, regardless of its concrete class.
-Classes depend on these ABCs rather than concrete implementations, eliminating circular
-imports while maintaining type safety and enabling polymorphic behavior.
-
-We apply that pattern across the reactive system. Observable defines the core contract:
-value access with dependency tracking, change notification, and subscription management.
-Mergeable extends it for observables that combine multiple sources into tuples.
-Conditional extends it for observables that filter values through boolean gates.
-ReactiveContext defines the execution environment contract that tracks dependencies
-during reactive function execution.
-
-Result: classes can reference interfaces without importing implementations, enabling
-clean architecture while maintaining runtime type safety and isinstance checks.
-
-Key Abstract Base Classes
--------------------------
-
-**Observable**: Defines the core observable interface that all reactive values must implement.
-Includes value access and change notification methods.
-
-**Mergeable**: Extends Observable for observables that combine multiple source observables into tuples.
-
-**Conditional**: Extends Observable for observables that filter values based on boolean conditions.
-
-**ReactiveContext**: Defines the interface for execution contexts that track dependencies and manage
-reactive function lifecycles.
-
-Benefits
---------
-
-- **Runtime Instance Checking**: Use isinstance(obj, Observable) at runtime
-- **No Circular Imports**: Classes depend on ABCs, not concrete implementations
-- **Type Safety**: Full generic type support with ABC-based typing
-- **Clean Architecture**: Clear separation between interface contracts and implementations
-- **IDE Support**: Better autocomplete and static analysis
-- **Testability**: Easy to mock ABCs for unit testing
-- **Polymorphism**: Runtime dispatch based on interface conformance
+- `Observable` is the core contract: value access with dependency tracking,
+  change notification, and subscription management.
+- `Mergeable` extends it for observables that combine multiple sources into tuples.
+- `Conditional` extends it for observables that filter values through boolean gates.
+- `ReactiveContext` is the execution-environment contract that tracks
+  dependencies during reactive function execution.
 
 Usage
 -----
@@ -73,12 +41,16 @@ See Also
 
 import abc
 from typing import (
+    Any,
     Callable,
     Generic,
     List,
     Optional,
+    Sequence,
     TypeVar,
 )
+
+from ..types import Observer, Subscriber
 
 # Import operators locally in mixin methods to avoid circular imports
 
@@ -90,15 +62,11 @@ class ReactiveContext(abc.ABC):
     """
     Abstract Base Class defining the interface for reactive execution contexts.
 
-    ReactiveContext tracks which observables get accessed during function execution
-    and registers the function as an observer on each one. When any dependency changes,
-    the context re-runs the function automatically. This ABC enables classes to depend
-    on reactive contexts without importing concrete implementations.
-
-    This ABC allows other classes to depend on reactive contexts without
-    importing the concrete ReactiveContext implementation, while enabling
-    runtime isinstance checks. That separation prevents circular imports—classes
-    reference the interface, not the implementation.
+    A ReactiveContext tracks which observables get accessed during function
+    execution and registers the function as an observer on each one, so it
+    re-runs automatically when any dependency changes. Depending on this ABC
+    rather than the concrete ReactiveContext avoids circular imports while
+    still allowing runtime isinstance checks.
     """
 
     @abc.abstractmethod
@@ -127,16 +95,10 @@ class Observable(abc.ABC, Generic[T]):
     """
     Abstract Base Class defining the core interface that all observable values must implement.
 
-    This ABC captures the reactive contract: value access with dependency tracking,
-    change notification, and subscription management. When an observable's value changes,
-    it tracks what depends on it and notifies those dependents automatically. All
-    observable implementations must conform to this interface to ensure consistent
-    behavior across the reactive system.
-
-    All observable implementations (regular, computed, merged, conditional) must
-    conform to this ABC to ensure consistent behavior across the reactive system
-    and enable runtime isinstance checks. That conformance enables polymorphism—
-    code can work with any Observable without knowing its concrete type.
+    Captures the reactive contract: value access with dependency tracking,
+    change notification, and subscription management. Every observable
+    implementation (regular, computed, merged, conditional) conforms to this
+    ABC, so code can work with any Observable without knowing its concrete type.
     """
 
     @property
@@ -156,7 +118,7 @@ class Observable(abc.ABC, Generic[T]):
 
     @property
     @abc.abstractmethod
-    def value(self) -> Optional[T]:
+    def value(self) -> T:
         """
         Get the current value, automatically tracking dependencies in reactive contexts.
 
@@ -164,12 +126,12 @@ class Observable(abc.ABC, Generic[T]):
         within a reactive function execution context.
 
         Returns:
-            The current value stored in the observable, or None if not set.
+            The current value stored in the observable.
         """
         pass
 
     @abc.abstractmethod
-    def set(self, value: Optional[T]) -> None:
+    def set(self, value: T) -> None:
         """
         Update the observable's value and notify all observers if the value changed.
 
@@ -183,7 +145,7 @@ class Observable(abc.ABC, Generic[T]):
         pass
 
     @abc.abstractmethod
-    def subscribe(self, func: Callable) -> "Observable[T]":
+    def subscribe(self, func: Subscriber[T]) -> "Observable[T]":
         """
         Subscribe a function to react to value changes.
 
@@ -199,7 +161,7 @@ class Observable(abc.ABC, Generic[T]):
         pass
 
     @abc.abstractmethod
-    def add_observer(self, observer: Callable) -> None:
+    def add_observer(self, observer: Observer) -> None:
         """
         Add a low-level observer function that will be called when the value changes.
 
@@ -209,38 +171,39 @@ class Observable(abc.ABC, Generic[T]):
         """
         pass
 
+    def remove_observer(self, observer: Observer) -> None:
+        """
+        Remove a low-level observer function.
+
+        Args:
+            observer: A callable previously registered with add_observer.
+        """
+        pass
+
 
 class Mergeable(Observable[T], abc.ABC):
     """
     Abstract Base Class for observables that combine multiple source observables into tuples.
 
-    Mergeable observables treat multiple related reactive values as a single atomic unit.
-    They extend the base Observable ABC with tuple-specific operations, enabling functions
-    that need multiple related parameters to receive them as a coordinated tuple that
-    updates when any component changes.
-
-    This ABC allows other classes to work with merged observables without
-    importing the concrete MergedObservable implementation, while enabling
-    runtime isinstance checks. That separation maintains clean architecture
-    while preserving type safety.
+    Mergeable observables treat several related reactive values as one atomic
+    unit, so a function that needs multiple parameters can receive them as a
+    coordinated tuple that updates when any component changes. This ABC lets
+    other classes work with merged observables without importing the
+    concrete MergedObservable implementation.
     """
 
-    _source_observables: List[Observable]
+    _source_observables: Sequence[Observable[Any]]
 
 
 class Conditional(Observable[T], abc.ABC):
     """
     Abstract Base Class for observables that filter values based on boolean conditions.
 
-    Conditional observables only emit values from a source observable when ALL specified
-    conditions are True. They extend the base Observable ABC with condition-specific
-    attributes like `is_active` to check whether the gate is currently open. This enables
-    precise control over when reactive updates occur.
-
-    This ABC allows other classes to work with conditional observables without
-    importing the concrete ConditionalObservable implementation, while enabling
-    runtime isinstance checks. That separation enables clean architecture
-    while maintaining type safety across the reactive system.
+    Conditional observables only emit values from a source observable when
+    every specified condition is True, exposing `is_active` to check whether
+    the gate is currently open. This ABC lets other classes work with
+    conditional observables without importing the concrete
+    ConditionalObservable implementation.
     """
 
     _condition_observables: List[Observable[bool]]

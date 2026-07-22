@@ -29,8 +29,25 @@ import tracemalloc
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Tuple
 
-from fynx import observable
+from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from rich.table import Table
+from rich.text import Text
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from fynx import observable
 
 DEFAULT_PROCESSES = 5
 DEFAULT_SAMPLES = 15
@@ -58,6 +75,55 @@ QUICK_SCALE = {
     "compare_chain": [1, 10],
     "compare_fanout": [1, 10],
 }
+
+WORKLOAD_DESCRIPTIONS = {
+    "creation": "Construct independent observables and measure live memory.",
+    "updates": "Set independent observables, with and without subscribers.",
+    "chain": "Propagate one source update through a transformation chain.",
+    "fanout": "Deliver one source update to many derived dependents.",
+    "diamond": "Check converging graphs recompute once per diamond.",
+    "dynamic": "Toggle dynamic condition dependencies and clean stale edges.",
+    "compare-map": "Equivalent source -> map -> sink dispatch.",
+    "compare-chain": "Equivalent chain of deterministic map operations.",
+    "compare-fanout": "Equivalent source fan-out to lightweight sinks.",
+    "compare-accumulate": "Equivalent running total over a deterministic stream.",
+}
+
+VARIANT_DESCRIPTIONS = {
+    "independent": "independent observables",
+    "unsubscribed": "no subscribers",
+    "subscribed": "one subscriber each",
+    "final-subscriber": "final observer",
+    "computed-dependent-subscribers": "derived dependents",
+    "many-diamonds": "shared-source diamonds",
+    "toggle-selected-dependency": "branch switching",
+    "source-map-sink": "map pipeline",
+    "map-chain": "map chain",
+    "source-to-sinks": "source to sinks",
+    "running-total": "running total",
+}
+
+CASE_LABELS = {
+    "independent": "build",
+    "unsubscribed": "no sub",
+    "subscribed": "1 sub",
+    "final-subscriber": "final",
+    "computed-dependent-subscribers": "deps",
+    "many-diamonds": "diamonds",
+    "toggle-selected-dependency": "branch",
+    "source-map-sink": "map",
+    "map-chain": "chain",
+    "source-to-sinks": "sinks",
+    "running-total": "scan",
+}
+
+LIBRARY_STYLES = {
+    "fynx": "bold cyan",
+    "rxpy": "bold magenta",
+}
+
+RESULT_CONSOLE = Console()
+PROGRESS_CONSOLE = Console(stderr=True)
 
 
 def ns() -> int:
@@ -937,74 +1003,218 @@ def fmt_ns(value: float) -> str:
         return f"{value / 1_000_000_000:.3f}s"
     if value >= 1_000_000:
         return f"{value / 1_000_000:.3f}ms"
+    if value >= 100_000:
+        return f"{value / 1_000:.0f}us"
+    if value >= 10_000:
+        return f"{value / 1_000:.1f}us"
     if value >= 1_000:
-        return f"{value / 1_000:.3f}us"
+        return f"{value / 1_000:.2f}us"
     return f"{value:.0f}ns"
 
 
+def fmt_rate(value: float) -> str:
+    if not value:
+        return "n/a"
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M/s"
+    if value >= 1_000:
+        return f"{value / 1_000:.0f}K/s"
+    return f"{value:.0f}/s"
+
+
+def fmt_count(value: int) -> str:
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:g}M"
+    if value >= 1_000:
+        return f"{value / 1_000:g}K"
+    return str(value)
+
+
+def fmt_bytes(value: float) -> str:
+    if value >= 1024 * 1024:
+        return f"{value / (1024 * 1024):.2f} MiB"
+    if value >= 1024:
+        return f"{value / 1024:.1f} KiB"
+    return f"{value:.0f} B"
+
+
+def describe_variant(variant: str) -> str:
+    return VARIANT_DESCRIPTIONS.get(variant, variant)
+
+
+def case_label(variant: str) -> str:
+    return CASE_LABELS.get(variant, variant)
+
+
+def result_notes(result: Dict[str, Any]) -> List[str]:
+    metrics = result.get("metrics", {})
+    notes = []
+
+    if result["workload"] == "creation" and metrics:
+        notes.append(
+            "live memory: "
+            f"{metrics.get('bytes_per_live_node', 0):.1f} bytes/observable, "
+            f"RSS +{fmt_bytes(float(metrics.get('rss_delta', 0)))}"
+        )
+
+    if "per_update_latency_ns" in metrics:
+        lat = metrics["per_update_latency_ns"]
+        notes.append(
+            "sampled per-update latency: "
+            f"p50 {fmt_ns(lat.get('median', float('nan')))}, "
+            f"p95 {fmt_ns(lat.get('p95', float('nan')))}, "
+            f"p99 {fmt_ns(lat.get('p99', float('nan')))}"
+        )
+
+    if result["workload"] == "diamond" and metrics:
+        notes.extend(
+            [
+                (
+                    f"diamond audit: {metrics.get('diamonds')} diamonds, "
+                    f"{metrics.get('semantic_nodes')} semantic nodes, "
+                    f"{metrics.get('runtime_nodes')} runtime nodes, "
+                    f"{metrics.get('source_updates')} source updates"
+                ),
+                (
+                    "terminal recomputes: "
+                    f"expected {metrics.get('expected_terminal_recomputes')}, "
+                    f"observed {metrics.get('observed_terminal_recomputes')}, "
+                    f"duplicates {metrics.get('duplicate_terminal_recomputes')}"
+                ),
+                (
+                    "intermediate recomputes observed: "
+                    f"{metrics.get('observed_intermediate_recomputes')} "
+                    f"(timed phase: {metrics.get('timed_phase')})"
+                ),
+            ]
+        )
+
+    return notes
+
+
 def print_results(results: List[Dict[str, Any]]) -> None:
-    print("\nEnvironment")
-    print(json.dumps(environment(), indent=2, sort_keys=True))
+    console = RESULT_CONSOLE
+    env = environment()
+    env_table = Table.grid(padding=(0, 2))
+    env_table.add_column(style="dim")
+    env_table.add_column()
+    for key in ["python", "executable", "platform", "processor", "machine", "pid"]:
+        env_table.add_row(key, str(env.get(key, "")))
+
     if results:
         metrics = results[0].get("metrics", {})
-        print(
-            "\nWorker isolation: "
+        env_table.add_row(
+            "worker isolation",
             f"{metrics.get('process_repetitions', 0)} fresh process(es) per row, "
-            f"{metrics.get('samples_per_process', 0)} sample(s) per process"
+            f"{metrics.get('samples_per_process', 0)} sample(s) per process",
         )
-    print("\nResults")
-    header = (
-        f"{'Workload':<20} {'Lib':<6} {'Variant':<28} {'Size':>10} "
-        f"{'Median':>12} {'p95':>12} {'Rate/sec':>14} {'OK':>4}"
+    console.print(
+        Panel(
+            env_table,
+            title="[bold]Benchmark Environment[/bold]",
+            border_style="blue",
+            expand=False,
+        )
     )
-    print(header)
-    print("-" * len(header))
+
+    guide = Table.grid(padding=(0, 2))
+    guide.add_column(style="bold")
+    guide.add_column()
+    for workload in sorted({result["workload"] for result in results}):
+        guide.add_row(workload, WORKLOAD_DESCRIPTIONS.get(workload, ""))
+    console.print(
+        Panel(
+            guide,
+            title="[bold]Workload Guide[/bold]",
+            border_style="green",
+        )
+    )
+
+    table = Table(
+        title="Benchmark Results",
+        box=box.SIMPLE_HEAVY,
+        header_style="bold",
+        show_lines=False,
+        padding=(0, 1),
+        pad_edge=False,
+    )
+    table.add_column("Workload", style="bold", no_wrap=True)
+    table.add_column("Lib", no_wrap=True)
+    table.add_column("Case", no_wrap=True)
+    table.add_column("Size", justify="right", no_wrap=True)
+    table.add_column("Med", justify="right", style="bold green", no_wrap=True)
+    table.add_column("p95", justify="right", no_wrap=True)
+    table.add_column("Rate", justify="right", no_wrap=True)
+
+    detail_panels = []
     for result in results:
         if result.get("skipped"):
-            print(
-                f"{result['workload']:<20} {result['library']:<6} "
-                f"{result['variant']:<28} {result['size']:>10} skipped: {result['skipped']}"
+            table.add_row(
+                result["workload"],
+                Text(
+                    result["library"], style=LIBRARY_STYLES.get(result["library"], "")
+                ),
+                case_label(result["variant"]),
+                fmt_count(int(result["size"])),
+                Text("skipped", style="yellow"),
+                "",
+                "",
+            )
+            detail_panels.append(
+                (
+                    result["workload"],
+                    result["library"],
+                    result["size"],
+                    [f"skipped: {result['skipped']}"],
+                )
             )
             continue
+
         summary = result["summary_ns"]
-        print(
-            f"{result['workload']:<20} {result['library']:<6} "
-            f"{result['variant']:<28} {result['size']:>10} "
-            f"{fmt_ns(summary['median']):>12} {fmt_ns(summary['p95']):>12} "
-            f"{result['rate_per_sec']:>14,.0f} {str(result['correct']):>4}"
+        table.add_row(
+            result["workload"],
+            Text(result["library"], style=LIBRARY_STYLES.get(result["library"], "")),
+            case_label(result["variant"]),
+            fmt_count(int(result["size"])),
+            fmt_ns(summary["median"]),
+            fmt_ns(summary["p95"]),
+            fmt_rate(result["rate_per_sec"]),
         )
-        metrics = result.get("metrics", {})
-        if result["workload"] == "creation" and metrics:
-            print(
-                f"{'':<20} {'':<6} bytes/live={metrics.get('bytes_per_live_node', 0):.1f} "
-                f"rss_delta={metrics.get('rss_delta', 0)}"
+
+        notes = result_notes(result)
+        if notes:
+            detail_panels.append(
+                (result["workload"], result["library"], result["size"], notes)
             )
-        if "per_update_latency_ns" in metrics:
-            lat = metrics["per_update_latency_ns"]
-            print(
-                f"{'':<20} {'':<6} per-update p50={fmt_ns(lat.get('median', float('nan')))} "
-                f"p95={fmt_ns(lat.get('p95', float('nan')))} "
-                f"p99={fmt_ns(lat.get('p99', float('nan')))}"
+
+    console.print(table)
+
+    correct_count = sum(1 for result in results if result.get("correct"))
+    skipped_count = sum(1 for result in results if result.get("skipped"))
+    failed_count = len(results) - correct_count - skipped_count
+    correctness_style = "green" if failed_count == 0 else "red"
+    console.print(
+        Text(
+            f"Correctness: {correct_count} passed, "
+            f"{skipped_count} skipped, {failed_count} failed.",
+            style=correctness_style,
+        )
+    )
+
+    if detail_panels:
+        details = Table.grid(padding=(0, 1))
+        details.add_column(style="bold")
+        details.add_column()
+        for workload, library, size, notes in detail_panels:
+            label = f"{workload} / {library} / {size:,}"
+            details.add_row(label, "\n".join(notes))
+        console.print(
+            Panel(
+                details,
+                title="[bold]Additional Measurements[/bold]",
+                border_style="cyan",
             )
-        if result["workload"] == "diamond" and metrics:
-            print(
-                f"{'':<20} {'':<6} diamonds={metrics.get('diamonds')} "
-                f"semantic_nodes={metrics.get('semantic_nodes')} "
-                f"runtime_nodes={metrics.get('runtime_nodes')} "
-                f"source_updates={metrics.get('source_updates')} "
-                f"timed_phase={metrics.get('timed_phase')}"
-            )
-            print(
-                f"{'':<20} {'':<6} terminal_recomputes "
-                f"expected={metrics.get('expected_terminal_recomputes')} "
-                f"observed={metrics.get('observed_terminal_recomputes')} "
-                f"duplicates={metrics.get('duplicate_terminal_recomputes')} "
-                f"intermediate_observed={metrics.get('observed_intermediate_recomputes')}"
-            )
-            print(
-                f"{'':<20} {'':<6} single_recompute_per_diamond="
-                f"{metrics.get('single_recompute_per_diamond')}"
-            )
+        )
 
     comparison_rows = [
         result
@@ -1023,22 +1233,34 @@ def print_results(results: List[Dict[str, Any]]) -> None:
         if "fynx" in libraries and "rxpy" in libraries
     ]
     if paired:
-        print("\nComparison Ratios")
-        ratio_header = (
-            f"{'Workload':<20} {'Size':>10} {'FynX':>12} {'RxPY':>12} "
-            f"{'RxPY/FynX':>10} {'Winner':>8}"
+        ratio_table = Table(
+            title="FynX vs RxPY",
+            box=box.SIMPLE_HEAVY,
+            header_style="bold",
+            padding=(0, 1),
+            pad_edge=False,
         )
-        print(ratio_header)
-        print("-" * len(ratio_header))
+        ratio_table.add_column("Workload", style="bold")
+        ratio_table.add_column("Size", justify="right")
+        ratio_table.add_column("FynX", justify="right", style=LIBRARY_STYLES["fynx"])
+        ratio_table.add_column("RxPY", justify="right", style=LIBRARY_STYLES["rxpy"])
+        ratio_table.add_column("RxPY / FynX", justify="right")
+        ratio_table.add_column("Winner", justify="center")
         for (workload, size), fynx_result, rxpy_result in paired:
             fynx_median = fynx_result["summary_ns"]["median"]
             rxpy_median = rxpy_result["summary_ns"]["median"]
             ratio = rxpy_median / fynx_median if fynx_median else float("nan")
             winner = "fynx" if ratio >= 1 else "rxpy"
-            print(
-                f"{workload:<20} {size:>10} {fmt_ns(fynx_median):>12} "
-                f"{fmt_ns(rxpy_median):>12} {ratio:>9.2f}x {winner:>8}"
+            ratio_style = "green" if winner == "fynx" else "red"
+            ratio_table.add_row(
+                workload,
+                fmt_count(size),
+                fmt_ns(fynx_median),
+                fmt_ns(rxpy_median),
+                Text(f"{ratio:.2f}x", style=ratio_style),
+                Text(winner, style=LIBRARY_STYLES.get(winner, "")),
             )
+        console.print(ratio_table)
 
 
 def parse_args() -> argparse.Namespace:
@@ -1099,10 +1321,31 @@ def main() -> None:
         spec["processes"] = args.processes
 
     aggregates = []
-    for index, spec in enumerate(specs, start=1):
-        label = f"{spec['workload']} {spec.get('library', 'fynx')} {spec.get('variant', '')} {spec['size']}"
-        print(f"[{index}/{len(specs)}] {label}", file=sys.stderr)
-        aggregates.append(aggregate(run_spec_in_process(spec)))
+    if args.json:
+        for spec in specs:
+            aggregates.append(aggregate(run_spec_in_process(spec)))
+    else:
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=PROGRESS_CONSOLE,
+            transient=True,
+        )
+        with progress:
+            task = progress.add_task("Running benchmark cases", total=len(specs))
+            for spec in specs:
+                library = spec.get("library", "fynx")
+                variant = describe_variant(spec.get("variant", ""))
+                label = (
+                    f"[{library}] {spec['workload']} / {variant} / "
+                    f"{int(spec['size']):,}"
+                )
+                progress.update(task, description=label)
+                aggregates.append(aggregate(run_spec_in_process(spec)))
+                progress.advance(task)
 
     if args.json:
         print(

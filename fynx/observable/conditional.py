@@ -1,30 +1,31 @@
 r"""
 Conditional observables for filtering and conditional logic.
 
-This module provides ConditionalObservable, which creates observables that only
-emit values when certain conditions are satisfied. This is useful for filtering
-data streams, implementing conditional logic, and creating reactive pipelines
-that respond to specific states.
+This module provides ConditionalObservable, which only emits values when a
+set of conditions are all satisfied. Use it for filtering data streams,
+conditional logic, and reactive pipelines that should only react in certain
+states.
 
-## The Gate Analogy
+## The gate analogy
 
-Conditional observables act as filters that only allow values through when all
-conditions are satisfied. Think of a security checkpoint where multiple guards
-must approve before passage—values flow through only when every condition returns True.
+A ConditionalObservable is a gate: the source value passes through to
+observers only when every condition evaluates to True against it. If any
+condition is False, the gate stays closed and nothing is emitted.
 
-The filtering mechanism evaluates conditions against the source value. When all
-conditions align, the gate opens and the value passes through to observers. When
-any condition fails, the gate closes and no value is emitted.
+Formally: ConditionalObservable(source, c1, c2, ..., cn) represents the set $\{s \in \text{source} \mid c_1(s) \land c_2(s) \land \ldots \land c_n(s)\}$ - all values from source where every condition evaluates to True. With no conditions, the gate is always open and the filtered set equals the source.
 
-We formalize that as a filtered subset. Each condition evaluates the source value independently. If any condition returns False, the gate stays closed. Only when every condition says True does the value flow through to observers.
+## How conditions chain
 
-Formally: ConditionalObservable(source, c1, c2, ..., cn) represents the set $\{s \in \text{source} \mid c_1(s) \land c_2(s) \land \ldots \land c_n(s)\}$. That is: all values from source where every condition evaluates to True. When no conditions are provided, the gate is always open—the filtered set equals the source.
+When you write `data & condition1 & condition2`, we build a chain:
+`((data & condition1) & condition2)`. Each `&` adds another guard. The final
+gate opens only when condition1(value) is True and condition2(value) is True
+and so on.
 
-## How Conditions Chain
-
-When you write `data & condition1 & condition2`, we build a chain: `((data & condition1) & condition2)`. Each `&` adds another guard. The final gate opens only when condition1(value) is True and condition2(value) is True and so on.
-
-The `&` operator is commutative—`data & cond1 & cond2` equals `data & cond2 & cond1`—because all conditions check the same source value. Multiple guards can evaluate in any order; they all need to approve. That gives us the intuitive behavior of logical AND operations.
+The `&` operator is asymmetric: the left side supplies the value and the right
+side supplies a guard. `data & is_ready` is not the same operation as
+`is_ready & data`. For a fixed source, however, independent pure guards can be
+ordered freely: `(data & c1) & c2` has the same public value behavior as
+`(data & c2) & c1` when the guards have no observable side effects.
 
 ## Practical Usage
 
@@ -44,31 +45,33 @@ Example:
 ## Key Properties
 
 - **Pullback Semantics**: Only notifies when conditions are satisfied AND value changes
-- **Commutative**: `data & cond1 & cond2` ≡ `data & cond2 & cond1`
-- **Associative**: `(data & cond1) & cond2` ≡ `data & (cond1 & cond2)`
-- **Universal**: Any compatible reactive function factors through the conditional uniquely
+- **Asymmetric Gate**: `source & condition` preserves the source value type
+- **Guard-Order Commutative**: `(data & c1) & c2` ≡ `(data & c2) & c1` for pure guards over the same source
+- **Guard-Chain Associative**: `((data & c1) & c2) & c3` ≡ `(data & c1) & c2 & c3`
 """
 
-from typing import Any, Callable, List, Set, TypeVar, Union
+from __future__ import annotations
 
+from typing import Any, Callable, Generic, List, Optional, Set, TypeVar, cast
+
+from ..types import ConditionOperand
+from . import base as _base
 from .base import Observable as BaseObservable
 from .computed import ComputedObservable
-from .interfaces import Conditional, Observable
+from .interfaces import Conditional
+from .operands import unwrap_condition
 from .operators import OperatorMixin
 
 T = TypeVar("T")
-Condition = Union[Observable[bool], Callable[[T], bool], "ConditionalObservable"]
+U = TypeVar("U")
+Observable = BaseObservable
 
 
 class ConditionalNeverMet(Exception):
     """
-    Raised when attempting to access the value of a ConditionalObservable
-    whose conditions have never been satisfied.
-
-    This exception indicates that the conditional observable has not yet
-    received any values that meet its filtering criteria. The gate has never
-    opened, so no value has passed through. Check `is_active` before accessing
-    the value to avoid this error.
+    Raised when accessing `.value` on a ConditionalObservable whose
+    conditions have never been satisfied - the gate has never opened, so no
+    value has passed through. Check `is_active` first to avoid this.
 
     Example:
         ```python
@@ -84,13 +87,9 @@ class ConditionalNeverMet(Exception):
 
 class ConditionalNotMet(Exception):
     """
-    Raised when attempting to access the value of a ConditionalObservable
-    whose conditions are not currently satisfied.
-
-    This exception indicates that the conditional observable's conditions
-    were previously met but are not currently satisfied. The gate was open
-    but has now closed. The observable may have a cached value, but access
-    is restricted. Check `is_active` before accessing the value to avoid this error.
+    Raised when accessing `.value` on a ConditionalObservable whose
+    conditions were previously satisfied but aren't now - the gate was open
+    and has since closed. Check `is_active` first to avoid this.
 
     Example:
         ```python
@@ -105,20 +104,12 @@ class ConditionalNotMet(Exception):
     """
 
 
-class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin):
+class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin[T]):
     r"""
     A conditional observable that filters values based on one or more conditions.
 
-    Think of this as a smart gate that only lets values through when all conditions
-    are satisfied. It's like having multiple security guards—only values that pass
-    all checks get through.
-
-    ## How It Works
-
-    Source data flows through a series of condition checks. Each condition evaluates
-    the source value independently. If any condition returns False, the gate closes and
-    no value passes. When all conditions return True, the gate opens and the filtered
-    value flows through to observers.
+    Source data flows through a chain of condition checks; the value only
+    reaches observers when every condition returns True.
 
     ```
     Source Data → [Condition 1] → [Condition 2] → [Condition 3] → Filtered Output
@@ -126,17 +117,16 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                    Check A        Check B        Check C
     ```
 
-    We formalize that as a filtered subset. A ConditionalObservable represents:
-    $\{s \in \text{source} \mid c_1(s) \land c_2(s) \land \ldots \land c_n(s)\}$.
-
-    That is: all values from source where every condition evaluates to True.
+    Formally, a ConditionalObservable represents the filtered subset
+    $\{s \in \text{source} \mid c_1(s) \land c_2(s) \land \ldots \land c_n(s)\}$
+    - all values from source where every condition evaluates to True.
 
     ## Key Properties
 
     - **Gate Behavior**: Only notifies when conditions are satisfied AND value changes
-    - **Commutative**: `data & cond1 & cond2` ≡ `data & cond2 & cond1` (order doesn't matter)
-    - **Associative**: `(data & cond1) & cond2` ≡ `data & (cond1 & cond2)` (grouping doesn't matter)
-    - **Universal**: Any compatible reactive function factors through the conditional uniquely
+    - **Asymmetric Gate**: `source & condition` preserves the source value type
+    - **Guard-Order Commutative**: `(data & c1) & c2` ≡ `(data & c2) & c1` for pure guards over the same source
+    - **Guard-Chain Associative**: `((data & c1) & c2) & c3` ≡ `(data & c1) & c2 & c3`
 
     ## Behavior States
 
@@ -161,7 +151,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
     always_open = ConditionalObservable(data)  # Equivalent to just `data`
     ```
 
-    This is useful for optimizer fusion where conditions might be empty during intermediate steps.
+    Useful as a pass-through gate in tests and internal composition.
 
     ## Examples
 
@@ -185,27 +175,23 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Only emits when data > 0 AND data is even
         ```
 
-    Chaining conditionals (checkpoint stations):
+    Chaining conditionals:
         ```python
-        step1 = data & (lambda x: x > 0)      # First checkpoint
-        step2 = step1 & (lambda x: x < 100)   # Second checkpoint
+        step1 = data & (lambda x: x > 0)      # First gate
+        step2 = step1 & (lambda x: x < 100)   # Second gate
         # Equivalent to: data & (lambda x: x > 0) & (lambda x: x < 100)
         ```
     """
 
     def __init__(
-        self, source_observable: "Observable[T]", *conditions: Condition
+        self, source_observable: "Observable[T]", *conditions: ConditionOperand[T]
     ) -> None:
         r"""
         Create a conditional observable that filters values based on conditions.
 
-        This constructor builds a gate that represents the filtered subset. The gate
-        opens only when all conditions evaluate to True for the source value.
-
         Formally: ConditionalObservable(source, c1, c2, ..., cn) represents
         $\{s \in \text{source} \mid c_1(s) \land c_2(s) \land \ldots \land c_n(s)\}$.
-
-        If no conditions are provided, the gate is always open: $P = \text{source}$.
+        With no conditions, the gate is always open: $P = \text{source}$.
 
         Args:
             source_observable: The observable whose values will be conditionally emitted.
@@ -219,15 +205,6 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         Raises:
             ValueError: If source_observable is None
             TypeError: If conditions contain invalid types
-
-        Empty Conditions Behavior:
-            When no conditions are provided (`*conditions` is empty), the gate is always open:
-            ```python
-            always_open = ConditionalObservable(data)  # Equivalent to just `data`
-            ```
-
-            This is useful for optimizer fusion during intermediate steps, creating
-            pass-through observables, and testing scenarios.
 
         Examples:
             ```python
@@ -244,7 +221,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             is_ready = observable(True)
             valid_data = data & is_ready & (lambda x: x % 2 == 0)
 
-            # Nested conditionals (checkpoint stations)
+            # Nested conditionals
             step1 = data & (lambda x: x > 0)
             step2 = step1 & (lambda x: x < 100)
 
@@ -256,14 +233,14 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         self._validate_inputs(source_observable, conditions)
 
         # Store the original source and conditions for reference
-        self._source_observable = source_observable
-        self._conditions = conditions  # Keep original name for test compatibility
-        self._dynamic_condition_dependencies: Set[Observable] = set()
-        self._observed_dependencies: Set[Observable] = set()
-        self._dependency_observer = None
+        self._source_observable: BaseObservable[T] = source_observable
+        self._conditions: tuple[ConditionOperand[T], ...] = conditions
+        self._dynamic_condition_dependencies: Set[BaseObservable[Any]] = set()
+        self._observed_dependencies: Set[BaseObservable[Any]] = set()
+        self._dependency_observer: Optional[Callable[[], Any]] = None
 
         # Process conditions and create optimized observables
-        self._processed_conditions = self._process_conditions(
+        self._processed_conditions: List[Any] = self._process_conditions(
             source_observable, conditions
         )
 
@@ -281,11 +258,11 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         super().__init__("conditional", initial_value, None, source_observable)
 
         # Set up dependency tracking and observers
-        self._all_dependencies = self._find_all_dependencies()
+        self._all_dependencies: Set[BaseObservable[Any]] = self._find_all_dependencies()
         self._setup_observers()
 
     def _validate_inputs(
-        self, source_observable: "Observable[T]", conditions: tuple
+        self, source_observable: BaseObservable[T], conditions: tuple[Any, ...]
     ) -> None:
         """
         Validate the inputs to the constructor.
@@ -295,20 +272,20 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         if source_observable is None:
             raise ValueError("source_observable cannot be None")
 
-        # Allow empty conditions for optimizer fusion - represents "always active" conditional
+        # Allow empty conditions to represent an always-active conditional.
         # if not conditions:
         #     raise ValueError("At least one condition must be provided")
 
         # Validate each condition
+        from .descriptors import ObservableValue
+
         for i, condition in enumerate(conditions):
             if condition is None:
                 raise ValueError(f"Condition {i} cannot be None")
 
             # Check if condition is a valid type
-            is_observable = isinstance(condition, Observable)
-            is_observable_value = hasattr(condition, "observable") and hasattr(
-                condition, "value"
-            )
+            is_observable = isinstance(condition, BaseObservable)
+            is_observable_value = isinstance(condition, ObservableValue)
             is_callable = callable(condition)
             is_conditional = isinstance(condition, Conditional)
 
@@ -321,7 +298,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
                 )
 
     def _process_conditions(
-        self, source: "Observable[T]", conditions: tuple
+        self, source: BaseObservable[T], conditions: tuple[Any, ...]
     ) -> List[Any]:
         """
         Process raw conditions into optimized observables.
@@ -334,12 +311,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         """
         processed = []
         for condition in conditions:
-            if hasattr(condition, "observable") and hasattr(condition, "value"):
-                # Unwrap ObservableValue-like objects to get the underlying observable
-                processed.append(condition.observable)
-            else:
-                # Keep conditions as provided; evaluation is handled dynamically
-                processed.append(condition)
+            processed.append(unwrap_condition(condition))
         return processed
 
     def _check_if_conditions_are_satisfied(self) -> bool:
@@ -349,7 +321,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         Returns False if the source is inactive or any condition fails.
         If no conditions are provided, always returns True (always active).
         """
-        # If no conditions, always active (for optimizer fusion)
+        # If no conditions, always active.
         if not self._processed_conditions:
             return True
 
@@ -370,7 +342,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         """
         # If source is inactive, we're inactive
         if (
-            isinstance(self._source_observable, Conditional)
+            isinstance(self._source_observable, ConditionalObservable)
             and not self._source_observable.is_active
         ):
             return False
@@ -380,10 +352,13 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
             return True
 
         # Evaluate only local conditions
-        source_value = (
-            self._source_observable.value
-            if isinstance(self._source_observable, Conditional)
-            else self._source_observable.value
+        source_value = cast(
+            T,
+            (
+                self._source_observable.value
+                if isinstance(self._source_observable, ConditionalObservable)
+                else self._source_observable.value
+            ),
         )
         return self._evaluate_all_conditions(source_value, self._processed_conditions)
 
@@ -396,7 +371,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         # Add conditions from source conditionals recursively
         # Only collect if the source hasn't already been evaluated (avoid duplicate evaluations)
-        if isinstance(self._source_observable, Conditional):
+        if isinstance(self._source_observable, ConditionalObservable):
             conditions.extend(self._source_observable._collect_all_conditions())
 
         return conditions
@@ -404,28 +379,28 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
     def _get_root_source_value(self) -> T:
         """Get the value from the root source observable without triggering condition evaluation."""
         current_source = self._source_observable
-        while isinstance(current_source, Conditional):
+        while isinstance(current_source, ConditionalObservable):
             current_source = current_source._source_observable
         # For regular observables, just get the value
         # For conditionals, we've already navigated to the root
-        return current_source.value
+        return cast(T, current_source.value)
 
     def _is_source_inactive(self) -> bool:
         """Check if the source observable is inactive (for conditional sources)."""
         return (
-            isinstance(self._source_observable, Conditional)
+            isinstance(self._source_observable, ConditionalObservable)
             and not self._source_observable.is_active
         )
 
-    def _get_initial_value(self) -> T:
+    def _get_initial_value(self) -> Optional[T]:
         """Get the initial value for the conditional observable."""
         # Avoid accessing private attributes of other objects; fall back to None when inactive
-        if isinstance(self._source_observable, Conditional):
+        if isinstance(self._source_observable, ConditionalObservable):
             return self._source_observable.value if self._source_observable.is_active else None  # type: ignore
         return self._source_observable.value
 
     def _evaluate_all_conditions(
-        self, source_value: T, conditions: List[Any] = None
+        self, source_value: T, conditions: Optional[List[Any]] = None
     ) -> bool:
         """
         Evaluate all conditions against the source value.
@@ -435,15 +410,30 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         if conditions is None:
             conditions = self._processed_conditions
 
-        captured_dependencies: Set[Observable] = set()
-        BaseObservable._dependency_capture_stack.append(captured_dependencies)
+        captured_dependencies: Set[BaseObservable[Any]] = set()
         try:
             for condition in conditions:
-                if not self._evaluate_single_condition(condition, source_value):
+                if callable(condition) and not isinstance(
+                    condition, (BaseObservable, ConditionalObservable)
+                ):
+                    BaseObservable._dependency_capture_stack.append(
+                        captured_dependencies
+                    )
+                    try:
+                        condition_satisfied = self._evaluate_single_condition(
+                            condition, source_value
+                        )
+                    finally:
+                        BaseObservable._dependency_capture_stack.pop()
+                else:
+                    condition_satisfied = self._evaluate_single_condition(
+                        condition, source_value
+                    )
+
+                if not condition_satisfied:
                     return False
             return True
         finally:
-            BaseObservable._dependency_capture_stack.pop()
             captured_dependencies.difference_update(self._find_static_dependencies())
             captured_dependencies.discard(self)
             self._dynamic_condition_dependencies = captured_dependencies
@@ -454,10 +444,10 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         Handles different types of conditions appropriately.
         """
-        if isinstance(condition, Conditional):
+        if isinstance(condition, ConditionalObservable):
             # Compound/public conditional interface - use its public state
             return condition.is_active
-        if isinstance(condition, Observable):
+        if isinstance(condition, BaseObservable):
             # Regular observable - use its current value
             return bool(condition.value)
         if callable(condition):
@@ -478,7 +468,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Single value
         return bool(condition(source_value))
 
-    def _find_all_dependencies(self) -> Set[Observable]:
+    def _find_all_dependencies(self) -> Set[BaseObservable[Any]]:
         """
         Find all observable dependencies for this conditional.
 
@@ -491,13 +481,13 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Filter out None values
         return {dep for dep in dependencies if dep is not None}
 
-    def _find_static_dependencies(self) -> Set[Observable]:
+    def _find_static_dependencies(self) -> Set[BaseObservable[Any]]:
         """Find dependencies declared directly by source and observable conditions."""
-        dependencies = set()
+        dependencies: Set[BaseObservable[Any]] = set()
 
         # Only add the source observable if it's not a conditional
         # For conditionals, we depend on their dependencies instead
-        if isinstance(self._source_observable, Conditional):
+        if isinstance(self._source_observable, ConditionalObservable):
             # For conditional sources, depend on their dependencies
             dependencies.update(self._source_observable._all_dependencies)
         else:
@@ -506,15 +496,17 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         # Add dependencies from each condition
         for condition in self._processed_conditions:
-            if isinstance(condition, Observable):
+            if isinstance(condition, BaseObservable):
                 dependencies.add(condition)
-            elif isinstance(condition, Conditional):
+            elif isinstance(condition, ConditionalObservable):
                 # For nested conditionals, add their dependencies
                 dependencies.update(condition._all_dependencies)
 
         return dependencies
 
-    def _extract_condition_dependencies(self, condition: Any) -> Set[Observable]:
+    def _extract_condition_dependencies(
+        self, condition: Any
+    ) -> Set[BaseObservable[Any]]:
         # Deprecated: dependencies are gathered via public Observable interface only
         return set()
 
@@ -592,7 +584,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
     def _notify_observers(self) -> None:
         """Notify observers only when conditions are satisfied."""
-        should_notify = True
+        should_notify = False
         if self._is_dirty:
             self._is_dirty = False
             should_notify = self._update_conditional_state(schedule_notifications=False)
@@ -600,21 +592,31 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         if self._conditions_met and should_notify:
             super()._notify_observers()
 
+    def then(self, func: Callable[[T], U]) -> "ConditionalObservable[U]":
+        """
+        Transform values that pass through this gate without forcing it open.
+
+        Mapping over an inactive conditional produces another inactive
+        conditional. The transform runs only when this source gate is active,
+        so constructing `gate >> f` is safe even when `gate.value` would raise
+        ConditionalNeverMet or ConditionalNotMet.
+        """
+        return MappedConditionalObservable(self, func)
+
+    def __rshift__(self, func: Callable[[T], U]) -> "ConditionalObservable[U]":
+        """Transform values that pass through this gate."""
+        return self.then(func)
+
     @property
     def value(self) -> T:
         r"""
         Current value of the conditional observable.
 
         Returns the source observable's value when conditions are satisfied.
-        Raises ConditionalNeverMet if conditions have never been satisfied.
-        Raises ConditionalNotMet if conditions were previously satisfied but are not currently satisfied.
+        Raises ConditionalNeverMet if conditions have never been satisfied, or
+        ConditionalNotMet if they were previously satisfied but aren't now.
 
-        This property implements the gate projection. When the gate is open, it returns
-        the value that passed through. When the gate is closed, it raises an exception
-        because no value is available.
-
-        Formally: When active, returns $s$ where $s \in \{x \in \text{source} \mid \forall c \in \text{conditions}: c(x) = \text{True}\}$.
-        When inactive, the gate is closed and no value is available.
+        Formally: when active, returns $s$ where $s \in \{x \in \text{source} \mid \forall c \in \text{conditions}: c(x) = \text{True}\}$.
 
         Example:
             ```python
@@ -632,7 +634,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         """
         if self.is_active:
             # Conditions are satisfied - return the current value
-            return self._value
+            return cast(T, self._value)
         elif self._has_ever_had_valid_value:
             # Conditions were previously satisfied but are not now
             raise ConditionalNotMet("Conditions are not currently satisfied")
@@ -645,12 +647,8 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         r"""
         True if conditions are currently satisfied (gate is open).
 
-        This property indicates whether the conditional observable is currently
-        in an active state where it can emit values. Think of it as checking
-        if the security gate is currently open.
-
-        Formally: $is\_active = \exists s \in \text{source}: \forall c \in \text{conditions}: c(s) = \text{True}$.
-        That is: the gate is open when there exists a source value that satisfies all conditions.
+        Formally: $is\_active = \exists s \in \text{source}: \forall c \in \text{conditions}: c(s) = \text{True}$
+        - the gate is open when there exists a source value satisfying every condition.
 
         When active (gate open):
         - Can emit values through notifications
@@ -687,7 +685,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         # Collect all conditions across the entire chain for comprehensive reporting
         all_conditions = self._collect_all_conditions()
 
-        debug_info = {
+        debug_info: dict[str, Any] = {
             "is_active": self.is_active,
             "has_ever_had_valid_value": self._has_ever_had_valid_value,
             "current_value": self._value,
@@ -733,3 +731,94 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
         debug_info["condition_states"] = condition_states
         return debug_info
+
+
+class MappedConditionalObservable(ConditionalObservable[U], Generic[T, U]):
+    """A conditional transform that preserves the source gate's active state."""
+
+    def __init__(
+        self,
+        source_observable: ConditionalObservable[T],
+        transform_func: Callable[[T], U],
+    ) -> None:
+        self._mapped_source_observable = source_observable
+        self._source_observable = cast(BaseObservable[U], source_observable)
+        self._conditions: tuple[ConditionOperand[U], ...] = ()
+        self._processed_conditions: List[Any] = []
+        self._dynamic_condition_dependencies: Set[BaseObservable[Any]] = set()
+        self._observed_dependencies: Set[BaseObservable[Any]] = set()
+        self._dependency_observer: Optional[Callable[[], Any]] = None
+        self._conditional_transform_func: Callable[[T], U] = transform_func
+        self._conditions_met = source_observable.is_active
+        self._has_ever_had_valid_value = source_observable.is_active
+
+        initial_value: Optional[U] = None
+        if source_observable.is_active:
+            initial_value = self._apply_conditional_transform(source_observable.value)
+
+        ComputedObservable.__init__(
+            self,
+            "conditional",
+            initial_value,
+            None,
+            source_observable,
+        )
+
+        self._all_dependencies: Set[BaseObservable[Any]] = {source_observable}
+        self._setup_observers()
+
+    def _apply_conditional_transform(self, value: T) -> U:
+        transform_state = _base._TRANSFORM_EVALUATION_STATE
+        previous_transform_state = transform_state[0]
+        transform_state[0] = True
+        try:
+            return self._conditional_transform_func(value)
+        finally:
+            transform_state[0] = previous_transform_state
+
+    def _setup_observers(self) -> None:
+        def handle_value_change() -> None:
+            self._is_dirty = True
+            BaseObservable._schedule_notification(self)
+
+        self._dependency_observer = handle_value_change
+        self._sync_dependency_observers()
+
+    def _sync_dependency_observers(self) -> None:
+        if self._dependency_observer is None:
+            return
+
+        target_dependencies: Set[BaseObservable[Any]] = {self._mapped_source_observable}
+        for dependency in self._observed_dependencies - target_dependencies:
+            dependency.remove_observer(self._dependency_observer)
+
+        for dependency in target_dependencies - self._observed_dependencies:
+            dependency.add_observer(self._dependency_observer)
+
+        self._observed_dependencies = target_dependencies
+        self._all_dependencies = target_dependencies
+
+    def _update_conditional_state(self, schedule_notifications: bool = True) -> bool:
+        source_active = self._mapped_source_observable.is_active
+        self._conditions_met = source_active
+
+        if not source_active:
+            return False
+
+        new_value = self._apply_conditional_transform(
+            self._mapped_source_observable.value
+        )
+        if self._value != new_value or not self._has_ever_had_valid_value:
+            self._value = new_value
+            self._version += 1
+            self._has_ever_had_valid_value = True
+            if schedule_notifications and self._observers:
+                BaseObservable._schedule_notification(self)
+            return True
+
+        return False
+
+    @property
+    def is_active(self) -> bool:
+        """Mapped gates are active exactly when their source gate is active."""
+        return self._mapped_source_observable.is_active

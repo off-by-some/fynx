@@ -164,9 +164,11 @@ total_positive = total >> (lambda t: t > 0)
 can_checkout = has_items & total_positive
 
 # React to changes automatically
+# @reactive fires immediately with the current value, then again on every change
 @reactive(total)
 def update_ui_total(t):
     print(f"💰 New total: ${t:.2f}")
+# Output immediately: 💰 New total: $0.00
 
 # React to checkout eligibility using conditional observables
 @reactive(can_checkout)

@@ -259,22 +259,23 @@ Both `.then()` and `>>` work beautifully with FynX's other operators:
 prices = observable([10, 20, 30])
 discount_rate = observable(0.1)
 
-def calculate_discounted_total(prices_and_rate):
-    prices, rate = prices_and_rate
+# A merged observable always unpacks its tuple into separate arguments, so
+# the transform function takes one parameter per merged source - not a
+# single tuple parameter.
+def calculate_discounted_total(prices, rate):
     return sum(price * (1 - rate) for price in prices)
 
 def is_expensive(total):
     return total > 50
 
-def format_expensive_message(total_and_is_expensive):
-    total, is_exp = total_and_is_expensive
+def format_expensive_message(total, is_exp):
     return f"High-value order: ${total:.2f}"
 
 # Use + to combine, then transform
 discounted_total_method = (prices + discount_rate).then(calculate_discounted_total)
 discounted_total_operator = (prices + discount_rate) >> calculate_discounted_total
 
-# Use & for conditions, then format
+# Derive a boolean, then format
 is_expensive_method = discounted_total_method.then(is_expensive)
 is_expensive_operator = discounted_total_method >> is_expensive
 
@@ -287,7 +288,8 @@ expensive_message_operator = (discounted_total_method + is_expensive_operator) >
 Derived observables are lazy and efficient:
 
 * **Memoization**: Results are cached until source values change
-* **Selective Updates**: Only recalculates when dependencies actually change
+* **Selective Updates**: Unobserved values recalculate only when read after dependencies actually change
+* **Demand-Driven Notifications**: Subscribers create the eager boundary needed to deliver updates automatically
 * **No Redundant Work**: If a transformation result hasn't changed, downstream observers don't re-run
 
 ```python

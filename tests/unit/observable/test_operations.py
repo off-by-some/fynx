@@ -4,7 +4,6 @@ import pytest
 
 from fynx.observable import Observable
 from fynx.observable.operations import _ComputedObservable, _ConditionalObservable
-from fynx.optimizer import OptimizationContext
 
 
 @pytest.mark.unit
@@ -35,44 +34,25 @@ def test_computed_observable_import():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_then_method_registers_with_optimization_context():
-    """then() method registers computed observable with optimization context when available."""
+def test_then_method_creates_computed_value():
+    """then() creates computed values without an external optimization context."""
     obs = Observable("test", 5)
 
-    # Create optimization context
-    with OptimizationContext() as context:
-        computed = obs.then(lambda x: x * 2)
-
-        # Should register the computed observable with the context
-        # Check that the observable was registered by checking if it has a node
-        assert context.optimizer.get_or_create_node(computed) is not None
-
-
-@pytest.mark.unit
-@pytest.mark.observable
-def test_then_method_without_optimization_context():
-    """then() method works correctly without optimization context."""
-    obs = Observable("test", 5)
-
-    # Should work without optimization context
     computed = obs.then(lambda x: x * 2)
     assert computed.value == 10
 
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_then_method_with_merged_observable_registers_with_context():
-    """then() method with merged observable registers with optimization context."""
+def test_then_method_with_merged_observable_unpacks_values():
+    """then() with a merged observable passes tuple values as arguments."""
     obs1 = Observable("obs1", 3)
     obs2 = Observable("obs2", 4)
     merged = obs1 + obs2
 
-    # Create optimization context
-    with OptimizationContext() as context:
-        computed = merged.then(lambda a, b: a + b)
+    computed = merged.then(lambda a, b: a + b)
 
-        # Should register the computed observable with the context
-        assert context.optimizer.get_or_create_node(computed) is not None
+    assert computed.value == 7
 
 
 @pytest.mark.unit

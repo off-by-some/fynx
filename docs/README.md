@@ -16,13 +16,11 @@ docs/
 │   └── scripts/                 # Documentation generation scripts
 │       ├── generate_html.py     # HTML documentation generator
 │       └── preview_html_docs.sh # Preview server launcher
-├── images/                      # Universal images and assets
-│   ├── banner.svg               # Main logo/banner for documentation
-│   ├── icon_350x350.png         # Icon for favicons and logos
-│   ├── quick-start.svg          # Quick-start illustration
-│   └── code-examples.svg        # Code example illustration
-└── specs/
-    └── v1.0-roadmap.md          # Archived design draft
+└── images/                      # Universal images and assets
+    ├── banner.svg               # Main logo/banner for documentation
+    ├── icon_350x350.png         # Icon for favicons and logos
+    ├── quick-start.svg          # Quick-start illustration
+    └── code-examples.svg        # Code example illustration
 ```
 
 ## Usage

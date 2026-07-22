@@ -53,11 +53,13 @@ FynX has no required dependencies and works with Python 3.9 and above.
 
 **Automatic Dependency Tracking**: FynX observables track their dependents automatically during execution. You never manually register or unregister dependencies; the framework infers them from how your code actually runs.
 
-**Lazy Evaluation with Memoization**: Computed values only recalculate when their dependencies change, and only when accessed. This combines the convenience of automatic updates with the performance of intelligent caching.
+**Lazy Evaluation with Memoization**: Computed values only recalculate when their dependencies change, and only when accessed. Subscribers create the eager boundary for notifications, so unobserved work stays lazy while observed effects still run automatically.
 
 **Composable Architecture**: Observables, computed values, and reactions compose naturally. You can nest stores, chain computed values, and combine reactions to build complex reactive systems from simple, reusable pieces.
 
 **Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`, `|`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
+
+**Typed Composition**: FynX ships a `py.typed` marker and inline annotations for its operator algebra. Store fields such as `total = observable(0)` appear as `ObservableValue[int]`, standalone observables appear as `Observable[int]`, chained products stay flat, `>>` preserves the transform return type, `&` preserves the gated source type, and `|` / `~` produce `Observable[bool]`.
 
 
 ## Understanding Reactive Programming
@@ -89,9 +91,11 @@ UserStore.greeting = (UserStore.name + UserStore.age) >> (
 )
 
 # React to any change in name or age
+# @reactive fires immediately with the current values, then again on every change
 @reactive(UserStore.name, UserStore.age)
 def on_user_change(name, age):
     print(f"User updated: {name}, {age}")
+# Prints immediately: User updated: Alice, 30
 
 # React only when specific conditions are met
 is_adult_online = (UserStore.is_online >> (lambda online: online)) & (UserStore.age >> (lambda age: age >= 18))
@@ -119,7 +123,7 @@ Observables are the foundation of reactivity. An observable is simply a value th
 
 ### Computed Values
 
-Computed values are derived data that automatically recalculates when their explicit inputs change. They provide memoization by default, meaning they only recompute when one of their inputs actually changes—not on every access. If a derivation needs multiple observables, combine them with `+` / `.alongside()` and transform the plain argument values. This makes computed values both convenient and performant for expensive calculations.
+Computed values are derived data that follows explicit inputs. They provide memoization by default, meaning unobserved values recompute only when read after an input changes, not on every access. If a derivation has subscribers, FynX maintains it eagerly enough to deliver notifications. If a derivation needs multiple observables, combine them with `+` / `.alongside()` and transform the plain argument values. This makes computed values both convenient and performant for expensive calculations.
 
 ### Reactions
 

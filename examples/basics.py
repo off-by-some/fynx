@@ -1,4 +1,4 @@
-from fynx import Store, observable, reactive
+from fynx import Store, StoreSnapshot, observable, reactive
 
 # ------------------------------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ class ExampleStore(Store):
 
 
 # You can subscribe to changes in the store.
-def on_store_snapshot_change(store):
+def on_store_snapshot_change(store: StoreSnapshot) -> None:
     print(f"Store changed, current snapshot: {store}")
 
 
@@ -79,9 +79,9 @@ ExampleStore.subscribe(on_store_snapshot_change)
 
 # You can change the store and the function will be called.
 # This will cause 3 print statements.
-ExampleStore.height_cm = 170.0
-ExampleStore.name = "Bob"
-ExampleStore.age = 31
+ExampleStore.height_cm.set(170.0)
+ExampleStore.name.set("Bob")
+ExampleStore.age.set(31)
 
 # You can unsubscribe from changes in the store.
 ExampleStore.unsubscribe(on_store_snapshot_change)
@@ -98,17 +98,17 @@ print()
 # @reactive(store): subscribes to ALL items. Passes a snapshot of the store as param.
 # Functionally equivalent to ExampleStore.subscribe(on_store_change)
 @reactive(ExampleStore)
-def on_store_change(store):
+def on_store_change(store: StoreSnapshot) -> None:
     print(
         f"Store changed - Height: {store.height_cm}, Name: {store.name}, Age: {store.age}"
     )
 
 
 # Changing the store will trigger the on_store_change function
-ExampleStore.height_cm = 170.2
+ExampleStore.height_cm.set(170.2)
 
-# Unsubscribe the function
-ExampleStore.unsubscribe(on_store_change)
+# Unsubscribe the reactive wrapper.
+on_store_change.unsubscribe()
 
 
 # ------------------------------------------------------------------------------------------------
@@ -126,13 +126,13 @@ def on_age_change(age, name):
     print(f"Name: {name}, Age: {age}")
 
 
-ExampleStore.age = 333
+ExampleStore.age.set(333)
 
 # Test unsubscribing from individual observables
-ExampleStore.unsubscribe(on_age_change)
+on_age_change.unsubscribe()
 
 # This should not trigger on_age_change anymore
-ExampleStore.name = "Barbara"
+ExampleStore.name.set("Barbara")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ def on_name_age_change(name, age):
 with ExampleStore.name + ExampleStore.age as react:
     react(on_name_age_change)
 
-ExampleStore.name = "Bob"
+ExampleStore.name.set("Bob")
 
 
 # ------------------------------------------------------------------------------------------------
@@ -172,9 +172,12 @@ is_online = user_status >> (lambda s: s == "online")
 has_messages = message_count >> (lambda c: c is not None and c > 0)
 
 
-@reactive(is_online & has_messages)
-def notify_user(condition_value):
-    print(f"📬 Notifying user: {message_count.value} new messages while online!")
+new_messages_while_online = message_count & is_online & has_messages
+
+
+@reactive(new_messages_while_online)
+def notify_user(active_message_count):
+    print(f"📬 Notifying user: {active_message_count} new messages while online!")
 
 
 # Show that it doesn't trigger initially
@@ -226,7 +229,7 @@ def calculate_bmi_category(bmi):
         return "obese"
 
 
-# Each >> creates a new computed observable that updates when inputs change
+# Transform chains fuse internally while keeping the same value behavior.
 bmi = bmi_data >> calculate_bmi  # Calculate BMI from height & weight
 bmi_category = bmi >> calculate_bmi_category  # Categorize BMI value
 

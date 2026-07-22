@@ -3,14 +3,10 @@
 FynX Streamlit TODO Application Store
 =====================================
 
-This module contains the core data models and reactive store for the FynX TODO application.
-It defines the TodoItem data structure and TodoStore class that manage application state
-with automatic Streamlit session state synchronization.
-
-The module provides:
-- Immutable TodoItem dataclass with unique ID generation
-- Reactive TodoStore with computed properties for filtering and statistics
-- Comprehensive test suite for all functionality
+The core data models and reactive store for the FynX TODO application:
+TodoItem and TodoStore, managing application state with automatic
+Streamlit session state synchronization, plus computed properties for
+filtering and statistics.
 
 To run the tests:
 ```bash
@@ -25,7 +21,7 @@ from typing import List
 from store import StreamlitStore
 from todo_item_model import UUID_STRING_LENGTH, TodoItem
 
-from fynx import observable, reactive
+from fynx import Observable, observable, reactive
 
 # ==============================================================================================
 # Configuration and Constants
@@ -56,12 +52,10 @@ class TodoStore(StreamlitStore):
     """
     A reactive store managing TODO application state with Streamlit session state integration.
 
-    This store extends StreamlitStore to provide comprehensive state management for a TODO
-    application. It automatically synchronizes with Streamlit's session state while providing
-    reactive computed properties for filtering, statistics, and UI state management.
-
-    The store maintains immutability by working with TodoItem instances and provides
-    methods for all common todo operations like adding, toggling, deleting, and bulk operations.
+    Extends StreamlitStore to sync with Streamlit's session state
+    automatically, with computed properties for filtering, statistics, and UI
+    state. Works with immutable TodoItem instances throughout, and provides
+    methods for adding, toggling, deleting, and bulk todo operations.
 
     Attributes:
         todos: Observable list of TodoItem objects representing all todos.
@@ -100,8 +94,10 @@ class TodoStore(StreamlitStore):
     # Core Observable State
     # ==============================================================================================
 
-    todos: List[TodoItem] = observable([])
-    filter_mode: str = observable(
+    # FynX tracks assignment to the observable, not in-place list mutation.
+    # Reassign a new list when adding/removing/toggling todos.
+    todos: Observable[List[TodoItem]] = observable([])
+    filter_mode: Observable[str] = observable(
         FILTER_MODE_ALL
     )  # Filter mode: "all", "active", "completed"
 
@@ -138,7 +134,7 @@ class TodoStore(StreamlitStore):
     has_any_completed = completed_count >> (lambda completed: completed > 0)
 
     # Human-readable statistics text (updated reactively)
-    stats_text = observable("")
+    stats_text: Observable[str] = observable("")
 
     # ==============================================================================================
     # Reactive Methods - Automatic State Updates
@@ -164,15 +160,9 @@ class TodoStore(StreamlitStore):
         """
         Automatically update the statistics text when todo state changes.
 
-        This reactive method is triggered whenever any of the dependency observables
-        change. It computes and updates the human-readable statistics text that
-        summarizes the current state of the todo list.
-
-        The method handles different scenarios:
-        - Empty todo list
-        - All todos completed
-        - Only active todos
-        - Mixed active and completed todos
+        Triggered whenever any dependency observable changes, and computes
+        the human-readable summary for each case: empty list, all completed,
+        only active, or a mix of active and completed.
 
         Args:
             is_empty: True if there are no todos in the list.
@@ -183,8 +173,7 @@ class TodoStore(StreamlitStore):
             total_items_count: Total number of todos.
 
         Note:
-            This method uses proper singular/plural forms and celebratory messaging
-            to provide a friendly user experience.
+            Uses proper singular/plural forms in the message text.
         """
         # Handle empty todo list
         if is_empty:
@@ -228,12 +217,14 @@ class TodoStore(StreamlitStore):
 
         Note:
             This method triggers reactive updates to all computed properties
-            and synchronizes the change with Streamlit session state.
+            and synchronizes the change with Streamlit session state. It
+            reassigns a new list because in-place mutation such as
+            `cls.todos.value.append(todo)` does not notify observers.
         """
         sanitized_text = text.strip()
         if sanitized_text:
             new_todo_item = TodoItem.create(sanitized_text)
-            cls.todos = cls.todos.value + [new_todo_item]
+            cls.todos.set(cls.todos.value + [new_todo_item])
 
     @classmethod
     def toggle_todo(cls, todo_id: str) -> None:
@@ -250,10 +241,12 @@ class TodoStore(StreamlitStore):
             Due to TodoItem immutability, this creates new TodoItem instances
             for any todos that need to be updated.
         """
-        cls.todos = [
-            todo.toggle_completion() if todo.id == todo_id else todo
-            for todo in cls.todos.value
-        ]
+        cls.todos.set(
+            [
+                todo.toggle_completion() if todo.id == todo_id else todo
+                for todo in cls.todos.value
+            ]
+        )
 
     @classmethod
     def delete_todo(cls, todo_id: str) -> None:
@@ -267,7 +260,7 @@ class TodoStore(StreamlitStore):
             If the specified ID doesn't exist, this method does nothing.
             No error is raised for non-existent IDs.
         """
-        cls.todos = [todo for todo in cls.todos.value if todo.id != todo_id]
+        cls.todos.set([todo for todo in cls.todos.value if todo.id != todo_id])
 
     @classmethod
     def clear_completed(cls) -> None:
@@ -281,7 +274,7 @@ class TodoStore(StreamlitStore):
         Note:
             This is a bulk operation that affects multiple todos at once.
         """
-        cls.todos = [todo for todo in cls.todos.value if not todo.completed]
+        cls.todos.set([todo for todo in cls.todos.value if not todo.completed])
 
     @classmethod
     def toggle_all_active(cls) -> None:
@@ -297,10 +290,12 @@ class TodoStore(StreamlitStore):
         """
         active_todos_list = [todo for todo in cls.todos.value if not todo.completed]
         if active_todos_list:
-            cls.todos = [
-                todo.toggle_completion() if not todo.completed else todo
-                for todo in cls.todos.value
-            ]
+            cls.todos.set(
+                [
+                    todo.toggle_completion() if not todo.completed else todo
+                    for todo in cls.todos.value
+                ]
+            )
 
     @classmethod
     def toggle_all_completed(cls) -> None:
@@ -316,10 +311,12 @@ class TodoStore(StreamlitStore):
         """
         completed_todos_list = [todo for todo in cls.todos.value if todo.completed]
         if completed_todos_list:
-            cls.todos = [
-                todo.toggle_completion() if todo.completed else todo
-                for todo in cls.todos.value
-            ]
+            cls.todos.set(
+                [
+                    todo.toggle_completion() if todo.completed else todo
+                    for todo in cls.todos.value
+                ]
+            )
 
 
 # ==============================================================================================

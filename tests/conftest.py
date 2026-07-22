@@ -3,7 +3,6 @@
 import pytest
 
 from fynx.observable.base import Observable
-from fynx.optimizer import OptimizationContext
 from tests.test_factories import (
     create_counter_with_limits,
     create_diamond_dependency,
@@ -34,20 +33,12 @@ def reset_observable_state():
     original_context = Observable._current_context
     original_stack = Observable._context_stack.copy()
 
-    # Store optimizer context
-    original_optimizer_context = getattr(
-        OptimizationContext._thread_local, "current", None
-    )
-
     # Reset to clean state
     Observable._pending_notifications.clear()
     Observable._notification_scheduled = False
     Observable._currently_notifying.clear()
     Observable._current_context = None
     Observable._context_stack.clear()
-
-    # Reset optimizer context for this thread
-    OptimizationContext._thread_local.current = None
 
     yield
 
@@ -57,9 +48,6 @@ def reset_observable_state():
     Observable._currently_notifying = original_notifying
     Observable._current_context = original_context
     Observable._context_stack = original_stack
-
-    # Restore optimizer context
-    OptimizationContext._thread_local.current = original_optimizer_context
 
 
 @pytest.fixture

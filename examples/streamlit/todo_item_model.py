@@ -3,17 +3,12 @@
 Fynx Streamlit TODO Item Model
 ==============================
 
-This module defines the TodoItem data structure used throughout the Fynx TODO application.
-The TodoItem represents an immutable todo item with a unique identifier, text content,
+Defines the TodoItem data structure used throughout the Fynx TODO
+application: an immutable todo item with a unique identifier, text content,
 and completion status.
 
-The module provides:
-- Immutable TodoItem dataclass with unique ID generation
-- Factory method for creating new todo items
-- Method for toggling completion status immutably
-
-This separation allows the data model to be imported independently of the store logic,
-promoting better modularity and testability.
+Kept separate from the store logic so the data model can be imported and
+tested independently.
 
 Example:
     ```python
@@ -47,12 +42,9 @@ class TodoItem:
     """
     An immutable data structure representing a single todo item.
 
-    Each todo item has a unique identifier, text content, and completion status.
-    The frozen dataclass ensures immutability, requiring new instances to be
-    created for any modifications (such as toggling completion status).
-
-    This design promotes functional programming principles and makes the
-    todo items safe to use in reactive systems without unexpected mutations.
+    The frozen dataclass means any modification, like toggling completion,
+    creates a new instance instead of mutating in place - which keeps todo
+    items safe to use in a reactive system without unexpected mutations.
 
     Attributes:
         id: Unique identifier for the todo item (UUID string).
@@ -83,10 +75,6 @@ class TodoItem:
         """
         Create a new TodoItem instance with a unique UUID.
 
-        This factory method generates a unique identifier for each todo item,
-        ensuring that no two todo items will ever have the same ID, even if
-        they have identical text content.
-
         Args:
             text: The text content for the todo item.
             completed: Initial completion status (default: False).
@@ -95,9 +83,8 @@ class TodoItem:
             A new TodoItem instance with a unique identifier.
 
         Note:
-            The ID is generated using uuid.uuid4() to ensure uniqueness
-            across all todo items in the application. The UUID is converted
-            to a string for easier storage and serialization.
+            The ID comes from uuid.uuid4(), converted to a string for
+            storage and serialization.
         """
         return cls(id=str(uuid.uuid4()), text=text, completed=completed)
 
@@ -105,10 +92,8 @@ class TodoItem:
         """
         Create a new TodoItem with the opposite completion status.
 
-        Due to the immutable nature of TodoItem instances, this method
-        returns a new instance rather than modifying the existing one.
-        This ensures thread safety and predictable behavior in reactive
-        systems.
+        Returns a new instance rather than modifying this one, since
+        TodoItem is immutable.
 
         Returns:
             A new TodoItem instance with the same id and text, but with

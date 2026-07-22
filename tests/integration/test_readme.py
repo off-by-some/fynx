@@ -267,13 +267,13 @@ class TestReadmeExamples:
         data.set(10)  # positive and even
         assert filtered.value == 10
 
-    def test_pullback_commutativity(self):
-        """Test pullback commutativity."""
+    def test_pullback_guard_order_commutativity(self):
+        """Test guard-order commutativity for a fixed source."""
         data = observable(42)
         is_positive = data >> (lambda x: x > 0)
         is_even = data >> (lambda x: x % 2 == 0)
 
-        # Commutativity: a & b ≡ b & a
+        # Guard-order commutativity for a fixed source, not global `&` commutativity.
         filter1 = data & is_positive & is_even
         filter2 = data & is_even & is_positive
 

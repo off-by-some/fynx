@@ -1,39 +1,20 @@
 """
-FynX - Python Reactive State Management Library
-===============================================
+FynX - reactive state management for Python
+============================================
 
-FynX is a lightweight, transparent reactive state management library for Python,
-inspired by MobX. It enables reactive programming patterns where state changes
-automatically propagate through your application, eliminating the need for manual
-state synchronization.
+FynX is a reactive state library inspired by MobX. Observables hold values;
+computed values and reactions derive from them and update automatically when
+their dependencies change, so state doesn't need to be synchronized by hand.
 
-Core Concepts
--------------
+- Observables hold a value and notify watchers when it changes.
+- Computed values derive from observables and recompute (with memoization)
+  only when their inputs change.
+- Reactions are functions that run as a side effect when their observed
+  dependencies change.
+- Stores are classes that group related observables with subscription helpers.
 
-**Observables**: Values that can be watched for changes. When an observable value
-changes, all dependent computations and reactions automatically update.
-
-**Computed Values**: Derived values that automatically recalculate when their
-explicit inputs change, with built-in memoization for performance.
-
-**Reactions**: Functions that run automatically when their observed dependencies
-change, enabling side effects like UI updates or API calls.
-
-**Stores**: Classes that group related observables together with convenient
-subscription and state management methods.
-
-Key Features
--------------
-
-- **Transparent Reactivity**: No special syntax needed - just use regular Python objects
-- **Automatic Dependency Tracking**: Observables automatically track what depends on them
-- **Lazy Evaluation**: Computed values only recalculate when needed
-- **Type Safety**: Full type hint support for better IDE experience and static analysis
-- **Memory Efficient**: Automatic cleanup of unused reactive contexts
-- **Composable**: Easy to combine and nest reactive components
-
-Quick Example
--------------
+Example
+-------
 
 ```python
 from fynx import Store, observable, reactive
@@ -56,7 +37,7 @@ UserStore.name = "Bob"  # Prints: User updated: Bob, 30
 UserStore.age = 31      # Prints: User updated: Bob, 31
 ```
 
-For more examples and detailed documentation, see the README.md file.
+See README.md for more examples and detailed documentation.
 """
 
 __version__ = "0.1.2"
@@ -69,15 +50,19 @@ from .observable import (
     MergedObservable,
     Observable,
     ReactiveContext,
+    SubscriptableDescriptor,
     TransformPurityError,
 )
-from .observable import SubscriptableDescriptor as Subscriptable
 from .reactive import ReactiveFunctionWasCalled, reactive
-from .store import Store, observable
+from .store import Store, StoreSnapshot, observable
+from .types import SessionValue, StoreState, StoreStateMapping, Subscriber
+
+Subscriptable = SubscriptableDescriptor
 
 __all__ = [
     "Observable",
     "Store",
+    "StoreSnapshot",
     "Subscriptable",
     "MergedObservable",
     "ConditionalObservable",
@@ -85,6 +70,10 @@ __all__ = [
     "TransformPurityError",
     "ReactiveContext",
     "ReactiveFunctionWasCalled",
+    "SessionValue",
+    "StoreState",
+    "StoreStateMapping",
+    "Subscriber",
     "observable",
     "reactive",
 ]

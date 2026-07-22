@@ -38,6 +38,13 @@ FynX's algebra relies on a few practical assumptions:
 
 With that contract in place, the mathematical structures below are more than decoration. They explain why the API composes cleanly and why certain optimizations preserve the behavior users can observe.
 
+FynX now leans into that contract directly in the runtime:
+
+- Pure transform chains are fused as they are built. `obs >> f >> g` keeps the same value behavior as mapping through `f` and then `g`, but it is represented as one composed transform over `obs` when no observed boundary says otherwise.
+- Ordered products are canonical while live. Repeating `a + b` gives the same product node, while `b + a` remains a different ordered tuple.
+- Derived values use source versions for invalidation. Unobserved nodes stay lazy and refresh only when read after an input version changes.
+- Subscribers create the eager frontier. A node with observers maintains itself enough to deliver notifications; a node without observers returns to lazy cached behavior.
+
 ---
 
 ## Observables as Functors
@@ -158,7 +165,7 @@ initials = product >> (lambda first, last: f"{first[0]}.{last[0]}.")
 display = product >> (lambda first, last: f"{last}, {first}")
 ```
 
-All three computations need both names. The universal property tells us that using a shared product is semantically valid: there is one canonical current pair of first and last name. When the runtime or optimizer can establish that repeated products have the same sources and the same operational context, it may safely share that work. The mathematics justifies the sharing; the implementation still has to recognize when sharing is available.
+All three computations need both names. The universal property tells us that using a shared product is semantically valid: there is one canonical current pair of first and last name. FynX makes this concrete for ordered products: while a product node is live, repeating the same ordered source list reuses that node.
 
 ### Symmetry and Associativity
 
@@ -180,9 +187,9 @@ left = (first_name + last_name) + city
 right = first_name + (last_name + city)
 ```
 
-The nesting differs, but structurally, all three observables are combined correctly. Changes to any propagate through as expected.
+In FynX these groupings flatten to the same ordered source list, so both values are `(first, last, city)`. Changes to any source are reflected in the next read and delivered to subscribers.
 
-These properties aren't just mathematical curiosities. They give the optimizer permission to rearrange or share products when it can do so without changing the public behavior of the graph.
+These properties aren't just mathematical curiosities. They let the runtime share products by construction instead of rediscovering the same pair over and over.
 
 ---
 
@@ -245,7 +252,7 @@ When you write `data & condition1 & condition2`, you're building this chain of c
 sensor_reading.set(42.5)  # All conditions pass → gate opens
 sensor_reading.set(150)   # Fails range check → gate closes
 sensor_reading.set(-10)   # Fails range check → gate stays closed
-sensor_reading.set(55.0)  # All conditions pass → gate opens again
+sensor_reading.set(43.0)  # Within range and within 5 of previous_reading → gate opens again
 ```
 
 ### More Practical Examples
@@ -259,8 +266,8 @@ min_price = observable(0.0)
 max_price = observable(1000.0)
 in_stock_only = observable(True)
 
-# Product list from database
-products = observable([...])
+# Product list from database (populated elsewhere)
+products = observable([])
 
 # Keep every reactive input explicit
 filtered_products = (
@@ -381,15 +388,17 @@ When conditions come from several observables, you can think of the shared state
 
 ### Special Properties
 
-Here's something interesting. General pullbacks in category theory don't necessarily commute or associate. But FynX's boolean gates do, under the public semantics described above, and there's a specific reason why.
+Here's something interesting. General pullbacks in category theory don't necessarily commute or associate. FynX's boolean guard sets have a narrower, useful property under the public semantics described above, and there's a specific reason why.
 
 All our conditions map to the same codomain ($\mathbb{B}$). They all filter to the same fiber (`True`). And logical AND is both commutative and associative. These structural properties of Boolean algebra transfer to our pullback construction:
 
-**Commutativity**: The order of conditions doesn't matter:
-$$\text{data} \& c_1 \& c_2 \equiv \text{data} \& c_2 \& c_1$$
+**Guard-order commutativity**: for a fixed source, the order of independent pure guards does not affect the resulting conditional observable:
+$$G(G(\text{data}, c_1), c_2) \equiv G(G(\text{data}, c_2), c_1)$$
 
-**Associativity**: Grouping doesn't matter:
-$$(\text{data} \& c_1) \& c_2 \equiv \text{data} \& (c_1 \& c_2)$$
+This does **not** mean `&` is globally commutative. `data & is_ready` means "expose `data` while `is_ready` is true"; `is_ready & data` would expose the boolean readiness value while `data` is truthy. The source and guard roles are intentionally asymmetric.
+
+**Guard-chain associativity**: grouping a sequence of guards does not change the resulting gate:
+$$G(G(G(\text{data}, c_1), c_2), c_3) \equiv G(\text{data}, c_1, c_2, c_3)$$
 
 This is specific to FynX's Boolean filtering contract. In the general category-theoretic setting, these properties don't always hold. In FynX, pure boolean conditions can be combined because `and` over truth values is associative and commutative, and the conditional observable exposes the source only when all conditions are active.
 
@@ -468,13 +477,11 @@ This is what mathematical foundations provide here: not a machine-checked proof 
 
 ---
 
-## The Optimizer: Category Theory as Compiler
-
-### Automatic Optimization
+## Runtime Representation: Algebra as Architecture
 
 FynX achieves strong performance in fixed-size synchronous benchmarks while preserving the algebraic semantics described above. The benchmark suite reports concrete graph operations—source updates, chain propagation, fan-out notification, diamond convergence, and dynamic condition switching—rather than translating lightweight dependents into UI claims.
 
-The optimizer and runtime fast paths use several rewrite ideas inspired by the algebra above. The important standard is simple: a rewrite is only valid when it preserves FynX's public semantics under the purity and synchronization assumptions already stated.
+There is no separate optimizer module in the normal runtime. The important algebraic choices are represented directly by the observable nodes themselves. That keeps the system easier to inspect: the fast representation is the ordinary representation.
 
 ### Functor Composition Fusion
 
@@ -482,81 +489,47 @@ The composition law explains why sequential pure transformations can fuse:
 
 $$\text{obs} \gg f \gg g \gg h \rightarrow \text{obs} \gg (h \circ g \circ f)$$
 
-Instead of forcing every `>>` in a chain to behave like a separately notified runtime node, FynX can represent compatible chains as composed functions over the original source. This is why deep chains stay efficient: arbitrary functions still run in order, but the reactive graph does less bookkeeping.
+Instead of forcing every `>>` in a chain to behave like a separately notified runtime node, FynX represents compatible chains as composed functions over the original source. This is why deep chains stay efficient: arbitrary functions still run in order, but the reactive graph does less bookkeeping.
 
-The functor laws explain why this is semantics-preserving for pure transforms when intermediate nodes are not being observed as distinct effect boundaries.
+The functor laws explain why this is semantics-preserving for pure transforms when intermediate nodes are not being observed as distinct effect boundaries. If a node is observed, that subscriber becomes an effect boundary and FynX maintains enough eager state to deliver the promised notification.
 
-### Product Factorization
+### Canonical Products
 
 The universal property of products explains why multiple computations needing the same product may share it:
 
 ```python
-# User writes:
 result1 = (a + b) >> f
 result2 = (a + b) >> g
 result3 = (a + b) >> h
-
-# Optimizer produces:
-product = a + b
-result1 = product >> f
-result2 = product >> g
-result3 = product >> h
 ```
 
-Because repeated products with the same sources have equivalent current-value semantics, sharing them is safe when the runtime can establish that the sources and operational context match. The universal property justifies the rewrite; recognizing and applying it is an implementation concern.
+Because repeated products with the same ordered sources have equivalent current-value semantics, FynX canonicalizes them while live. The product interpretation supports that sharing, and the ordered source list gives the runtime a simple, concrete key for recognizing it. This is not a separate rewrite pass; it is how `+` / `.alongside()` constructs products.
 
-### Pullback Fusion
+Unobserved products remain lazy. They store a cached tuple and a version signature for their sources; if a source changes, the product refreshes on the next read. Subscribed products attach to their sources so they can notify observers immediately when the current tuple changes.
 
-The commutativity and associativity of FynX's boolean gates allow combining sequential filters:
+### Version-Based Invalidation
 
-$$\text{obs} \& c_1 \& c_2 \& c_3 \rightarrow \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
+Every observable has a version. Derived values remember the versions of their inputs. A read checks that signature; if an input version changed, the derived value recomputes once and updates its own version if the public value changed.
 
-Multiple compatible conditional checks can become one. The algebraic structure explains why this preserves public behavior for pure boolean conditions.
+This gives FynX lazy caching without a mode switch. Unobserved values do not subscribe upstream just to stay warm. They become fresh when you ask for them.
 
-### Cost-Based Materialization
+### Subscriber Frontier
 
-The optimizer uses a two-stage cost model to estimate whether a node is better cached or recomputed. Think of this as a practical, compositional heuristic rather than a formal proof of global optimality.
+Subscribers are the effect boundary. If a derived observable has subscribers, FynX activates the dependencies needed to deliver notifications. If it has no subscribers, it can return to lazy, version-checked behavior.
 
-### Compositional Cost Model
+This is the materialization boundary in the current design. It is not a global min-cut optimizer, and it does not claim global optimality. It is a simple rule that follows actual demand: observed nodes are maintained for effects; unobserved nodes are cached and recomputed on read.
 
-The base cost estimate flows through the dependency graph:
+### Boolean Gates
 
-$$\text{Base Cost}(\sigma) = \alpha \cdot \text{materialization}(\sigma) + \beta \cdot \text{recomputation}(\sigma) + \sum_{\tau \in \text{dependencies}(\sigma)} \text{Base Cost}(\tau)$$
+The guard-order commutativity and guard-chain associativity of FynX's boolean gates explain why sequential filters compose predictably:
 
-Where:
-- $\alpha$: Memory cost coefficient for materialized nodes
-- $\beta$: Computation cost coefficient  
-- $\text{materialization}(\sigma)$: 1 if node is cached, 0 otherwise
-- $\text{recomputation}(\sigma)$: $\mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma)$ if not cached, 0 otherwise
+$$\text{obs} \& c_1 \& c_2 \& c_3 \equiv \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
 
-This additive shape mirrors the way composed graphs accumulate work:
+FynX still represents conditions as explicit gates rather than hiding them in an optimizer pass. The algebraic structure explains why stacking pure boolean conditions preserves public behavior.
 
-$$\text{cost of a derived node} \approx \text{local cost} + \text{cost of its dependencies}$$
+### Why This Is Sound
 
-Fusion and sharing can make the optimized cost lower than the naive sum, which is why this is best understood as a cost model for engineering decisions, not as a proof by itself.
-
-### Sharing Penalty Model
-
-In addition to base costs, the optimizer accounts for sharing penalties that arise when non-materialized nodes have multiple dependents:
-
-$$\text{Sharing Penalty}(\sigma) = \begin{cases} 
-0 & \text{if } \sigma \text{ is materialized or } |\text{dependents}(\sigma)| \leq 1 \\
-(\text{dependents}(\sigma) - 1) \cdot \beta \cdot \mathbb{E}[\text{Updates}(\sigma)] \cdot \text{computation\_cost}(\sigma) & \text{otherwise}
-\end{cases}$$
-
-### Total Cost
-
-The complete cost model combines both components:
-
-$$\text{Total Cost}(\sigma) = \text{Base Cost}(\sigma) + \text{Sharing Penalty}(\sigma)$$
-
-The base component keeps the estimate local and compositional, while the sharing penalty captures contextual costs that depend on usage patterns. For frequently-accessed or deep nodes, caching may win. For cheap or rarely-accessed nodes, recomputation may win. When a node has multiple dependents, materialization becomes more attractive because it can avoid redundant computation.
-
-### Why Optimization is Sound
-
-These aren't benchmark tricks discovered through profiling. The rewrite ideas come from the algebraic structure and are guarded by FynX's public semantics. Composition collapse follows from functor laws. Product factorization follows from product semantics. Pullback-style fusion follows from Boolean algebra structure. Materialization follows from a compositional cost estimate.
-
-The optimizer can be aggressive where the semantic contract is clear, and conservative where operational details would be visible. This is optimization guided by algebra and verified by implementation tests, rather than a claim that every optimization choice is globally optimal.
+These aren't benchmark tricks discovered through profiling. The representation choices come from the algebraic structure and are guarded by FynX's public semantics. Composition collapse follows from functor laws. Product sharing follows from product semantics. Boolean gate composition follows from Boolean algebra. Version invalidation preserves the current-value contract while avoiding unnecessary work.
 
 ---
 
@@ -578,7 +551,7 @@ if current_context and observable in current_context.dependencies:
     raise RuntimeError("Circular dependency detected")
 ```
 
-The optimizer's graph utilities also include DFS/Kahn-style cycle checks for graph analysis. In everyday use, the most important rule is simpler: derived values should derive; effects and mutations belong at the edge of the system.
+In everyday use, the most important rule is simple: derived values should derive; effects and mutations belong at the edge of the system.
 
 ### Topological Order
 

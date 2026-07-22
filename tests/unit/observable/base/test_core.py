@@ -155,6 +155,25 @@ def test_observable_boolean_conversion_uses_value():
 
 @pytest.mark.unit
 @pytest.mark.observable
+def test_observable_formatting_delegates_to_value():
+    """Observable supports Python format specs for the wrapped value."""
+    price = Observable("price", 12.345)
+
+    assert f"{price:.2f}" == "12.35"
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_computed_observable_formatting_delegates_to_value():
+    """Computed observables support Python format specs for their current value."""
+    price = Observable("price", 12.345)
+    doubled = price >> (lambda value: value * 2)
+
+    assert f"{doubled:.1f}" == "24.7"
+
+
+@pytest.mark.unit
+@pytest.mark.observable
 def test_observable_hash_based_on_object_identity():
     """Observable hash is based on object identity, not value"""
     # Arrange
@@ -765,6 +784,45 @@ def test_reactive_context_dispose_stops_observable_notifications():
     obs2.set(5)
 
     assert notification_count == initial_count
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_reactive_context_removes_stale_dynamic_dependencies():
+    """ReactiveContext reruns unsubscribe from observables no longer read."""
+    toggle = Observable("toggle", True)
+    left = Observable("left", 1)
+    right = Observable("right", 2)
+    seen = []
+
+    def effect():
+        if toggle.value:
+            seen.append(left.value)
+        else:
+            seen.append(right.value)
+
+    context = ReactiveContext(effect, effect, None)
+    context.run()
+
+    assert context.run in toggle._observers
+    assert context.run in left._observers
+    assert context.run not in right._observers
+
+    toggle.set(False)
+
+    assert seen[-1] == 2
+    assert context.run in toggle._observers
+    assert context.run not in left._observers
+    assert context.run in right._observers
+
+    left.set(10)
+    assert seen[-1] == 2
+
+    context.dispose()
+
+    assert context.run not in toggle._observers
+    assert context.run not in left._observers
+    assert context.run not in right._observers
 
 
 @pytest.mark.unit

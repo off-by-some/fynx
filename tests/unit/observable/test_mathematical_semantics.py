@@ -2,7 +2,7 @@
 
 import pytest
 
-from fynx import Store, observable
+from fynx import Store, observable, reactive
 from fynx.observable.base import Observable, TransformPurityError
 
 
@@ -38,6 +38,110 @@ def test_diamond_convergence_recomputes_once_per_source_update():
     assert joined.value == 7
     assert received == [7]
     assert calls == {"left": 1, "right": 1, "joined": 1}
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_conditional_diamond_with_merged_guard_notifies_once_per_source_update():
+    """A gate with plain and product-derived guards emits once after convergence."""
+    items = observable(0)
+    subtotal = items >> (lambda count: count * 10)
+    zero = items >> (lambda count: 0)
+    total = (subtotal + zero) >> (
+        lambda current_subtotal, current_zero: current_subtotal - current_zero
+    )
+    has_items = items >> (lambda count: count > 0)
+    total_positive = total >> (lambda current_total: current_total > 0)
+    received = []
+
+    gate = has_items & total_positive
+    gate.subscribe(received.append)
+    items.set(2)
+
+    assert received == [True]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_nested_conditional_shared_guards_notify_once_per_source_update():
+    """Nested gates with shared upstream guards emit once after stabilization."""
+    items = observable(0)
+    subtotal = items >> (lambda count: count * 10)
+    discount = (subtotal + items) >> (lambda current_subtotal, count: count * 0)
+    total = (subtotal + discount) >> (
+        lambda current_subtotal, current_discount: current_subtotal - current_discount
+    )
+    has_items = items >> (lambda count: count > 0)
+    total_positive = total >> (lambda current_total: current_total > 0)
+    not_free = discount >> (lambda current_discount: current_discount == 0)
+    received = []
+
+    gate = (has_items & total_positive) & not_free
+    gate.subscribe(received.append)
+    items.set(2)
+
+    assert received == [True]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_reference_api_checkout_example_enables_once_when_cart_becomes_valid():
+    """The reference checkout example does not duplicate eligibility effects."""
+
+    class ShoppingCartStore(Store):
+        items = observable([])
+        discount_code = observable(None)
+
+    subtotal = ShoppingCartStore.items >> (
+        lambda items: sum(item["price"] * item["quantity"] for item in items)
+    )
+    discount_amount = (ShoppingCartStore.items + ShoppingCartStore.discount_code) >> (
+        lambda items, code: (
+            sum(item["price"] * item["quantity"] for item in items) * 0.20
+            if code == "SAVE20"
+            else 0.0
+        )
+    )
+    total = (subtotal + discount_amount) >> (lambda sub, disc: sub - disc)
+    has_items = ShoppingCartStore.items >> (lambda items: len(items) > 0)
+    total_positive = total >> (lambda current_total: current_total > 0)
+    can_checkout = has_items & total_positive
+    enabled = []
+
+    @reactive(can_checkout)
+    def enable_checkout_button(can_checkout_val):
+        enabled.append(can_checkout_val)
+
+    ShoppingCartStore.items.set([{"price": 20.0, "quantity": 2}])
+
+    assert enabled == [True]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_order_core_conditional_transform_can_start_inactive():
+    """Identity transforms over inactive gates preserve the gate instead of crashing."""
+
+    class OrderCore(Store):
+        items = observable([])
+        address = observable("")
+        payment = observable("")
+        is_processing = observable(False)
+
+        has_items = items >> (lambda current_items: len(current_items) > 0)
+        has_address = address >> bool
+        has_payment = payment >> bool
+        can_checkout = (has_items & has_address & has_payment & ~is_processing) >> (
+            lambda allowed: allowed
+        )
+
+    enabled = []
+    OrderCore.can_checkout.subscribe(enabled.append)
+    OrderCore.items.set(["widget"])
+    OrderCore.address.set("123 Main")
+    OrderCore.payment.set("card")
+
+    assert enabled == [True]
 
 
 @pytest.mark.unit
@@ -154,6 +258,108 @@ def test_transform_accepts_explicit_product_dependencies():
 
 @pytest.mark.unit
 @pytest.mark.observable
+def test_transform_chains_are_fused_by_construction():
+    """Chained transforms compose onto the original source."""
+    source = Observable("source", 2)
+
+    transformed = source >> (lambda value: value + 3) >> (lambda value: value * 10)
+
+    assert transformed._source_observable is source
+    assert transformed.value == 50
+
+    source.set(4)
+    assert transformed.value == 70
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_products_are_canonical_for_ordered_sources():
+    """The same ordered product expression reuses the same product node."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    city = Observable("city", "London")
+
+    assert (first + last) is (first + last)
+    assert ((first + last) + city) is (first + (last + city))
+    assert (last + first) is not (first + last)
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_unobserved_computed_values_recompute_lazily_from_source_versions():
+    """Unobserved derived values are invalidated by source version, then read lazily."""
+    source = Observable("source", 1)
+    calls = {"count": 0}
+
+    def double(value):
+        calls["count"] += 1
+        return value * 2
+
+    doubled = source >> double
+    assert calls["count"] == 1
+
+    source.set(2)
+    assert calls["count"] == 1
+
+    assert doubled.value == 4
+    assert calls["count"] == 2
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_subscribers_create_and_remove_the_eager_frontier():
+    """Observed derived values maintain themselves; unobserved values return to lazy mode."""
+    source = Observable("source", 1)
+    calls = {"count": 0}
+    received = []
+
+    def double(value):
+        calls["count"] += 1
+        return value * 2
+
+    doubled = source >> double
+    callback = received.append
+    doubled.subscribe(callback)
+
+    source.set(2)
+    assert received == [4]
+    assert calls["count"] == 2
+
+    doubled.unsubscribe(callback)
+    source.set(3)
+    assert calls["count"] == 2
+    assert doubled.value == 6
+    assert calls["count"] == 3
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_products_are_lazy_until_observed_and_versioned_when_read():
+    """Products do not subscribe upstream until demanded by a subscriber."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+
+    assert product._dependencies_active is False
+
+    first.set("Augusta")
+    assert product._dependencies_active is False
+    assert product.value == ("Augusta", "Lovelace")
+
+    received = []
+    callback = lambda *values: received.append(values)
+    product.subscribe(callback)
+    assert product._dependencies_active is True
+
+    last.set("King")
+    assert received == [("Augusta", "King")]
+
+    product.unsubscribe(callback)
+    assert product._dependencies_active is False
+
+
+@pytest.mark.unit
+@pytest.mark.observable
 def test_callable_condition_tracks_external_observable_dependencies():
     """Callable pullbacks subscribe to observables read inside predicates."""
     source = Observable("source", 5)
@@ -199,3 +405,25 @@ def test_callable_condition_switches_dynamic_dependencies():
 
     left_limit.set(1)
     assert filtered.is_active is False
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_callable_condition_unsubscribes_from_stale_branch_dependencies():
+    """Predicate branch switching removes stale dependency notifications."""
+    source = Observable("source", 5)
+    use_left = Observable("use_left", True)
+    left_limit = Observable("left_limit", 10)
+    right_limit = Observable("right_limit", 10)
+    received = []
+
+    filtered = source & (
+        lambda value: value
+        < (left_limit.value if use_left.value else right_limit.value)
+    )
+    filtered.subscribe(received.append)
+    use_left.set(False)
+    left_limit.set(1)
+    right_limit.set(4)
+
+    assert received == []

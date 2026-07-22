@@ -1,15 +1,9 @@
 """
 Streamlit Store Example - Reactive State Management with Streamlit Session State
 
-This example demonstrates how to create a custom Store subclass that automatically
-synchronizes observable values with Streamlit's session state, enabling seamless
-integration between FynX's reactive system and Streamlit's state management.
-
-The StreamlitStore provides:
-- Automatic synchronization between observables and session state
-- Transparent reactive behavior within Streamlit apps
-- Easy persistence of state across reruns
-- Bidirectional sync that works both ways (observable → session state and vice versa)
+Shows how to build a custom Store subclass that keeps its observables synced
+with Streamlit's session state, so FynX's reactive system and Streamlit's
+rerun-based state management stay in agreement in both directions.
 
 To run this example:
     $ pip install fynx streamlit && python run examples/streamlit/store.py
@@ -18,9 +12,9 @@ To run this example:
 import logging
 from typing import Any, Dict, Set
 
-from fynx import Store
+from fynx import Store, StoreSnapshot, StoreStateMapping
 from fynx.observable.computed import ComputedObservable
-from fynx.store import SessionValue, StoreMeta
+from fynx.store import StoreMeta
 
 # ==============================================================================================
 # Constants
@@ -216,10 +210,9 @@ class StreamlitStore(Store, metaclass=StreamlitStoreMeta):
     """
     A reactive store implementation with automatic Streamlit session state synchronization.
 
-    This store extends FynX's base Store class with seamless integration to Streamlit's
-    session state, enabling reactive state management that automatically persists across
-    app reruns. All primitive observable attributes are automatically synchronized
-    bidirectionally between the store and Streamlit's session state.
+    Extends FynX's base Store class so every primitive observable attribute
+    stays synced, in both directions, with Streamlit's session state, letting
+    state persist across app reruns without manual intervention.
 
     Key Features:
         - Automatic bidirectional synchronization with Streamlit session state
@@ -241,6 +234,9 @@ class StreamlitStore(Store, metaclass=StreamlitStoreMeta):
 
         # State automatically syncs with session state
         TodoStore.task_input = "Buy groceries"
+        TodoStore.tasks = TodoStore.tasks.value + ["Buy groceries"]
+        # Avoid TodoStore.tasks.value.append(...): in-place mutation does not
+        # notify FynX observers or session-state synchronization.
         # This value is now available in st.session_state['TodoStore_task_input']
         ```
 
@@ -255,11 +251,10 @@ class StreamlitStore(Store, metaclass=StreamlitStoreMeta):
         """
         Initialize automatic session state synchronization for observable changes.
 
-        This method sets up a subscription to observable changes that automatically
-        synchronizes all primitive observable values to Streamlit session state
-        whenever they change. The setup is performed only once per class.
+        Subscribes to observable changes so every primitive observable value
+        syncs to Streamlit session state as it changes. Runs once per class.
 
-        The method creates a change handler that:
+        The handler:
         1. Checks if Streamlit is available
         2. Iterates through all primitive observables
         3. Updates session state only when values have actually changed
@@ -272,7 +267,7 @@ class StreamlitStore(Store, metaclass=StreamlitStoreMeta):
         if hasattr(cls, "_session_sync_setup"):
             return
 
-        def handle_observable_changes(changed_snapshot: Dict[str, Any]) -> None:
+        def handle_observable_changes(changed_snapshot: StoreSnapshot) -> None:
             """
             Handle observable changes by synchronizing primitive values to session state.
 
@@ -530,7 +525,7 @@ class StreamlitStore(Store, metaclass=StreamlitStoreMeta):
             return repr(value)
 
     @classmethod
-    def load_state(cls, state_dict: Dict[str, SessionValue]) -> None:
+    def load_state(cls, state_dict: StoreStateMapping) -> None:
         """
         Load state from a dictionary into observables with Streamlit session state synchronization.
 

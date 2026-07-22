@@ -1,21 +1,28 @@
 """
-FynX Observable - Core Reactive Value Implementation
-====================================================
+FynX Observable - core reactive value implementation
+=====================================================
 
-Reactive programming transforms static values into dynamic ones that automatically propagate changes. When you modify an observable value, every computation and function that depends on it updates automatically—no manual synchronization required. This module implements that foundation for Python.
+Observable wraps a value and tracks which reactive functions read it during
+execution, so it can re-run them automatically when the value changes.
 
-Observable wraps a value and tracks which reactive functions access it during execution. When the value changes, those functions re-run automatically. We call this dependency tracking—the observable maintains a set of observers that get notified on change.
+ReactiveContext is the execution scope for a reactive function: while the
+function runs, reading an observable's `.value` registers that observable as
+a dependency of the context. When the observable later changes, the context
+re-runs the function. Contexts push onto a stack while running so that nested
+reactive calls track their own dependencies correctly, and that same stack is
+what lets circular-dependency detection work - if a computation tries to
+modify one of its own inputs, it raises an error instead of looping.
 
-ReactiveContext manages the execution environment for reactive functions. Think of it as a scope that watches which observables get accessed during function execution. When an observable's value property is read, the context records that dependency. Later, when that observable changes, the context re-runs the function with fresh values.
-
-The system uses a stack-based approach for nested reactive functions. Each context pushes itself onto a stack during execution, ensuring that dependencies are tracked correctly even when functions call other reactive functions. That stack also enables circular dependency detection—if a computation tries to modify one of its own inputs, the system raises an error.
-
-Observable implements magic methods (`__eq__`, `__str__`, `__bool__`) to behave like its underlying value. You can use it in boolean contexts, string formatting, and equality comparisons without accessing `.value` explicitly. That transparency makes observables easy to integrate into existing code.
-
-Result: values that look and feel like regular Python values, but propagate changes automatically through dependent computations and reactions.
+Observable also implements `__eq__`, `__str__`, and `__bool__` so it behaves
+like the value it wraps in boolean contexts, string formatting, and equality
+checks, without needing `.value` everywhere.
 """
 
+from __future__ import annotations
+
 from typing import (
+    TYPE_CHECKING,
+    Any,
     Callable,
     Dict,
     List,
@@ -23,12 +30,19 @@ from typing import (
     Set,
     Type,
     TypeVar,
+    cast,
+    overload,
 )
+from weakref import WeakKeyDictionary
 
 from ..registry import _all_reactive_contexts, _func_to_contexts
+from ..types import Observer, Subscriber, ValueObserver
 from .interfaces import Observable as ObservableInterface
 from .interfaces import ReactiveContext as ReactiveContextInterface
 from .operators import OperatorMixin
+
+if TYPE_CHECKING:
+    from .descriptors import ObservableValue
 
 T = TypeVar("T")
 
@@ -55,18 +69,21 @@ class TransformPurityError(RuntimeError):
 
 class ReactiveContext(ReactiveContextInterface):
     """
-    Execution context for reactive functions with automatic dependency tracking.
+    Execution context for a reactive function, with automatic dependency tracking.
 
-    ReactiveContext manages the execution environment for reactive functions. During
-    execution, it watches which observables get accessed and registers the function
-    as an observer on each one. When any dependency changes, the context re-runs
-    the function automatically.
+    While the wrapped function runs, the context watches which observables get
+    read via `.value` and registers itself as an observer on each one, so that
+    any of them changing triggers a re-run.
 
-    The context maintains a set of dependencies—observables that were accessed during the last execution. Each time the function runs, it clears old dependencies and builds a fresh set by tracking which observables' `.value` properties get accessed. That tracking happens transparently: reading `observable.value` within a reactive context automatically registers that observable as a dependency.
+    Each run rebuilds the dependency set from scratch: old dependencies that
+    weren't touched this time are dropped, and newly-read ones are added.
+    Contexts push onto Observable's context stack while running, so nested
+    reactive calls (a reactive function that triggers another) track their
+    own dependencies independently rather than merging into the outer one.
 
-    The system uses a stack-based approach for nested reactive functions. When a context runs, it pushes itself onto Observable's context stack and sets itself as the current context. Nested reactive calls create new contexts that push onto the stack, ensuring that each level tracks its own dependencies correctly. When execution completes, the context pops itself from the stack and restores the previous context.
-
-    For cleanup, the context tracks which observable it was originally subscribed to (if any). When disposed, it removes itself from that observable's observers and clears all dependency registrations. That prevents memory leaks when reactive functions are no longer needed.
+    On dispose, the context removes itself from every observable it's
+    subscribed to, so a discarded reactive function doesn't keep observers
+    alive.
 
     Attributes:
         func: The reactive function to execute
@@ -76,7 +93,8 @@ class ReactiveContext(ReactiveContextInterface):
         is_running: Whether the context is currently executing
 
     Note:
-        This class is typically managed automatically by FynX's decorators and observable operations. Direct instantiation is rarely needed—use `@reactive` or `.subscribe()` instead.
+        This is normally created for you by `@reactive` or `.subscribe()` -
+        direct instantiation is rarely needed.
 
     Example:
         ```python
@@ -94,8 +112,8 @@ class ReactiveContext(ReactiveContextInterface):
 
     def __init__(
         self,
-        func: Callable,
-        original_func: Optional[Callable] = None,
+        func: Observer,
+        original_func: Optional[Callable[..., Any]] = None,
         subscribed_observable: Optional["Observable"] = None,
     ) -> None:
         self.func = func
@@ -105,13 +123,13 @@ class ReactiveContext(ReactiveContextInterface):
         self.subscribed_observable = (
             subscribed_observable  # The observable this context is subscribed to
         )
-        self.dependencies: Set["Observable"] = set()
+        self.dependencies: Set["Observable[Any]"] = set()
         self.is_running = False
         # For merged observables, we need to remove the observer from the merged observable,
         # not from the automatically tracked source observables
         self._observer_to_remove_from = subscribed_observable
         # For store subscriptions, keep track of all store observables
-        self._store_observables: Optional[List["Observable"]] = None
+        self._store_observables: Optional[List["Observable[Any]"]] = None
 
     def run(self) -> None:
         """Run the reactive function, tracking dependencies."""
@@ -120,18 +138,23 @@ class ReactiveContext(ReactiveContextInterface):
 
         # Push this context onto the stack
         Observable._context_stack.append(self)
+        previous_dependencies = set(self.dependencies)
+        self.dependencies = set()
+        if self._observer_to_remove_from is not None:
+            self.dependencies.add(self._observer_to_remove_from)
 
         try:
             self.is_running = True
-            self.dependencies.clear()  # Clear old dependencies
             self.func()
         finally:
             self.is_running = False
             Observable._current_context = old_context
             # Pop this context from the stack
             Observable._context_stack.pop()
+            for observable in previous_dependencies - self.dependencies:
+                observable.remove_observer(self.run)
 
-    def add_dependency(self, observable: "Observable") -> None:
+    def add_dependency(self, observable: "Observable[Any]") -> None:
         """Add an observable as a dependency of this context."""
         # Only add if not already a dependency to avoid redundant observer registration
         if observable not in self.dependencies:
@@ -142,7 +165,7 @@ class ReactiveContext(ReactiveContextInterface):
             # The reactive context handles the main dependency tracking
 
     def dispose(self) -> None:
-        """Stop  the reactive computation and remove all observers."""
+        """Stop the reactive computation and remove all observers."""
         if self._observer_to_remove_from is not None:
             # For single observables or merged observables
             self._observer_to_remove_from.remove_observer(self.run)
@@ -153,25 +176,34 @@ class ReactiveContext(ReactiveContextInterface):
             for observable in self._store_observables:
                 observable.remove_observer(self.run)
 
+        for observable in tuple(self.dependencies):
+            observable.remove_observer(self.run)
+
         self.dependencies.clear()
 
 
-class Observable(ObservableInterface[T], OperatorMixin):
+class Observable(OperatorMixin[T], ObservableInterface[T]):
     """
-    A reactive value that automatically notifies dependents when it changes.
+    A reactive value that notifies dependents automatically when it changes.
 
-    Observable wraps any Python value and makes it reactive. When you modify the
-    value, all computations and functions that depend on it recalculate automatically.
-    Wrap any value in an Observable, and functions that read it during reactive
-    execution will re-run when the value changes.
+    Wrap any Python value in an Observable, and functions that read it during
+    reactive execution (via a ReactiveContext) will re-run when it changes.
+    Reading `.value` inside a reactive context registers the observable as a
+    dependency and adds the context's re-run function as an observer; calling
+    `.set()` later notifies those observers with the fresh value.
 
-    The mechanism works through dependency tracking. When a reactive function executes, it runs within a ReactiveContext. That context watches which observables get accessed via their `.value` property. Each access registers the observable as a dependency and adds the context's re-run function as an observer. Later, when you call `.set()` on the observable, it notifies all observers, causing dependent functions to re-execute with fresh values.
+    Observable also implements `__bool__`, `__str__`, and `__eq__`, so it can
+    be used in boolean contexts (`if observable:`), string formatting
+    (`f"{observable}"`), and equality comparisons (`observable == 5`) without
+    reaching for `.value` explicitly.
 
-    Observable implements magic methods to behave like its underlying value. You can use it in boolean contexts (`if observable:`), string formatting (`f"{observable}"`), and equality comparisons (`observable == 5`) without accessing `.value` explicitly. That transparency makes observables easy to integrate into existing code—they look and feel like regular values.
+    Changes are batched and notified in topological order - source
+    observables first, then computed, then conditional - so a conditional
+    observable never checks a condition value before it's been updated.
 
-    The notification system uses batched processing with topological sorting. When multiple observables change, the system collects pending notifications and processes them in dependency order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.
-
-    Circular dependency detection prevents infinite loops. If a computation tries to modify one of its own dependencies (directly or indirectly), the system raises a RuntimeError. The detection works by checking whether the current reactive context depends on the observable being modified.
+    Circular dependencies raise a RuntimeError rather than looping forever:
+    if a computation tries to modify one of its own dependencies (directly or
+    indirectly), setting the value fails instead of recursing.
 
     Attributes:
         key: Unique identifier for debugging and serialization
@@ -223,17 +255,17 @@ class Observable(ObservableInterface[T], OperatorMixin):
     """
 
     # Class variable to track the current reactive context
-    _current_context: Optional["ReactiveContext"] = None
+    _current_context: Optional[ReactiveContext] = None
 
     # Stack of reactive contexts being computed (for proper cycle detection)
-    _context_stack: List["ReactiveContext"] = []
-    _computation_dependency_stack: List[Set["Observable"]] = []
-    _dependency_capture_stack: List[Set["Observable"]] = []
+    _context_stack: List[ReactiveContext] = []
+    _computation_dependency_stack: List[Set["Observable[Any]"]] = []
+    _dependency_capture_stack: List[Set["Observable[Any]"]] = []
 
     # High-performance notification system with cycle detection
-    _pending_notifications: Set["Observable"] = set()
+    _pending_notifications: Set["Observable[Any]"] = set()
     _notification_scheduled: bool = False
-    _currently_notifying: Set["Observable"] = set()  # Prevent cycles
+    _currently_notifying: Set["Observable[Any]"] = set()  # Prevent cycles
 
     def _raise_if_transform_reads(self) -> None:
         if _TRANSFORM_EVALUATION_STATE[0]:
@@ -252,12 +284,22 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         self._key = key or "<unnamed>"
         self._value = initial_value
-        self._observers: Set[Callable] = set()
+        self._observers: Set[Observer] = set()
         self._version = 0
         self._is_notifying = False
-        self._fast_observers = None
-        self._single_fast_observer = None
-        self._direct_callbacks = None
+        self._observer_snapshot: tuple[Observer, ...] = ()
+        self._fast_observers: Set[ValueObserver] = set()
+        self._fast_observer_snapshot: tuple[ValueObserver, ...] = ()
+        self._single_fast_observer: Optional[ValueObserver] = None
+        self._direct_observers: Dict[Callable[..., Any], Observer] = {}
+        self._direct_callbacks: Set[ValueObserver] = set()
+        self._direct_callback_snapshot: tuple[ValueObserver, ...] = ()
+        self._single_direct_callback: Optional[ValueObserver] = None
+        self._descriptor_name: Optional[str] = None
+        self._descriptor_owner: Optional[type] = None
+        self._descriptor_observables: WeakKeyDictionary[type, "Observable[T]"] = (
+            WeakKeyDictionary()
+        )
 
     @property
     def key(self) -> str:
@@ -265,19 +307,21 @@ class Observable(ObservableInterface[T], OperatorMixin):
         return self._key
 
     @property
-    def value(self) -> Optional[T]:
+    def value(self) -> T:
         """
         Get the current value of this observable.
 
-        Accessing this property reads the wrapped value. If called within a reactive context (during execution of a reactive function or computation), it also registers this observable as a dependency. That registration happens automatically—the current ReactiveContext (if any) adds this observable to its dependency set and registers itself as an observer.
-
-        The dependency tracking enables automatic re-execution. When you later call `.set()` on this observable, all registered observers (including reactive contexts that depend on it) get notified and re-run their functions with fresh values.
+        Outside a reactive context this is a plain read. Inside one, reading
+        it also registers this observable as a dependency of the current
+        ReactiveContext, so a later `.set()` will re-run whatever depends on
+        it.
 
         Returns:
-            The current value stored in this observable, or None if not set.
+            The current value stored in this observable.
 
         Note:
-            This property is tracked by the reactive system. Use it instead of accessing `_value` directly to ensure proper dependency tracking. Outside reactive contexts, reading `.value` behaves like a regular property access.
+            Always read through `.value` rather than `_value` directly - the
+            dependency tracking depends on it.
 
         Example:
             ```python
@@ -301,17 +345,23 @@ class Observable(ObservableInterface[T], OperatorMixin):
         # Track dependency if we're in a reactive context
         if Observable._current_context is not None:
             Observable._current_context.add_dependency(self)
-        return self._value
+        return cast(T, self._value)
 
-    def set(self, value: Optional[T]) -> None:
+    def set(self, value: T) -> None:
         """
         Set the value and notify all observers if the value changed.
 
-        This method updates the observable's wrapped value and triggers change notifications to all registered observers. The update only occurs if the new value differs from the current value (using `!=` comparison). If the value hasn't changed, observers are not notified—that avoids unnecessary re-computations.
+        The update only happens if the new value differs from the current
+        one (via `!=`); if it's unchanged, observers aren't notified and no
+        recomputation happens.
 
-        Before updating, the method checks for circular dependencies. If the current reactive context depends on this observable (directly or indirectly), setting the value would create a cycle. The system raises a RuntimeError in that case, preventing infinite loops.
+        Before updating, this checks whether the current reactive context
+        already depends on this observable - if so, the set would create a
+        cycle, and a RuntimeError is raised instead.
 
-        When the value does change, the observable adds itself to a pending notifications set. The notification system processes these in topological order—source observables first, then computed observables, then conditional observables. That ordering ensures that when a conditional observable checks its condition values, those values have already been updated.
+        When the value does change, notifications are queued and processed
+        in topological order (source, then computed, then conditional), so a
+        conditional observable never sees a stale condition value.
 
         Args:
             value: The new value to set. Can be any type compatible with the observable's generic type parameter.
@@ -369,7 +419,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
             fast_observers = self._fast_observers
 
             if observers:
-                single_direct_callback = getattr(self, "_single_direct_callback", None)
+                single_direct_callback = self._single_direct_callback
                 if (
                     single_direct_callback is not None
                     and len(observers) == 1
@@ -435,7 +485,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """Notify all registered observers that this observable has changed."""
         # Create a copy of observers to avoid "Set changed size during iteration"
         # Prevent re-entrant notifications on this observable
-        if not getattr(self, "_is_notifying", False):
+        if not self._is_notifying:
             self._is_notifying = True
             try:
                 for observer in self._observers_for_notification():
@@ -443,58 +493,53 @@ class Observable(ObservableInterface[T], OperatorMixin):
             finally:
                 self._is_notifying = False
 
-    def _observers_for_notification(self) -> tuple:
+    def _observers_for_notification(self) -> tuple[Observer, ...]:
         """Return a stable observer snapshot for notification dispatch."""
-        snapshot = getattr(self, "_observer_snapshot", ())
+        snapshot = self._observer_snapshot
         if len(snapshot) != len(self._observers):
             snapshot = tuple(self._observers)
             self._observer_snapshot = snapshot
         return snapshot
 
-    def _fast_observers_for_notification(self) -> tuple:
+    def _fast_observers_for_notification(self) -> tuple[ValueObserver, ...]:
         """Return a stable source-only observer snapshot."""
-        fast_observers = getattr(self, "_fast_observers", None)
-        if not fast_observers:
+        if not self._fast_observers:
             return ()
-        snapshot = getattr(self, "_fast_observer_snapshot", ())
-        if len(snapshot) != len(fast_observers):
-            snapshot = tuple(fast_observers)
+        snapshot = self._fast_observer_snapshot
+        if len(snapshot) != len(self._fast_observers):
+            snapshot = tuple(self._fast_observers)
             self._fast_observer_snapshot = snapshot
         return snapshot
 
-    def _direct_callbacks_for_notification(self) -> tuple:
+    def _direct_callbacks_for_notification(self) -> tuple[ValueObserver, ...]:
         """Return a stable direct value-callback snapshot."""
-        direct_callbacks = getattr(self, "_direct_callbacks", None)
-        if not direct_callbacks:
+        if not self._direct_callbacks:
             return ()
-        snapshot = getattr(self, "_direct_callback_snapshot", ())
-        if len(snapshot) != len(direct_callbacks):
-            snapshot = tuple(direct_callbacks)
+        snapshot = self._direct_callback_snapshot
+        if len(snapshot) != len(self._direct_callbacks):
+            snapshot = tuple(self._direct_callbacks)
             self._direct_callback_snapshot = snapshot
         return snapshot
 
     def _refresh_single_direct_callback(self) -> None:
-        direct_callbacks = getattr(self, "_direct_callbacks", None)
         self._single_direct_callback = (
-            next(iter(direct_callbacks))
-            if direct_callbacks and len(direct_callbacks) == 1
+            next(iter(self._direct_callbacks))
+            if len(self._direct_callbacks) == 1
             else None
         )
 
     @classmethod
-    def _schedule_notification(cls, observable: "Observable") -> None:
+    def _schedule_notification(cls, observable: "Observable[Any]") -> None:
         """Queue an observable for the current stabilization pass."""
         cls._pending_notifications.add(observable)
-        if not cls._notification_scheduled and not getattr(
-            observable, "_is_notifying", False
-        ):
+        if not cls._notification_scheduled and not observable._is_notifying:
             cls._notification_scheduled = True
             cls._process_notifications()
 
     @classmethod
-    def _notify_inline_then_drain(cls, observable: "Observable") -> None:
+    def _notify_inline_then_drain(cls, observable: "Observable[Any]") -> None:
         """Notify a root mutation immediately, then drain queued dependents."""
-        if cls._notification_scheduled or getattr(observable, "_is_notifying", False):
+        if cls._notification_scheduled or observable._is_notifying:
             cls._schedule_notification(observable)
             return
 
@@ -506,15 +551,15 @@ class Observable(ObservableInterface[T], OperatorMixin):
                 if len(fast_observers) == 1:
                     fast_observers[0](observable._value)
                 else:
-                    for observer in fast_observers:
-                        observer(observable._value)
+                    for fast_observer in fast_observers:
+                        fast_observer(observable._value)
 
                 observers = observable._observers_for_notification()
                 if len(observers) == 1:
                     observers[0]()
                 else:
-                    for observer in observers:
-                        observer()
+                    for plain_observer in observers:
+                        plain_observer()
             finally:
                 observable._is_notifying = False
 
@@ -527,9 +572,11 @@ class Observable(ObservableInterface[T], OperatorMixin):
             raise
 
     @classmethod
-    def _notify_fast_observers_then_drain(cls, observable: "Observable", value) -> None:
+    def _notify_fast_observers_then_drain(
+        cls, observable: "Observable[Any]", value: Any
+    ) -> None:
         """Dispatch source-only transform observers without generic observer wrapping."""
-        if cls._notification_scheduled or getattr(observable, "_is_notifying", False):
+        if cls._notification_scheduled or observable._is_notifying:
             cls._schedule_notification(observable)
             return
 
@@ -556,12 +603,12 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     @classmethod
     def _notify_direct_callbacks_then_drain(
-        cls, observable: "Observable", value
+        cls, observable: "Observable[Any]", value: Any
     ) -> None:
         """Dispatch plain subscriptions directly at the effect boundary."""
         observable._is_notifying = True
         try:
-            callback = getattr(observable, "_single_direct_callback", None)
+            callback = observable._single_direct_callback
             if callback is not None:
                 callback(value)
             else:
@@ -592,8 +639,8 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     @classmethod
     def _topological_sort_notifications(
-        cls, observables: Set["Observable"]
-    ) -> List["Observable"]:
+        cls, observables: Set["Observable[Any]"]
+    ) -> List["Observable[Any]"]:
         """
         Sort observables in topological order for correct notification processing.
 
@@ -606,8 +653,10 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
         pending = set(observables)
         ordered_seed = sorted(pending, key=cls._notification_sort_key)
-        incoming_count = {obs: 0 for obs in ordered_seed}
-        outgoing = {obs: [] for obs in ordered_seed}
+        incoming_count: Dict[Observable[Any], int] = {obs: 0 for obs in ordered_seed}
+        outgoing: Dict[Observable[Any], List[Observable[Any]]] = {
+            obs: [] for obs in ordered_seed
+        }
 
         for obs in ordered_seed:
             for dependency in cls._observable_dependencies(obs):
@@ -639,7 +688,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
         return ordered + remaining
 
     @classmethod
-    def _notification_sort_key(cls, observable: "Observable") -> tuple:
+    def _notification_sort_key(cls, observable: "Observable[Any]") -> tuple[int, int]:
         from .computed import ComputedObservable
         from .conditional import ConditionalObservable
 
@@ -652,20 +701,22 @@ class Observable(ObservableInterface[T], OperatorMixin):
         return (rank, id(observable))
 
     @classmethod
-    def _observable_dependencies(cls, observable: "Observable") -> Set["Observable"]:
+    def _observable_dependencies(
+        cls, observable: "Observable[Any]"
+    ) -> Set["Observable[Any]"]:
         from .computed import ComputedObservable
         from .conditional import ConditionalObservable
         from .merged import MergedObservable
 
         if isinstance(observable, ConditionalObservable):
-            return set(getattr(observable, "_all_dependencies", set()))
+            return set(observable._all_dependencies)
         if isinstance(observable, MergedObservable):
-            return set(getattr(observable, "_source_observables", []))
+            return set(observable._source_observables)
         if isinstance(observable, ComputedObservable):
             return set(observable._runtime_dependencies())
         return set()
 
-    def add_observer(self, observer: Callable) -> None:
+    def add_observer(self, observer: Observer) -> None:
         """
         Add an observer function that will be called when this observable changes.
 
@@ -675,7 +726,7 @@ class Observable(ObservableInterface[T], OperatorMixin):
         self._observers.add(observer)
         self._observer_snapshot = ()
 
-    def remove_observer(self, observer: Callable) -> None:
+    def remove_observer(self, observer: Observer) -> None:
         """
         Remove an observer function.
 
@@ -685,36 +736,30 @@ class Observable(ObservableInterface[T], OperatorMixin):
         self._observers.discard(observer)
         self._observer_snapshot = ()
 
-    def add_fast_observer(self, observer: Callable) -> None:
+    def add_fast_observer(self, observer: ValueObserver) -> None:
         """Add an internal source-only observer that receives the new value."""
-        fast_observers = getattr(self, "_fast_observers", None)
-        if fast_observers is None:
-            fast_observers = set()
-            self._fast_observers = fast_observers
-        fast_observers.add(observer)
-        self._fast_observer_snapshot = ()
-        self._single_fast_observer = observer if len(fast_observers) == 1 else None
-
-    def remove_fast_observer(self, observer: Callable) -> None:
-        """Remove an internal source-only observer."""
-        fast_observers = getattr(self, "_fast_observers", None)
-        if fast_observers is None:
-            return
-        fast_observers.discard(observer)
+        self._fast_observers.add(observer)
         self._fast_observer_snapshot = ()
         self._single_fast_observer = (
-            next(iter(fast_observers)) if len(fast_observers) == 1 else None
+            observer if len(self._fast_observers) == 1 else None
         )
 
-    def subscribe(self, func: Callable) -> "Observable[T]":
+    def remove_fast_observer(self, observer: ValueObserver) -> None:
+        """Remove an internal source-only observer."""
+        self._fast_observers.discard(observer)
+        self._fast_observer_snapshot = ()
+        self._single_fast_observer = (
+            next(iter(self._fast_observers)) if len(self._fast_observers) == 1 else None
+        )
+
+    def subscribe(self, func: Subscriber[T]) -> "Observable[T]":
         """
         Subscribe a function to react to changes in this observable.
 
-        The subscribed function will be called whenever the observable's value changes. The function receives the new value as its single argument. This creates a ReactiveContext that wraps the function and registers it as an observer on this observable.
-
-        When you call `.set()` with a new value, the observable notifies all observers. The subscription system ensures that your function runs with the updated value. The function is not called immediately upon subscription—only when the value actually changes.
-
-        The subscription creates a reactive context internally. That context tracks dependencies if your function accesses other observables during execution, enabling automatic re-execution when those dependencies change as well.
+        The function is called with the new value whenever `.set()` changes
+        it - not immediately on subscription. Internally this wraps `func` in
+        a ReactiveContext, so if it also reads other observables, it'll
+        re-run when those change too.
 
         Args:
             func: A callable that accepts one argument (the new value). The function will be called whenever the observable's value changes.
@@ -743,49 +788,34 @@ class Observable(ObservableInterface[T], OperatorMixin):
             reactive: Decorator-based subscription with automatic dependency tracking
         """
 
-        direct_observers = getattr(self, "_direct_observers", None)
-        if direct_observers is None:
-            direct_observers = {}
-            self._direct_observers = direct_observers
-        direct_callbacks = getattr(self, "_direct_callbacks", None)
-        if direct_callbacks is None:
-            direct_callbacks = set()
-            self._direct_callbacks = direct_callbacks
-
-        existing_observer = direct_observers.pop(func, None)
+        existing_observer = self._direct_observers.pop(func, None)
         if existing_observer is not None:
             self.remove_observer(existing_observer)
-            direct_callbacks.discard(func)
+            self._direct_callbacks.discard(func)
 
         def direct_reaction():
             func(self._value)
 
-        direct_observers[func] = direct_reaction
-        direct_callbacks.add(func)
+        self._direct_observers[func] = direct_reaction
+        self._direct_callbacks.add(func)
         self._direct_callback_snapshot = ()
         self._refresh_single_direct_callback()
         self.add_observer(direct_reaction)
         return self
 
-    def unsubscribe(self, func: Callable) -> None:
+    def unsubscribe(self, func: Subscriber[T]) -> None:
         """
         Unsubscribe a function from this observable.
 
         Args:
             func: The function to unsubscribe from this observable
         """
-        direct_observer = (
-            self._direct_observers.pop(func, None)
-            if getattr(self, "_direct_observers", None) is not None
-            else None
-        )
+        direct_observer = self._direct_observers.pop(func, None)
         if direct_observer is not None:
             self.remove_observer(direct_observer)
-            direct_callbacks = getattr(self, "_direct_callbacks", None)
-            if direct_callbacks is not None:
-                direct_callbacks.discard(func)
-                self._direct_callback_snapshot = ()
-                self._refresh_single_direct_callback()
+            self._direct_callbacks.discard(func)
+            self._direct_callback_snapshot = ()
+            self._refresh_single_direct_callback()
 
         self._dispose_subscription_contexts(
             func, lambda ctx: ctx.subscribed_observable is self
@@ -793,8 +823,8 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     @staticmethod
     def _create_subscription_context(
-        reaction_func: Callable,
-        original_func: Callable,
+        reaction_func: Observer,
+        original_func: Callable[..., Any],
         subscribed_observable: Optional["Observable"],
     ) -> ReactiveContext:
         """Create and register a subscription context."""
@@ -813,7 +843,8 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
     @staticmethod
     def _dispose_subscription_contexts(
-        func: Callable, filter_predicate: Optional[Callable] = None
+        func: Callable[..., Any],
+        filter_predicate: Optional[Callable[[ReactiveContext], bool]] = None,
     ) -> None:
         """
         Dispose of subscription contexts for a function with optional filtering.
@@ -879,8 +910,8 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         String representation of the wrapped value.
 
-        Returns the string representation of the current value,
-        enabling observables to be used seamlessly in string contexts.
+        Lets an observable drop straight into string contexts (f-strings,
+        `str()`) without unwrapping it first.
 
         Returns:
             String representation of the wrapped value.
@@ -895,6 +926,11 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         self._raise_if_transform_reads()
         return str(self._value)
+
+    def __format__(self, format_spec: str) -> str:
+        """Format the wrapped value with Python's normal format protocol."""
+        self._raise_if_transform_reads()
+        return format(self._value, format_spec)
 
     def __repr__(self) -> str:
         """
@@ -976,13 +1012,10 @@ class Observable(ObservableInterface[T], OperatorMixin):
         """
         Called when this Observable is assigned to a class attribute.
 
-        This method implements the descriptor protocol to enable automatic
-        conversion of Observable instances to appropriate descriptors based
-        on the owning class type.
-
-        For Store classes, the conversion is handled by StoreMeta metaclass.
-        For other classes, converts to SubscriptableDescriptor for class-level
-        observable behavior.
+        This method records the descriptor name and defining owner. Observable
+        implements the descriptor protocol directly: class access returns an
+        ObservableValue[T] wrapper, and StoreMeta records the owner-specific
+        backing Observable for class-level assignment.
 
         Args:
             owner: The class that owns this attribute
@@ -990,51 +1023,64 @@ class Observable(ObservableInterface[T], OperatorMixin):
 
         Note:
             This method is called automatically by Python when an Observable
-            instance is assigned to a class attribute. It modifies the class
-            to use the appropriate descriptor for reactive behavior.
+            instance is assigned to a class attribute.
 
         Example:
             ```python
             class MyClass:
                 obs = Observable("counter", 0)  # __set_name__ called here
 
-            # Gets converted to a descriptor automatically
             instance = MyClass()
             print(instance.obs)  # Uses descriptor
             ```
         """
-        # Update key if it was defaulted to "<unnamed>"
+        self._descriptor_name = name
+        if self._descriptor_owner is None:
+            self._descriptor_owner = owner
+
         if self._key == "<unnamed>":
-            # Check if this is a computed observable by checking for the _is_computed attribute
             if getattr(self, "_is_computed", False):
                 self._key = f"<computed:{name}>"
             else:
                 self._key = name
 
-        # Skip processing for computed observables - they should remain as-is
-        if getattr(self, "_is_computed", False):
-            return
+    def _observable_for_owner(self, owner: Type) -> "Observable[T]":
+        if self._descriptor_owner is None or owner is self._descriptor_owner:
+            return self
 
-        # Check if owner is a Store class - if so, let StoreMeta handle the conversion
-        try:
-            from .store import Store
+        observable = self._descriptor_observables.get(owner)
+        if observable is None:
+            key = self._descriptor_name or self._key
+            observable = Observable(key, self._value)
+            self._descriptor_observables[owner] = observable
+        return observable
 
-            if issubclass(owner, Store):
-                return
-        except ImportError:
-            # If store module is not available, continue with normal processing
-            pass
+    @overload
+    def __get__(self, instance: None, owner: Type) -> "ObservableValue[T]": ...
 
-        # For non-Store classes, convert to a SubscriptableDescriptor
-        # that will create class-level observables
-        from .descriptors import SubscriptableDescriptor
+    @overload
+    def __get__(self, instance: object, owner: Type) -> "ObservableValue[T]": ...
 
-        descriptor: SubscriptableDescriptor[T] = SubscriptableDescriptor(self._value)
-        descriptor.attr_name = name
-        descriptor._owner_class = owner
+    def __get__(
+        self, instance: Optional[object], owner: Optional[Type] = None
+    ) -> "ObservableValue[T]":
+        """
+        Return a typed observable value wrapper when used as a class descriptor.
 
-        # Replace this Observable instance with the descriptor on the class
-        setattr(owner, name, descriptor)
+        Standalone Observable instances keep their normal behavior. When an
+        Observable is placed on a class, descriptor access returns
+        ObservableValue[T], which gives static type checkers the same shape users
+        interact with at runtime.
+        """
+        if owner is None:
+            if instance is None:
+                raise AttributeError("Descriptor access requires an owner class")
+            owner = type(instance)
 
-        # Remove this instance since it's being replaced
-        # The descriptor will create the actual Observable when accessed
+        from .descriptors import ObservableValue
+
+        return ObservableValue(self._observable_for_owner(owner))
+
+    def __set__(self, instance: object, value: T) -> None:
+        owner = type(instance)
+        self._observable_for_owner(owner).set(value)

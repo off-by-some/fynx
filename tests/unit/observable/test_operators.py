@@ -1,7 +1,9 @@
 import pytest
 
+from fynx import Store, observable
 from fynx.observable.base import Observable
 from fynx.observable.descriptors import ObservableValue
+from fynx.observable.merged import MergedObservable
 from fynx.observable.operators import and_operator
 
 
@@ -215,6 +217,77 @@ def test_and_operator_with_conditional_source_uses_root_value():
     data.set(-3)
     assert step1.is_active is False
     assert step2.is_active is False
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_store_observable_value_adds_plain_list_like_wrapped_value():
+    """Store observable values concatenate plain lists for immutable updates."""
+
+    class Cart(Store):
+        items = observable([1, 2])
+
+    result = Cart.items + [3]
+
+    assert result == [1, 2, 3]
+    assert Cart.items.value == [1, 2]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_store_observable_value_plain_list_radd_uses_wrapped_value():
+    """Plain list + Store observable value delegates to normal list concatenation."""
+
+    class Cart(Store):
+        items = observable([1, 2])
+
+    assert [0] + Cart.items == [0, 1, 2]
+
+
+@pytest.mark.unit
+@pytest.mark.store
+def test_store_immutable_list_update_notifies_subscribers():
+    """Assigning Store.items + [item] updates the observable with a plain list."""
+
+    class Cart(Store):
+        items = observable([1, 2])
+
+    observed = []
+    Cart.items.subscribe(observed.append)
+
+    Cart.items = Cart.items + [3]
+
+    assert Cart.items.value == [1, 2, 3]
+    assert observed == [[1, 2, 3]]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_raw_observable_adds_plain_list_like_wrapped_value():
+    """Raw observables concatenate plain lists instead of treating them as sources."""
+
+    items = Observable("items", [1, 2])
+
+    assert items + [3] == [1, 2, 3]
+    assert [0] + items == [0, 1, 2]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
+def test_observable_plus_observable_still_builds_product():
+    """Observable + Observable still creates a merged product."""
+
+    left = Observable("left", [1])
+    right = Observable("right", [2])
+
+    merged = left + right
+
+    assert isinstance(merged, MergedObservable)
+    assert merged.value == ([1], [2])
 
 
 @pytest.mark.unit

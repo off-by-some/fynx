@@ -306,6 +306,32 @@ def test_reactive_decorator_skips_inactive_conditional_observables():
 
 @pytest.mark.unit
 @pytest.mark.reactive
+def test_reactive_decorator_skips_inactive_store_conditional_values():
+    """Reactive decorator unwraps Store attributes before checking conditional activity."""
+
+    class OrderCore(Store):
+        items = observable([])
+        address = observable("")
+
+        has_items = items >> (lambda current_items: len(current_items) > 0)
+        has_address = address >> bool
+        can_checkout = has_items & has_address
+        checkout_label = can_checkout >> (lambda _: "Checkout")
+
+    labels = []
+
+    @reactive(OrderCore.checkout_label)
+    def render_checkout_label(label):
+        labels.append(label)
+
+    OrderCore.items.set(["widget"])
+    OrderCore.address.set("123 Main")
+
+    assert labels == ["Checkout"]
+
+
+@pytest.mark.unit
+@pytest.mark.reactive
 def test_reactive_decorator_handles_empty_targets():
     """Reactive decorator handles empty targets gracefully."""
     execution_log = []

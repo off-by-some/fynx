@@ -1,27 +1,23 @@
 """
-FynX Observable Computed - Computed Observable Implementation
-===========================================================
+FynX Observable Computed - computed observable implementation
+===============================================================
 
-This module provides the ComputedObservable class, a read-only observable that
-derives its value from other observables through automatic computation.
+This module provides `ComputedObservable`, a read-only observable whose value
+is derived from other observables rather than set directly. When a source
+changes, the computed value recalculates - you declare the relationship once
+and FynX keeps it in sync.
 
-Computed observables represent derived state—values calculated from other observables
-rather than set directly. When source observables change, computed values recalculate
-automatically. That automatic recalculation eliminates manual synchronization: you
-declare the relationship, and the framework maintains it.
+Because the value flows from its dependencies, a computed observable can't be
+set directly; doing so would let it diverge from its source. FynX updates it
+internally through `_set_computed_value()` when a dependency changes, but the
+public interface only allows reads.
 
-Computed observables are read-only by design. You cannot set them directly because
-their values flow from dependencies. This constraint prevents breaking reactive
-relationships—if you could set a computed value, it would diverge from its source.
-The framework updates computed values internally when dependencies change, but the
-public interface enforces immutability.
+Creating computed observables
+------------------------------
 
-Creating Computed Observables
------------------------------
-
-You create computed observables using the `>>` operator or the `.then()` method.
-Both approaches transform source observables through pure functions, creating
-derived values that update automatically:
+Use the `>>` operator or the `.then()` method. Both transform one or more
+source observables through a pure function into a derived value that updates
+automatically:
 
 ```python
 from fynx import observable
@@ -39,69 +35,62 @@ total_alt = (price + quantity).then(lambda p, q: p * q)
 print(total_alt.value)  # 50.0
 ```
 
-The `>>` operator applies the function to the observable's value, creating a new
-computed observable. For merged observables (created with `+`), the function receives
-multiple arguments corresponding to the tuple values. That pattern enables reactive
-calculations across multiple inputs without manual coordination.
+The `>>` operator applies the function to the observable's value, creating a
+new computed observable. For merged observables (created with `+`), the
+function receives one argument per source, so a single transform can react to
+several inputs at once.
 
-Read-Only Protection
---------------------
+Read-only protection
+---------------------
 
-Computed observables prevent direct modification to maintain reactive integrity:
+Setting a computed observable directly raises an error instead of silently
+breaking the reactive relationship:
 
 ```python
 total = (price + quantity) >> (lambda p, q: p * q)
 
-# This works—updates propagate automatically
+# This works - updates propagate automatically
 price.set(15)
 print(total.value)  # 75.0
 
-# This raises ValueError—computed values are read-only
+# This raises ValueError - computed values are read-only
 total.set(100)  # ValueError: Computed observables are read-only
 ```
 
-Attempting to set a computed observable raises `ValueError`. That error signals
-that you're trying to break the reactive relationship—computed values derive from
-dependencies, not direct assignment. To change a computed value, modify its source
-observables instead.
+To change a computed value, modify its source observables instead - the
+computed value follows automatically.
 
-Internal Updates
-----------------
+Internal updates
+------------------
 
-The framework updates computed values through the internal `_set_computed_value()`
-method. This method bypasses the read-only protection to allow legitimate framework-driven
-updates when dependencies change:
+FynX updates computed values through the internal `_set_computed_value()`
+method, which bypasses the read-only check:
 
 ```python
 # This is used internally by the >> operator and .then() method
 computed_obs._set_computed_value(new_value)  # Allowed internally
-computed_obs.set(new_value)                  # Not allowed—raises ValueError
+computed_obs.set(new_value)                  # Not allowed - raises ValueError
 ```
 
-External code should not call `_set_computed_value()` directly. That method exists
-for framework internals—the `>>` operator and `.then()` method use it to update
-computed values when dependencies change. Direct use may break reactive relationships.
+Don't call `_set_computed_value()` from outside the framework; it exists so
+`>>` and `.then()` can update computed values when dependencies change, and
+calling it elsewhere can leave a computed value out of sync with its source.
 
-Performance Considerations
---------------------------
+Performance
+-----------
 
-Computed observables use lazy evaluation: they recalculate only when accessed after
-dependencies change. That strategy avoids unnecessary work—if nothing reads the computed
-value, it doesn't recompute. Results are cached until dependencies actually change,
-so repeated reads return the cached value without recomputation.
+Evaluation is lazy: a computed value only recalculates when read after a
+dependency has changed, and the result is cached in between. A transform may
+only use the values passed to it as arguments; to depend on more than one
+observable, combine them first with `+` or `.alongside()`. That keeps the
+dependency graph explicit and the composition rules predictable. Beyond the
+computation function and a source reference, a computed observable carries no
+more overhead than a regular one.
 
-Dependencies are explicit. A transform may only use the values passed as arguments;
-to use more than one observable, combine them first with `+` or `.alongside()`.
-This keeps the reactive graph stable and lets composition laws apply predictably.
+Common patterns
+-----------------
 
-Memory overhead is minimal beyond regular observables. Computed observables store
-the computation function and source observable reference, but they reuse the same
-observer infrastructure as regular observables.
-
-Common Patterns
----------------
-
-**Mathematical Computations**:
+**Mathematical computations**:
 ```python
 width = observable(10)
 height = observable(20)
@@ -109,20 +98,20 @@ area = (width + height) >> (lambda w, h: w * h)
 perimeter = (width + height) >> (lambda w, h: 2 * (w + h))
 ```
 
-**String Formatting**:
+**String formatting**:
 ```python
 first_name = observable("John")
 last_name = observable("Doe")
 full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 ```
 
-**Validation States**:
+**Validation states**:
 ```python
 email = observable("")
 is_valid_email = email >> (lambda e: "@" in e and len(e) > 5)
 ```
 
-**Conditional Computations**:
+**Conditional computations**:
 ```python
 count = observable(0)
 is_even = count >> (lambda c: c % 2 == 0)
@@ -131,28 +120,25 @@ is_even = count >> (lambda c: c % 2 == 0)
 Limitations
 -----------
 
-Computed observables cannot be set directly—that constraint is by design, not a
-missing feature. Dependencies must be accessed synchronously during computation;
-asynchronous access won't be tracked. They cannot depend on external state that
-changes independently of observables—only observable values trigger recomputation.
+Dependencies must be read synchronously during the computation; anything
+accessed later (e.g. from a callback) won't be tracked. Only observable
+values trigger recomputation - a computed value has no way to notice external
+state changing on its own.
 
-Computation functions must be pure: no side effects, no observable reads, and no
-observable writes. If a transform reads `.value` or calls `.set()` on any observable,
-FynX raises `TransformPurityError` with a hint to pass that dependency explicitly
-or move the effect to `.subscribe()` / `@reactive`.
+Computation functions must be pure: no side effects, no observable reads or
+writes beyond the arguments passed in. Reading `.value` or calling `.set()`
+on any observable inside a transform raises `TransformPurityError`, with a
+hint to pass that dependency explicitly or move the effect to `.subscribe()`
+/ `@reactive`.
 
-Error Handling
+Error handling
 --------------
 
-When computation functions raise exceptions, those errors propagate normally. The
-reactive system doesn't swallow exceptions—if a computation fails, the error
-surfaces to the caller. Failed computations may leave computed observables with
-stale values until dependencies change and recomputation succeeds.
-
-Dependencies continue working normally even if one computation fails. That isolation
-prevents cascading failures—one broken computation doesn't break the entire reactive
-graph. You can handle errors in computation functions using try-except blocks if
-you need graceful degradation.
+Exceptions from a computation function propagate to the caller rather than
+being swallowed, and a failed computation can leave a computed observable
+holding a stale value until the next successful recomputation. A failure in
+one computation doesn't affect others in the graph, so try/except around a
+transform is enough if you need to degrade gracefully.
 
 See Also
 --------
@@ -162,7 +148,9 @@ See Also
 - `fynx.store`: For organizing observables in reactive containers
 """
 
-from typing import Callable, Optional, TypeVar
+from __future__ import annotations
+
+from typing import Any, Callable, Optional, Set, TypeVar, cast
 
 from . import base as _base
 from .base import Observable, TransformPurityError
@@ -174,19 +162,14 @@ class ComputedObservable(Observable[T]):
     """
     A read-only observable that derives its value from other observables.
 
-    ComputedObservable extends Observable to represent computed values—values that
-    derive from other observables rather than direct assignment. Unlike regular
-    observables, computed observables are read-only: you cannot set them directly
-    because their values flow from dependencies.
+    ComputedObservable extends Observable but disallows direct writes, since
+    its value flows from dependencies rather than assignment. Reading it and
+    subscribing to it work exactly like a regular observable; the difference
+    is enforced only at write time.
 
-    This class provides type-based distinction from regular observables. That distinction
-    enables compile-time type checking and runtime behavior differences—computed
-    observables maintain the same interface as regular observables for reading values
-    and subscribing to changes, but they enforce immutability at runtime.
-
-    You typically create computed observables using the `>>` operator or `.then()` method,
-    not by direct instantiation. The framework creates ComputedObservable instances
-    internally when you use those operators:
+    You'll normally get one from the `>>` operator or `.then()` method rather
+    than instantiating it directly - both create a ComputedObservable
+    internally:
 
     Example:
         ```python
@@ -203,16 +186,15 @@ class ComputedObservable(Observable[T]):
         doubled.set(10)  # Raises ValueError: Computed observables are read-only
         ```
 
-    Direct instantiation of ComputedObservable is supported but rarely needed. The
-    framework handles creation automatically when you use reactive operators.
+    Direct instantiation is supported but rarely needed in practice.
     """
 
     def __init__(
         self,
         key: Optional[str] = None,
         initial_value: Optional[T] = None,
-        computation_func: Optional[Callable] = None,
-        source_observable: Optional["Observable"] = None,
+        computation_func: Optional[Callable[..., T]] = None,
+        source_observable: Optional["Observable[Any]"] = None,
         unpack_source: bool = False,
     ) -> None:
         super().__init__(key, initial_value)
@@ -221,18 +203,20 @@ class ComputedObservable(Observable[T]):
         # Store source observable for fusion
         self._source_observable = source_observable
         self._unpack_source = unpack_source
-        self._dynamic_dependencies = set()
+        self._dynamic_dependencies: Set[Observable[Any]] = set()
         self._source_signature = self._current_source_signature()
-        self._dependency_observers = set()
+        self._dependency_observers: Set[Observable[Any]] = set()
         self._dependencies_active = False
         self._is_dirty = False
         self._force_eager = False
-        self._fusion_funcs = [computation_func] if computation_func is not None else []
-        self._fusion_parent = None
-        self._fusion_func = computation_func
+        self._fusion_funcs: list[Callable[..., Any]] = (
+            [computation_func] if computation_func is not None else []
+        )
+        self._fusion_parent: Optional[ComputedObservable[Any]] = None
+        self._fusion_func: Optional[Callable[..., Any]] = computation_func
         self._fusion_unpack_source = unpack_source
         self._captures_dynamic_dependencies = False
-        self._dependency_callback = self._dependency_changed
+        self._dependency_callback: Callable[..., Any] = self._dependency_changed
         self._dependency_uses_fast_observer = False
 
     def _get_fusion_funcs(self):
@@ -240,10 +224,10 @@ class ComputedObservable(Observable[T]):
         current = self
 
         while isinstance(current, ComputedObservable):
-            fusion_func = getattr(current, "_fusion_func", None)
+            fusion_func = current._fusion_func
             if fusion_func is not None:
                 funcs.append(fusion_func)
-            current = getattr(current, "_fusion_parent", None)
+            current = current._fusion_parent
 
         funcs.reverse()
         return funcs
@@ -251,24 +235,33 @@ class ComputedObservable(Observable[T]):
     def _current_source_signature(self):
         """Return a cheap version signature for the observable's current inputs."""
         source = self._source_observable
-        dynamic_dependencies = getattr(self, "_dynamic_dependencies", set())
 
-        if source is None and not dynamic_dependencies:
+        if source is None and not self._dynamic_dependencies:
             return None
 
-        if not dynamic_dependencies and source is not None:
-            return (id(source), getattr(source, "_version", 0))
+        if not self._dynamic_dependencies and source is not None:
+            return (id(source), source._version)
 
         dependencies = self._runtime_dependencies()
         return tuple(
-            sorted(
-                (id(dependency), getattr(dependency, "_version", 0))
-                for dependency in dependencies
-            )
+            sorted((id(dependency), dependency._version) for dependency in dependencies)
         )
 
     def _source_changed(self) -> bool:
-        return self._current_source_signature() != self._source_signature
+        return (
+            self._current_source_signature() != self._source_signature
+            or self._source_is_stale()
+        )
+
+    @staticmethod
+    def _observable_is_stale(observable: "Observable[Any]") -> bool:
+        return isinstance(observable, ComputedObservable) and (
+            observable._is_dirty or observable._source_changed()
+        )
+
+    def _source_is_stale(self) -> bool:
+        source = self._source_observable
+        return source is not None and self._observable_is_stale(source)
 
     def _apply_computation_to_source_value(self, source_value):
         if self._computation_func is None:
@@ -287,18 +280,15 @@ class ComputedObservable(Observable[T]):
         source = self._source_observable
         if source is None:
             return None
-        if getattr(source, "_is_dirty", False):
-            return source.value
-        if hasattr(source, "_source_changed") and source._source_changed():
-            return source.value
-        if hasattr(source, "_value"):
-            return source._value
-        return source.value
 
-    def _recompute_value(self):
+        if self._source_is_stale():
+            return source.value
+        return source._value
+
+    def _recompute_value(self) -> T:
         source = self._source_observable
         if source is None:
-            return self._value
+            return cast(T, self._value)
 
         value = self._apply_computation_to_source_value(self._source_current_value())
         self._source_signature = self._current_source_signature()
@@ -316,16 +306,13 @@ class ComputedObservable(Observable[T]):
 
     def _runtime_dependencies(self):
         dependencies = self._declared_source_dependencies()
-        dependencies.update(getattr(self, "_dynamic_dependencies", set()))
+        dependencies.update(self._dynamic_dependencies)
         dependencies.discard(self)
         return dependencies
 
-    def _guarded_recompute_value(self):
-        if (
-            not getattr(self, "_dynamic_dependencies", set())
-            and self._source_observable is not None
-        ):
-            dependencies = (self._source_observable,)
+    def _guarded_recompute_value(self) -> T:
+        if not self._dynamic_dependencies and self._source_observable is not None:
+            dependencies = {self._source_observable}
         else:
             dependencies = self._runtime_dependencies()
 
@@ -359,20 +346,21 @@ class ComputedObservable(Observable[T]):
         new_value = self._apply_computation_to_source_value(source_value)
         self._source_signature = (
             id(self._source_observable),
-            getattr(self._source_observable, "_version", 0),
+            self._source_observable._version,
         )
         self._is_dirty = False
         if self._value == new_value:
             return
 
         self._value = new_value
-        self._version = getattr(self, "_version", 0) + 1
+        self._version += 1
 
-        if not getattr(self, "_is_notifying", False):
+        if not self._is_notifying:
             self._is_notifying = True
             try:
-                direct_observers = getattr(self, "_direct_observers", None)
-                if direct_observers and len(direct_observers) == len(self._observers):
+                if self._direct_observers and len(self._direct_observers) == len(
+                    self._observers
+                ):
                     callbacks = self._direct_callbacks_for_notification()
                     if len(callbacks) == 1:
                         callbacks[0](new_value)
@@ -392,9 +380,9 @@ class ComputedObservable(Observable[T]):
     def _make_single_direct_source_observer(self):
         source = self._source_observable
         computation_func = self._computation_func
-        callback = getattr(self, "_single_direct_callback", None)
+        callback = self._single_direct_callback
         if callback is None:
-            callback = next(iter(getattr(self, "_direct_callbacks", ())))
+            callback = next(iter(self._direct_callbacks))
         unpack_source = self._unpack_source
         transform_state = _base._TRANSFORM_EVALUATION_STATE
 
@@ -427,8 +415,10 @@ class ComputedObservable(Observable[T]):
         )
         if use_fast_observer:
             self._dependency_uses_fast_observer = True
-            direct_observers = getattr(self, "_direct_observers", None)
-            if direct_observers and len(direct_observers) == len(self._observers) == 1:
+            if (
+                self._direct_observers
+                and len(self._direct_observers) == len(self._observers) == 1
+            ):
                 return self._make_single_direct_source_observer()
             return self._source_only_dependency_changed_fast
 
@@ -468,8 +458,7 @@ class ComputedObservable(Observable[T]):
         """True when this node has a single runtime input and cannot glitch."""
         if self._computation_func is None:
             return False
-        dynamic_dependencies = getattr(self, "_dynamic_dependencies", set())
-        return self._source_observable is not None and not dynamic_dependencies
+        return self._source_observable is not None and not self._dynamic_dependencies
 
     def _notify_observers_source_only(self) -> None:
         """Fast path for pure transforms with exactly one runtime source."""
@@ -477,27 +466,26 @@ class ComputedObservable(Observable[T]):
         if source is None or self._computation_func is None:
             return
 
-        if getattr(source, "_is_dirty", False) or (
-            hasattr(source, "_source_changed") and source._source_changed()
-        ):
+        if self._source_is_stale():
             source_value = source.value
         else:
             source_value = source._value
 
         new_value = self._apply_computation_to_source_value(source_value)
-        self._source_signature = (id(source), getattr(source, "_version", 0))
+        self._source_signature = (id(source), source._version)
         self._is_dirty = False
         if self._value == new_value:
             return
 
         self._value = new_value
-        self._version = getattr(self, "_version", 0) + 1
+        self._version += 1
 
-        if not getattr(self, "_is_notifying", False):
+        if not self._is_notifying:
             self._is_notifying = True
             try:
-                direct_observers = getattr(self, "_direct_observers", None)
-                if direct_observers and len(direct_observers) == len(self._observers):
+                if self._direct_observers and len(self._direct_observers) == len(
+                    self._observers
+                ):
                     callbacks = self._direct_callbacks_for_notification()
                     if len(callbacks) == 1:
                         callbacks[0](new_value)
@@ -522,7 +510,7 @@ class ComputedObservable(Observable[T]):
             new_value = self._guarded_recompute_value()
             if self._value != new_value:
                 self._value = new_value
-                self._version = getattr(self, "_version", 0) + 1
+                self._version += 1
                 super()._notify_observers()
             return
 
@@ -578,7 +566,7 @@ class ComputedObservable(Observable[T]):
         self._dependency_uses_fast_observer = False
 
     @property
-    def value(self) -> Optional[T]:
+    def value(self) -> T:
         if _base._TRANSFORM_EVALUATION_STATE[0]:
             from .base import _transform_purity_message
 
@@ -596,8 +584,8 @@ class ComputedObservable(Observable[T]):
                     self._set_computed_value(new_value)
                 else:
                     self._value = new_value
-                    self._version = getattr(self, "_version", 0) + 1
-        return self._value
+                    self._version += 1
+        return cast(T, self._value)
 
     def add_observer(self, observer: Callable) -> None:
         was_active = self._dependencies_active
@@ -614,19 +602,15 @@ class ComputedObservable(Observable[T]):
         else:
             self._refresh_dependency_callback()
 
-    def _set_computed_value(self, value: Optional[T]) -> None:
+    def _set_computed_value(self, value: T) -> None:
         """
         Internal method for updating computed observable values.
 
-        This method bypasses the read-only protection enforced by the public `set()`
-        method. The framework calls it internally when dependencies change—the `>>`
-        operator and `.then()` method use it to update computed values after
-        recomputation.
-
-        External code should not call this method directly. That restriction prevents
-        breaking reactive relationships—only the framework should update computed
-        values, and only when dependencies actually change. Direct use may create
-        inconsistent state where computed values don't match their dependencies.
+        Bypasses the read-only protection enforced by the public `set()`
+        method. This is called internally when a dependency changes - the
+        `>>` operator and `.then()` method use it to store a freshly
+        recomputed value. Calling it from outside the framework can leave a
+        computed observable holding a value inconsistent with its dependencies.
 
         Args:
             value: The new computed value calculated from dependencies.
@@ -636,18 +620,17 @@ class ComputedObservable(Observable[T]):
         self._is_dirty = False
         super().set(value)
 
-    def set(self, value: Optional[T]) -> None:
+    def set(self, value: T) -> None:
         """
         Prevent direct modification of computed observable values.
 
-        This method always raises `ValueError` to enforce read-only behavior.
-        Computed observables derive their values from dependencies—setting them
-        directly would break that reactive relationship. The framework updates
-        computed values internally when dependencies change, but external code
-        cannot modify them.
+        Always raises `ValueError`: a computed observable's value flows from
+        its dependencies, so setting it directly would break that
+        relationship. FynX updates it internally when a dependency changes,
+        but nothing else should.
 
-        To change a computed value, modify its source observables instead. The
-        computed value updates automatically when dependencies change:
+        To change a computed value, modify its source observables instead -
+        it updates automatically:
 
         ```python
         from fynx import observable

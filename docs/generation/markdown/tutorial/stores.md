@@ -164,7 +164,7 @@ CartStore.items = [
 ]
 
 print(CartStore.item_count)  # 2 (computes now)
-print(CartStore.subtotal)    # 35.0 (computes now)
+print(CartStore.subtotal)    # 35 (computes now)
 
 # Access again without changes
 print(CartStore.item_count)  # 2 (returns cached value)
@@ -271,8 +271,13 @@ Methods define your Store's public API. Users don't manipulate observables direc
 Notice the pattern in the methods above—we never mutate values in place:
 
 ```python
-# Wrong: Mutation doesn't trigger reactivity
+# Wrong: list methods aren't proxied through the Store attribute, so this
+# raises AttributeError rather than silently failing to notify
 cls.items.append(new_item)
+
+# Also wrong: mutating the underlying list directly works without crashing,
+# but doesn't trigger reactivity either, since the reference never changes
+cls.items.value.append(new_item)
 
 # Right: Create new list
 cls.items = cls.items + [new_item]
@@ -629,9 +634,13 @@ SomeStore.items = SomeStore.items + [item]
 cls.items = cls.items + [new_item]
 cls.items = [item for item in cls.items if item['id'] != id]
 
-# Bad: Mutation (won't trigger reactivity)
+# Bad: Store attributes do not proxy list mutator methods
 cls.items.append(new_item)
 cls.items.remove(item)
+
+# Also bad: direct value mutation bypasses notification
+cls.items.value.append(new_item)
+cls.items.value.remove(item)
 ```
 
 **4. Handle edge cases in computed values**

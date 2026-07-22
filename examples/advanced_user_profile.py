@@ -1,17 +1,15 @@
 """
 Advanced UserProfile Example - Demonstrating Complex Reactive Systems
 
-This example shows how FynX enables building sophisticated reactive applications
-through store-level reactions, multiple subscription patterns, and composable
-transformations. It models a user profile system with validation, notifications,
-and state persistence.
+A user profile system built from store-level reactions, several subscription
+patterns, and composable transformations, covering validation,
+notifications, and state persistence.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, cast
 
-from fynx import Store, observable, reactive
-from fynx.observable.computed import ComputedObservable
+from fynx import Observable, Store, StoreSnapshot, StoreState, observable, reactive
 
 
 class UserProfile(Store):
@@ -21,7 +19,7 @@ class UserProfile(Store):
     first_name = observable("")
     last_name = observable("")
     email = observable("")
-    age = observable(0)
+    age = observable(cast(Optional[int], None))
     phone = observable("")
 
     # Account settings
@@ -30,7 +28,7 @@ class UserProfile(Store):
     subscription_tier = observable("free")  # free, premium, enterprise
 
     # Activity tracking
-    last_login: Optional[datetime] = observable(None)
+    last_login = observable(cast(Optional[datetime], None))
     login_count = observable(0)
 
     # Preferences
@@ -50,7 +48,7 @@ print()
 
 
 @reactive(UserProfile)
-def on_profile_change(profile_snapshot):
+def on_profile_change(profile_snapshot: StoreSnapshot) -> None:
     """Called whenever ANY observable in UserProfile changes."""
     print(
         f"🔄 Profile updated: {profile_snapshot.first_name} {profile_snapshot.last_name}"
@@ -74,17 +72,17 @@ print()
 # Computed properties will be defined after initial data setup to avoid module-level issues
 
 print("\nSetting initial profile data...")
-UserProfile.first_name = "Alice"
-UserProfile.last_name = "Johnson"
-UserProfile.email = "alice.johnson@email.com"
-UserProfile.age = 28
-UserProfile.phone = "+1-555-0123"
-UserProfile.is_verified = True
-UserProfile.subscription_tier = "premium"
+UserProfile.first_name.set("Alice")
+UserProfile.last_name.set("Johnson")
+UserProfile.email.set("alice.johnson@email.com")
+UserProfile.age.set(28)
+UserProfile.phone.set("+1-555-0123")
+UserProfile.is_verified.set(True)
+UserProfile.subscription_tier.set("premium")
 
 print("\nUpdating profile...")
-UserProfile.age = 29
-UserProfile.phone = ""  # This should decrease completeness
+UserProfile.age.set(29)
+UserProfile.phone.set("")  # This should decrease completeness
 
 # Now define computed properties after the Store is initialized
 print("\nCreating computed properties...")
@@ -131,7 +129,9 @@ display_name = (full_name + UserProfile.email).then(
 
 # Subscribe to computed properties
 full_name.subscribe(lambda name: print(f"👤 Full name: {name}"))
-profile_completeness.subscribe(lambda pct: print(".0f"))
+profile_completeness.subscribe(
+    lambda pct: print(f"📊 Profile completeness: {pct:.0f}%")
+)
 
 # ------------------------------------------------------------------------------------------------
 # Validation System: Conditional reactions with complex logic
@@ -144,17 +144,19 @@ print("-" * 100)
 print()
 
 # Email validation
-is_valid_email: ComputedObservable[bool] = UserProfile.email.then(
-    lambda email: "@" in email and "." in email.split("@")[1]
+is_valid_email: Observable[bool] = UserProfile.email.then(
+    lambda email: "@" in email
+    and "." in email.rsplit("@", 1)[1]
+    and bool(email.rsplit("@", 1)[0])
 )
 
 # Age validation (reasonable range)
-is_valid_age: ComputedObservable[bool] = UserProfile.age.then(
-    lambda age: 0 <= age <= 150
+is_valid_age: Observable[bool] = UserProfile.age.then(
+    lambda age: age is not None and 0 <= age <= 150
 )
 
 # Phone validation (basic format check)
-is_valid_phone: ComputedObservable[bool] = UserProfile.phone.then(
+is_valid_phone: Observable[bool] = UserProfile.phone.then(
     lambda phone: not phone
     or (
         len(phone) >= 10
@@ -162,8 +164,10 @@ is_valid_phone: ComputedObservable[bool] = UserProfile.phone.then(
     )
 )
 
-# Overall profile validity - using conditional observables for complex logic
-profile_is_valid = is_valid_email & is_valid_age & is_valid_phone  # type: ignore
+# Overall profile validity as a total boolean value.
+profile_is_valid = (is_valid_email + is_valid_age + is_valid_phone).then(
+    lambda email_ok, age_ok, phone_ok: email_ok and age_ok and phone_ok
+)
 
 
 @reactive(profile_is_valid)
@@ -179,8 +183,8 @@ can_access_premium = UserProfile.subscription_tier.then(
 )
 
 premium_access_granted = (
-    can_access_premium & UserProfile.is_verified & UserProfile.is_active
-)
+    can_access_premium + UserProfile.is_verified + UserProfile.is_active
+).then(lambda premium_tier, verified, active: premium_tier and verified and active)
 
 
 @reactive(premium_access_granted)
@@ -194,8 +198,8 @@ def check_premium_access(has_access):
 
 print("\nTesting validation...")
 # Test validation by changing email
-UserProfile.email = "invalid-email"  # Should trigger invalid state
-UserProfile.email = "valid@email.com"  # Should trigger valid state
+UserProfile.email.set("invalid-email")  # Should trigger invalid state
+UserProfile.email.set("valid@email.com")  # Should trigger valid state
 
 # ------------------------------------------------------------------------------------------------
 # Notification System: Multiple subscription patterns
@@ -231,7 +235,10 @@ is_adult = UserProfile.age >> (lambda age: age is not None and age >= 18)
 is_premium = UserProfile.subscription_tier >> (lambda tier: tier == "premium")
 
 
-@reactive(is_adult & is_premium)
+eligible_premium_user = UserProfile.age & is_adult & is_premium
+
+
+@reactive(eligible_premium_user)
 def on_eligible_user(condition_value):
     print("🎯 User is now eligible for premium features!")
 
@@ -257,12 +264,12 @@ print("\nTesting notifications...")
 # Subscribe to theme changes
 UserProfile.theme.subscribe(on_theme_change)
 
-UserProfile.theme = "dark"
-UserProfile.theme = "light"
+UserProfile.theme.set("dark")
+UserProfile.theme.set("light")
 
 # Unsubscribe from theme changes
 UserProfile.theme.unsubscribe(on_theme_change)
-UserProfile.theme = "auto"  # This won't trigger on_theme_change
+UserProfile.theme.set("auto")  # This won't trigger on_theme_change
 
 # ------------------------------------------------------------------------------------------------
 # Activity Tracking: Building complex behavior from simple components
@@ -278,8 +285,8 @@ print()
 # Simulate login activity
 def simulate_login():
     """Simulate a user login event."""
-    UserProfile.login_count = UserProfile.login_count.value + 1
-    UserProfile.last_login = "2024-01-15 10:30:00"
+    UserProfile.login_count.set(UserProfile.login_count.value + 1)
+    UserProfile.last_login.set(datetime(2024, 1, 15, 10, 30))
     print(f"🔐 User logged in (total: {UserProfile.login_count.value})")
 
 
@@ -289,7 +296,8 @@ first_login = UserProfile.login_count >> (lambda count: count == 1)
 
 @reactive(first_login)
 def welcome_new_user(condition_value):
-    print("🎊 Welcome! This is your first login!")
+    if condition_value:
+        print("🎊 Welcome! This is your first login!")
 
 
 # Reward milestones
@@ -298,7 +306,8 @@ tenth_login = UserProfile.login_count >> (lambda count: count == 10)
 
 @reactive(tenth_login)
 def reward_milestone(condition_value):
-    print("🏆 Milestone reached: 10 logins! Here's a virtual badge!")
+    if condition_value:
+        print("🏆 Milestone reached: 10 logins! Here's a virtual badge!")
 
 
 # Activity-based recommendations
@@ -333,14 +342,14 @@ print()
 
 # Save current state
 print("💾 Saving profile state...")
-saved_state = UserProfile.to_dict()
+saved_state: StoreState = UserProfile.to_dict()
 print("Saved state keys:", list(saved_state.keys()))
 
 # Modify profile
 print("\n🔄 Modifying profile before restoration...")
-UserProfile.first_name = "Modified"
-UserProfile.subscription_tier = "enterprise"
-UserProfile.login_count = 50
+UserProfile.first_name.set("Modified")
+UserProfile.subscription_tier.set("enterprise")
+UserProfile.login_count.set(50)
 
 # Restore from saved state
 print("\n📂 Restoring profile state...")
@@ -386,7 +395,7 @@ def check_auto_upgrade(eligible):
 
 
 # Dynamic feature access based on multiple conditions
-age_eligible = UserProfile.age.then(lambda age: age >= 13)
+age_eligible = UserProfile.age.then(lambda age: age is not None and age >= 13)
 advanced_features_access = (can_access_premium + profile_is_valid + age_eligible).then(
     lambda premium, valid, age_ok: premium and valid and age_ok
 )

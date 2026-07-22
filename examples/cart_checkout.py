@@ -22,8 +22,8 @@ print("=" * 50)
 
 # Now whenever we change the cart state, total_price updates automatically,
 # and the UI is updated accordingly.
-CartStore.item_count = 2
-CartStore.price_per_item = 15  #
+CartStore.item_count.set(2)
+CartStore.price_per_item.set(15.0)
 
 # ==================================================
 # >>> Cart Total: $20.00

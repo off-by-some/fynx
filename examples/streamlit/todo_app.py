@@ -21,13 +21,15 @@ $ pip install fynx streamlit && python run examples/streamlit/todo_app.py
 """
 
 import logging
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
-import streamlit as st
+import streamlit as _streamlit
 from todo_item_model import TodoItem
 from todo_store import TodoStore
 
 from fynx import reactive
+
+st: Any = _streamlit
 
 # ==============================================================================================
 # Reactive UI Rerender Handler

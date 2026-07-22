@@ -99,7 +99,7 @@ FynX works wherever values change over time and other computations depend on tho
 
 The common thread: data flows through transformations, and multiple parts of your system need to stay synchronized. FynX handles the tedious work of tracking dependencies and triggering updates. You focus on *what* relationships should hold; the library ensures they do.
 
-This breadth isn't accidental. The universal properties underlying FynX apply to any scenario involving time-varying values and compositional transformations—which describes a surprisingly large fraction of software.
+This breadth isn't accidental. FynX's composition rules fit many scenarios involving time-varying values and transformations, which describes a surprisingly large fraction of software.
 
 
 ## The Five Reactive Operators
@@ -114,16 +114,37 @@ FynX provides five composable operators that form a complete algebra for reactiv
 | `\|` | `.either()` | Logical OR | Combine boolean conditions | `is_error \| is_warning` |
 | `~` | `.negate()` | Negate | Invert boolean conditions | `~is_loading` |
 
-Each operation creates a new observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that guarantee correct behavior under composition.
+Each operation returns an observable. Chain them to build sophisticated reactive systems from simple parts. These operators correspond to precise mathematical structures—functors, products, pullbacks—that define FynX's composition rules and keep behavior predictable.
+
+### Static Typing
+
+FynX ships inline type information (`py.typed`) for the operator algebra. Directly typed observables preserve the shapes you would expect:
+
+```python
+from fynx import Observable
+
+height: Observable[float] = Observable("height", 1.8)
+weight: Observable[float] = Observable("weight", 75.0)
+
+bmi_data = height + weight
+# MergedObservable[float, float], with value type tuple[float, float]
+
+bmi = bmi_data >> calculate_bmi
+# Observable[float]
+```
+
+Products flatten by type as well as at runtime: `a + b + c` is a three-value product, not `tuple[tuple[A, B], C]`. Product transforms receive unpacked arguments, so `(a + b + c) >> lambda a, b, c: ...` type-checks naturally. Filtering with `&` preserves the source value type (`cart_total & logged_in` is a conditional observable of the cart total), while `|` and `~` produce ordinary `Observable[bool]` values for reusable boolean conditions.
+
+Store attributes are typed descriptors too. A field such as `total = observable(0)` appears to type checkers as `ObservableValue[int]` on class access, while standalone `observable(0)` values remain `Observable[int]`.
 
 ## The Mathematical Guarantee
 
-You don't need to understand category theory to use FynX, but it's what makes FynX reliable: the reactive behavior isn't just validated by examples—it's guaranteed by mathematical necessity. Every reactive program you construct will work correctly because FynX is built on universal properties from category theory (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that ensure correctness and enable powerful optimizations.
+You don't need to understand category theory to use FynX, but it shapes the design. FynX defines a small state-like observable algebra, then implements and tests the laws that make that algebra composable (detailed in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/)). These aren't abstract concepts for their own sake; they're implementation principles that keep behavior understandable and enable powerful optimizations.
 
-FynX satisfies specific universal properties from category theory, guaranteeing correctness:
-* **Functoriality**: Transformations with `>>` preserve composition. Your chains work exactly as expected, regardless of how you compose them.
-* **Products**: Combining observables with `+` creates proper categorical products. No matter how complex your combinations, the structure stays coherent.
-* **Pullbacks**: Filtering with `&` constructs mathematical pullbacks. Stack conditions freely—the meaning never changes.
+FynX's core operators follow specific mathematical structures:
+* **Functoriality**: Transformations with `>>` preserve value-level composition. Pure chains such as `obs >> f >> g` fuse internally into one composed transform over the original source.
+* **Products**: Combining observables with `+` creates state-like products. Repeated ordered products such as `a + b` are canonical while live, and chained products flatten into one ordered tuple.
+* **Pullbacks**: Filtering with `&` models gating as a pullback-like selection of values where conditions are true. Stack pure boolean conditions freely and the meaning remains stable.
 
 
 The functoriality property guarantees that lifted functions preserve composition:
@@ -132,11 +153,11 @@ $$
 \mathcal{O}(\mathrm{id}) = \mathrm{id} \quad \mathcal{O}(g \circ f) = \mathcal{O}g \circ \mathcal{O}f
 $$
 
-In practice, this means complex reactive systems composed from simple parts behave predictably under all transformations. You describe what relationships should exist; FynX guarantees they hold.
+In practice, this means complex reactive systems composed from simple parts behave predictably under pure transformations. You describe what relationships should exist; FynX maintains those relationships.
 
-These same categorical structures enable FynX's automatic optimizer. Composition laws prove `obs >> f >> g >> h` can safely fuse into a single operation. Product properties allow sharing common computations. Pullback semantics let filters combine without changing meaning. The theory doesn't just ensure correctness—it shows exactly which optimizations are safe.
+These same categorical structures shape FynX's runtime. Composition laws justify fused transforms. Product semantics justify canonical product reuse. Version-based invalidation keeps unobserved derived values lazy, while subscribers create the eager frontier needed for notifications. Pullback semantics let compatible filters combine without changing meaning.
 
-Think of it like an impossibly thorough test suite: one covering not just the cases you wrote, but every case that could theoretically exist. (We also ship with [conventional tests](./tests/), naturally.)
+Think of it as an executable contract: the algebra says what rewrites are allowed, and the test suite checks that the implementation keeps those promises.
 
 ## Performance
 
@@ -144,13 +165,13 @@ While the theory guarantees correctness, implementation determines speed. FynX's
 
 ```bash
 # Run fixed-size FynX stress tests
-python benchmark2.py --quick
+scripts/benchmark --quick
 
 # Include RxPY comparisons when reactivex is installed
-python benchmark2.py --quick --compare
+scripts/benchmark --quick --compare
 ```
 
-Sample comparison output from `python benchmark2.py --quick --compare` on one Apple Silicon / Python 3.10 run:
+Sample comparison output from `scripts/benchmark --quick --compare` on one Apple Silicon / Python 3.10 run:
 
 ```
 compare-map          FynX  9.186ms   RxPY 11.501ms   1.25x
@@ -174,7 +195,7 @@ The headline comparison is deliberately limited to equivalent synchronous worklo
 
 The benchmark reports exactly what happened, rather than translating lightweight dependents into UI claims. That makes results easier to compare across commits, Python versions, and machines.
 
-The optimizer details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/) documentation, which explains how FynX achieves this performance through a categorical graph optimizer that automatically applies proven rewrite rules based on functoriality, products, and pullbacks.
+The runtime details are covered in the [**Mathematical Foundations**](https://off-by-some.github.io/fynx/mathematical/mathematical-foundations/) documentation, which explains how FynX uses functoriality, products, pullback-like gates, version invalidation, and demand-driven maintenance to keep reactive graphs efficient without changing their public meaning.
 
 ## Observables
 
@@ -266,7 +287,7 @@ merged = User.first_name + User.last_name
 # merged.set(("Jane", "Smith"))  # Raises ValueError: Computed observables are read-only
 ```
 
-When any combined observable changes, downstream values recalculate automatically. This operator constructs categorical products, ensuring combination remains symmetric and associative regardless of nesting.
+When any combined observable changes, downstream readers see the latest tuple, and subscribers receive notifications. This operator constructs state-like products: ordered products are canonical while live, and grouped products flatten into the same ordered tuple.
 
 ## Filtering with `&`, `.requiring()`, `~`, `.negate()`, `|`, and `.either()`
 
@@ -333,8 +354,13 @@ is_logged_in = observable(False)
 has_data = observable(False)
 is_loading = observable(True)
 
-# React only when logged in AND has data AND NOT loading
-@reactive(is_logged_in & has_data & ~is_loading)
+# & gates a value by a condition; it isn't boolean AND. For a genuine "all
+# three must be true" condition, build a total boolean with + and >>:
+ready_to_sync = (is_logged_in + has_data + is_loading) >> (
+    lambda logged_in, data, loading: logged_in and data and not loading
+)
+
+@reactive(ready_to_sync)
 def sync_when_ready(should_sync):
     if should_sync:
         perform_sync()  # Side effect: network operation
@@ -402,8 +428,6 @@ FynX maintains comprehensive test coverage tracked through Codecov:
 ## Contributing
 
 Contributions to FynX are welcome. This project uses **Poetry** for dependency management and **pytest** for testing.
-
-> To learn more about the vision for version 1.0, see the [**1.0 Product Specification**](https://github.com/off-by-some/fynx/blob/main/docs/1.0_TODO.md).
 
 ### Getting Started
 

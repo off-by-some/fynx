@@ -1,24 +1,11 @@
 """
-FynX Observable Descriptors - Reactive Attribute Descriptors
-==========================================================
+FynX Observable Descriptors - reactive attribute descriptors
+==============================================================
 
-ObservableValue acts as a transparent wrapper that makes reactive values behave
-like regular Python values. You access the value directly through familiar attribute
-syntax, while the wrapper tracks changes and triggers updates automatically behind
-the scenes. The value appears ordinary, but the system maintains reactive behavior.
-
-This module provides descriptor classes that enable transparent reactive programming
-in class attributes. These descriptors bridge regular Python attribute access with
-reactive capabilities, allowing Store classes to provide familiar syntax alongside
-automatic dependency tracking and change propagation.
-
-Transparent Reactivity
-----------------------
-
-FynX's descriptors enable transparent reactivity—code that looks like regular
-attribute access while maintaining automatic dependency tracking. You write
-`store.counter = 5` and the system handles subscriptions, notifications, and
-computed updates. That transparency means existing code works without modification.
+This module provides the descriptor classes that make reactive class
+attributes look like regular ones. Write `store.counter = 5` and the
+descriptor handles subscriptions, notifications, and computed updates behind
+the scenes - no explicit `.set()` or `.subscribe()` required for basic use.
 
 Instead of explicit reactive patterns:
 ```python
@@ -41,35 +28,30 @@ store.counter = 5     # Automatic updates
 total = store.price * store.quantity  # Reactive computation
 ```
 
-The descriptor system handles the reactive machinery behind the scenes. When you
-access `store.counter`, the descriptor returns an ObservableValue that wraps the
-actual Observable. That wrapper behaves like the value for most operations—equality,
-string conversion, iteration—while also providing reactive methods like subscription
-and operator overloading. We call this transparent reactivity—the value appears
-ordinary, but the system tracks dependencies and propagates changes automatically.
+Accessing `store.counter` returns an ObservableValue that wraps the actual
+Observable. It behaves like the wrapped value for equality, string
+conversion, and iteration, while still exposing reactive methods like
+`.subscribe()` and the `+` / `>>` / `&` operators.
 
-How It Works
+How it works
 ------------
 
-The descriptor system operates through two components working together:
+Two components do this together:
 
-1. **SubscriptableDescriptor**: Attached to class attributes by StoreMeta, creates
-   and manages the underlying Observable instances at the class level. The StoreMeta
-   metaclass converts `observable()` instances (which return Observable objects) into
-   SubscriptableDescriptor instances during class creation.
+1. **Observable descriptors**: `observable()` returns an Observable that also
+   implements Python's descriptor protocol. When attached to a Store class, it
+   creates or retrieves the owner-specific backing Observable and exposes typed
+   class access.
 
 2. **ObservableValue**: Returned when accessing descriptor attributes, provides
    transparent value access through ValueMixin while maintaining reactive capabilities.
    This wrapper subscribes to the underlying Observable to keep its displayed value
    synchronized.
 
-When you write `class UserStore(Store): name = observable("Alice")`, the StoreMeta
-metaclass intercepts that Observable instance and replaces it with a SubscriptableDescriptor.
-Accessing `UserStore.name` then triggers the descriptor's `__get__` method, which
-creates or retrieves the class-level Observable and returns an ObservableValue wrapper.
-That wrapper delegates value operations to the underlying value while preserving
-reactive behavior. Result: attribute access looks normal, but the system maintains
-dependency graphs and triggers updates automatically.
+When you write `class UserStore(Store): name = observable("Alice")`, the
+Observable itself is the descriptor. Accessing `UserStore.name` calls its
+`__get__`, which creates or retrieves the class-level Observable and wraps it
+in an ObservableValue.
 
 Common Patterns
 ---------------
@@ -136,27 +118,25 @@ with Python's attribute system. Observables are stored at the class level (as
 ObservableValue instances are created on-demand when attributes are accessed, and
 they subscribe to the underlying Observable to maintain synchronization.
 
-The StoreMeta metaclass performs the conversion from Observable to SubscriptableDescriptor
-during class creation. When you define `name = observable("Alice")` in a Store subclass,
-StoreMeta detects the Observable instance and replaces it with a SubscriptableDescriptor
-that wraps the original Observable. That descriptor then manages the class-level storage
-and returns ObservableValue instances on access.
+Observable implements the descriptor protocol directly. When you define
+`name = observable("Alice")` in a Store subclass, StoreMeta records the Observable
+attribute and keeps an owner-specific backing observable in the Store's `_observables`
+mapping. Descriptor access returns ObservableValue instances.
 
 Performance Considerations
 --------------------------
 
-The system reuses Observable instances across attribute access, storing them as class
-attributes. ObservableValue wrappers are created on-demand and subscribe to updates,
-but the underlying Observable instances persist. This design minimizes memory overhead
-while maintaining reactive behavior.
+Observable instances are reused across attribute access, stored as class
+attributes. Only the ObservableValue wrapper is created on-demand, so
+overhead stays close to a regular attribute access.
 
 Limitations
 -----------
 
-Descriptor behavior requires class-level attribute assignment—instance-specific
-reactive attributes are not supported. Some advanced Python features (like certain
-metaclass interactions) may not work as expected with wrapped values, though common
-operations (equality, iteration, string conversion) work transparently.
+Reactive attributes are class-level only - there's no instance-specific
+variant. Common operations (equality, iteration, string conversion) work
+transparently, but some advanced Python features involving metaclasses may
+not interact well with the wrapped values.
 
 See Also
 --------
@@ -172,32 +152,28 @@ from typing import (
     Optional,
     Type,
     TypeVar,
+    cast,
 )
 
+from ..types import Subscriber
 from .base import Observable as ObservableImpl
 from .conditional import ConditionalObservable
-from .interfaces import Conditional, Mergeable, Observable
+from .interfaces import Conditional, Mergeable
 from .merged import MergedObservable
 from .operators import ValueMixin
 
 T = TypeVar("T")
 
 
-class ObservableValue(Generic[T], ValueMixin):
+class ObservableValue(Generic[T], ValueMixin[T]):
     """
-    A transparent wrapper that combines direct value access with observable capabilities.
+    A wrapper that combines direct value access with observable capabilities.
 
-    ObservableValue acts as a bridge between regular Python value access and reactive
-    programming. This wrapper behaves like the underlying value in most contexts—equality,
-    string conversion, iteration, indexing—while also providing access to observable
-    methods like subscription and operator overloading. The value appears ordinary, but
-    the wrapper maintains reactive behavior behind the scenes.
-
-    This class enables Store classes and other descriptor-based reactive systems to
-    provide both familiar value access (`store.attr = value`) and reactive capabilities
-    (`store.attr.subscribe(callback)`) through a single attribute. The wrapper subscribes
-    to the underlying Observable during initialization, keeping its displayed value
-    synchronized automatically.
+    Behaves like the underlying value for equality, string conversion,
+    iteration, and indexing, while also exposing observable methods like
+    `.subscribe()` and the reactive operators. This is what lets Store
+    attributes support both `store.attr = value` and
+    `store.attr.subscribe(callback)` through the same attribute.
 
     The ValueMixin provides transparent behavior: `__str__` delegates to the value,
     `__eq__` compares against the value (delegating to the underlying Observable's equality),
@@ -244,32 +220,33 @@ class ObservableValue(Generic[T], ValueMixin):
         Store: Uses ObservableValue for transparent reactive attributes
     """
 
-    def __init__(self, observable: "Observable[T]") -> None:
+    _observable: Any
+
+    def __init__(self, observable: ObservableImpl[T]) -> None:
         self._observable = observable
-        self._current_value = observable.value
 
-        # Subscribe to updates to keep _current_value in sync
-        def update_value(new_value):
-            self._current_value = new_value
-
-        observable.subscribe(update_value)
+    @property
+    def _current_value(self) -> T:
+        return self._observable.value
 
     # Observable methods
     @property
-    def value(self) -> Optional[T]:
+    def value(self) -> T:
         return self._observable.value
 
-    def set(self, value: Optional[T]) -> None:
+    def set(self, value: T) -> None:
         self._observable.set(value)
-        self._current_value = value
 
-    def subscribe(self, func) -> "Observable[T]":
+    def subscribe(self, func: Subscriber[T]) -> ObservableImpl[T]:
         return self._observable.subscribe(func)
 
+    def unsubscribe(self, func: Subscriber[T]) -> None:
+        self._observable.unsubscribe(func)
+
     @property
-    def observable(self) -> "Observable[T]":
+    def observable(self) -> ObservableImpl[T]:
         """Get the underlying observable instance."""
-        return self._observable
+        return cast(ObservableImpl[T], self._observable)
 
     def __getattr__(self, name: str):
         return getattr(self._observable, name)
@@ -289,16 +266,13 @@ class SubscriptableDescriptor(Generic[T]):
     """
     Descriptor that creates reactive class attributes with transparent observable behavior.
 
-    SubscriptableDescriptor enables Store classes and other reactive containers to define
-    attributes that behave like regular Python attributes while providing full reactive
-    capabilities. When accessed, it returns an ObservableValue instance that combines
-    direct value access with observable methods.
+    Lets Store classes and other reactive containers define attributes that
+    read and write like regular Python attributes but return an
+    ObservableValue - combining direct value access with observable methods.
 
-    This descriptor is the foundation for FynX's transparent reactive programming model.
-    The StoreMeta metaclass converts `observable()` instances (which return Observable
-    objects) into SubscriptableDescriptor instances during class creation. When you write
-    `name = observable("Alice")` in a Store subclass, StoreMeta detects the Observable
-    and replaces it with a SubscriptableDescriptor that wraps the original Observable.
+    Observable now implements the descriptor protocol used by Store attributes.
+    This class remains available for direct descriptor use in advanced cases where
+    a standalone descriptor object is useful.
 
     The descriptor stores observables at the class level (as `_{attr_name}_observable`
     attributes) to ensure shared state across all access. On first access via `__get__`,
@@ -307,8 +281,7 @@ class SubscriptableDescriptor(Generic[T]):
     to the observable's `set()` method, triggering reactive updates.
 
     How It Works:
-        1. StoreMeta converts `observable()` instances to SubscriptableDescriptor during
-           class creation, storing the original Observable for later use
+        1. A SubscriptableDescriptor is attached directly to a class attribute
         2. On first attribute access, `__get__` creates a class-level Observable instance
            (or uses the original if provided) and stores it as `_{attr_name}_observable`
         3. Returns an ObservableValue wrapper for transparent reactive access
@@ -319,7 +292,6 @@ class SubscriptableDescriptor(Generic[T]):
         from fynx import Store, observable
 
         class UserStore(Store):
-            # StoreMeta converts this Observable to a SubscriptableDescriptor
             name = observable("Alice")
             age = observable(30)
 
@@ -337,24 +309,24 @@ class SubscriptableDescriptor(Generic[T]):
         ```
 
     Note:
-        This descriptor is typically used indirectly through the `observable()` function
-        in Store classes, which returns an Observable that StoreMeta converts to a
-        SubscriptableDescriptor. Direct instantiation is usually not needed.
+        Store classes usually use Observable's built-in descriptor behavior through
+        `observable()`. Direct SubscriptableDescriptor instantiation is usually not
+        needed, but remains supported for manual descriptor use.
 
     See Also:
         ObservableValue: The wrapper returned by this descriptor
-        observable: Function that creates Observable instances (converted by StoreMeta)
+        observable: Function that creates typed Observable descriptors
         Store: Uses this descriptor for reactive class attributes
     """
 
     def __init__(
         self,
         initial_value: Optional[T] = None,
-        original_observable: Optional["Observable[T]"] = None,
+        original_observable: Optional[ObservableImpl[T]] = None,
     ) -> None:
         self.attr_name: Optional[str] = None
         self._initial_value: Optional[T] = initial_value
-        self._original_observable: Optional["Observable[T]"] = original_observable
+        self._original_observable: Optional[ObservableImpl[T]] = original_observable
         self._owner_class: Optional[Type] = None
 
     def __set_name__(self, owner: Type, name: str) -> None:
@@ -411,10 +383,9 @@ class SubscriptableDescriptor(Generic[T]):
                 obs = ObservableImpl(self.attr_name or "unknown", self._initial_value)
             setattr(target_class, obs_key, obs)
 
-        retrieved_obs = getattr(target_class, obs_key)
-        return ObservableValue(retrieved_obs)  # type: ignore
+        return ObservableValue(target_class.__dict__[obs_key])  # type: ignore
 
-    def __set__(self, instance: Optional[object], value: Optional[T]) -> None:
+    def __set__(self, instance: Optional[object], value: T) -> None:
         """
         Set the value on the observable.
 

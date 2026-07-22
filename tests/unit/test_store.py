@@ -53,7 +53,6 @@ def test_store_observables_can_be_updated():
 @pytest.mark.store
 def test_store_meta_inherits_observables_from_base_classes():
     """StoreMeta properly inherits observables from base classes."""
-    from fynx.observable.descriptors import SubscriptableDescriptor
 
     class BaseStore(Store):
         base_attr = observable("base_value")
@@ -65,16 +64,16 @@ def test_store_meta_inherits_observables_from_base_classes():
     assert hasattr(DerivedStore, "base_attr")
     assert hasattr(DerivedStore, "derived_attr")
 
-    # Both should be SubscriptableDescriptor instances
-    assert isinstance(DerivedStore.__dict__["base_attr"], SubscriptableDescriptor)
-    assert isinstance(DerivedStore.__dict__["derived_attr"], SubscriptableDescriptor)
+    assert isinstance(BaseStore.__dict__["base_attr"], Observable)
+    assert isinstance(DerivedStore.__dict__["derived_attr"], Observable)
+    assert "base_attr" in DerivedStore._observables
+    assert "derived_attr" in DerivedStore._observables
 
 
 @pytest.mark.unit
 @pytest.mark.store
 def test_store_meta_handles_inherited_observables_without_namespace_conflict():
     """StoreMeta handles inherited observables when they're not in namespace."""
-    from fynx.observable.descriptors import SubscriptableDescriptor
 
     class BaseStore(Store):
         shared_attr = observable("shared_value")
@@ -85,17 +84,17 @@ def test_store_meta_handles_inherited_observables_without_namespace_conflict():
 
     # Should inherit shared_attr from BaseStore
     assert hasattr(DerivedStore, "shared_attr")
-    assert isinstance(DerivedStore.__dict__["shared_attr"], SubscriptableDescriptor)
+    assert "shared_attr" not in DerivedStore.__dict__
+    assert "shared_attr" in DerivedStore._observables
 
     # Should have correct initial value
-    assert DerivedStore.__dict__["shared_attr"]._initial_value == "shared_value"
+    assert DerivedStore.shared_attr.value == "shared_value"
 
 
 @pytest.mark.unit
 @pytest.mark.store
-def test_store_meta_creates_descriptors_for_inherited_observables():
-    """StoreMeta creates new descriptors for inherited observables."""
-    from fynx.observable.descriptors import SubscriptableDescriptor
+def test_store_meta_isolates_inherited_observables():
+    """StoreMeta creates owner-specific backing observables for inherited fields."""
 
     class BaseStore(Store):
         inherited_attr = observable("inherited_value")
@@ -103,11 +102,16 @@ def test_store_meta_creates_descriptors_for_inherited_observables():
     class DerivedStore(BaseStore):
         pass
 
-    # Should create new descriptor for inherited observable
-    descriptor = DerivedStore.__dict__["inherited_attr"]
-    assert isinstance(descriptor, SubscriptableDescriptor)
-    assert descriptor._initial_value == "inherited_value"
-    assert descriptor._original_observable is None  # Should not share original
+    assert DerivedStore.inherited_attr.value == "inherited_value"
+    assert (
+        BaseStore._observables["inherited_attr"]
+        is not DerivedStore._observables["inherited_attr"]
+    )
+
+    DerivedStore.inherited_attr.set("derived_value")
+
+    assert BaseStore.inherited_attr.value == "inherited_value"
+    assert DerivedStore.inherited_attr.value == "derived_value"
 
 
 @pytest.mark.unit

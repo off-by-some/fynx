@@ -1,14 +1,18 @@
 """
-FynX Operators - Observable Operator Implementations and Mixins
-================================================================
+FynX Operators - observable operator implementations and mixins
+===================================================================
 
-Consider a spreadsheet formula: you reference cells, apply functions, combine values. That formula recalculates automatically when inputs change. This module provides that mechanism as Python operators—familiar syntax that composes reactive values into complex behaviors.
+FynX overloads Python operators so reactive code reads like an expression
+rather than a method chain: instead of `obs.map(f).filter(g)`, you write
+`obs >> f & g`. The operators handle dependency tracking and updates behind
+the scenes.
 
-FynX uses operator overloading to make reactive code read like natural expressions. Instead of method chains like `obs.map(f).filter(g)`, you write `obs >> f & g`. That syntax compresses reactive relationships into declarative statements—the operators handle dependency tracking and automatic updates behind the scenes.
+Three mixins provide this:
 
-The operators work through three mixin classes that consolidate operator overloading logic. OperatorMixin provides the core reactive operators (`+`, `>>`, `&`, `~`, `|`) for all observable types. TupleMixin adds tuple-like behavior to merged observables—iteration, indexing, length operations. ValueMixin enables transparent value access for ObservableValue instances, making reactive attributes behave like regular values while preserving reactive capabilities.
-
-Result: reactive code that reads like mathematical expressions, with automatic optimization and dependency tracking handled transparently.
+- `OperatorMixin` gives every observable type the core operators (`+`, `>>`, `&`, `~`, `|`).
+- `TupleMixin` adds tuple-like behavior to merged observables - iteration, indexing, length.
+- `ValueMixin` gives ObservableValue transparent value access, so reactive
+  attributes behave like regular values while keeping reactive capabilities.
 
 Operator Semantics
 ------------------
@@ -46,14 +50,22 @@ result = (x + y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
 Implementation Architecture
 ----------------------------
 
-The operators delegate to methods in OperationsMixin rather than implementing logic directly. That separation enables lazy loading and avoids circular import issues. When you use `obs >> func`, Python calls `__rshift__`, which delegates to `obs.then(func)`. The `then` method creates computed observables through `_create_computed`, which registers with the optimization system automatically.
+Operators delegate to OperationsMixin rather than implementing logic
+directly, which keeps imports lazy and avoids circular-import issues.
+`obs >> func` calls `__rshift__`, which delegates to `obs.then(func)`; `then`
+creates a computed observable through `_create_computed`.
 
-The functions handle different observable types (regular, merged, conditional) uniformly. For merged observables, transformation functions receive unpacked tuple values as separate arguments. For single observables, they receive one argument. That distinction enables functions that work with both coordinate pairs and scalar values.
+Transformation functions receive unpacked tuple values as separate arguments
+for merged observables, and a single argument for regular ones.
 
 Performance Characteristics
 ---------------------------
 
-Operators create computed or conditional observables that evaluate lazily—they recalculate only when accessed after dependencies change. Multiple operators chain without creating intermediate objects—the optimization system fuses sequential transformations into single composed functions. Operators reuse existing infrastructure rather than creating new classes, minimizing memory overhead.
+Operators create computed or conditional observables that evaluate lazily,
+recalculating only when accessed after a dependency changes. Chained
+operators fuse into a single composed function rather than creating
+intermediate objects, and they reuse existing infrastructure instead of new
+classes, keeping memory overhead low.
 
 Common Patterns
 ---------------
@@ -92,12 +104,21 @@ print(total.value)  # 10.8
 Error Handling
 --------------
 
-Transformation function errors propagate normally—the reactive system doesn't swallow exceptions. Invalid operator usage raises TypeError with descriptive messages. Transform functions that read `.value` or call `.set()` on observables raise `TransformPurityError` with a hint to combine inputs explicitly or move effects to subscriptions. Circular dependencies are detected during `.set()` operations and raise RuntimeError before creating infinite loops.
+Errors from transformation functions propagate normally rather than being
+swallowed. Invalid operator usage raises TypeError with a descriptive
+message. A transform that reads `.value` or calls `.set()` on an observable
+raises `TransformPurityError`, with a hint to combine inputs explicitly or
+move the effect to a subscription. Circular dependencies are caught during
+`.set()` and raise RuntimeError before they can loop.
 
 Best Practices
 --------------
 
-Keep transformation functions pure: use only the values passed as arguments, with no side effects and no hidden observable reads. Combine every reactive input first with `+` / `.alongside()`. Use named functions for complex operations rather than long lambda expressions. Break complex chains into intermediate variables for clarity. Handle edge cases explicitly—consider None values, empty collections, and boundary conditions.
+Keep transformation functions pure: use only the values passed in as
+arguments, with no side effects and no hidden observable reads - combine
+every reactive input first with `+` / `.alongside()`. Prefer named functions
+over long lambdas for complex operations, and break long chains into
+intermediate variables for clarity.
 
 See Also
 --------
@@ -107,29 +128,36 @@ See Also
 - `fynx.observable.conditional`: Conditional observables created by the `&` operator
 """
 
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from __future__ import annotations
 
-from .interfaces import Conditional, Mergeable
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, overload
+
+from ..types import ConditionOperand, ObservableOperand
+from .operands import is_observable_operand, unwrap_condition, unwrap_observable
 from .operations import OperationsMixin
 
 if TYPE_CHECKING:
     from .base import Observable
+    from .conditional import ConditionalObservable
+    from .descriptors import ObservableValue
+    from .interfaces import Conditional, Mergeable
+    from .merged import MergedObservable
 
 T = TypeVar("T")
 U = TypeVar("U")
+V = TypeVar("V")
 
 
 # Operator Mixins for consolidating operator overloading logic
 
 
-class OperatorMixin(OperationsMixin):
+class OperatorMixin(OperationsMixin[T], Generic[T]):
     """
     Mixin class providing common reactive operators for observable classes.
 
-    This mixin consolidates the operator overloading logic that was previously
-    duplicated across multiple observable classes. It provides the core reactive
-    operators (__add__, __rshift__, __and__, __invert__) that enable FynX's fluent
-    reactive programming syntax.
+    Consolidates the operator overloading logic (`__add__`, `__rshift__`,
+    `__and__`, `__invert__`) that would otherwise be duplicated across every
+    observable class.
 
     Classes inheriting from this mixin get automatic support for:
     - Merging with `+` operator
@@ -141,24 +169,38 @@ class OperatorMixin(OperationsMixin):
     need to support reactive composition operations.
     """
 
-    def __add__(self, other: Any) -> "Mergeable":
-        """
-        Combine this observable with another using the + operator.
+    @overload
+    def __add__(self, other: ObservableOperand[U]) -> "MergedObservable[T, U]": ...
 
-        This creates a merged observable that contains a tuple of both values
-        and updates automatically when either observable changes. The merge operation
-        represents the categorical product—combining independent reactive values
-        into a single reactive pair.
+    @overload
+    def __add__(self, other: Any) -> Any: ...
+
+    def __add__(self, other: Any) -> Any:
+        """
+        Combine observables, or delegate plain additions to the wrapped value.
+
+        Observable-like operands create a merged observable containing an
+        ordered tuple of both values. Plain Python values use the underlying
+        value's own `+`, so `items + [new_item]` works for immutable updates.
 
         Args:
-            other: Another Observable to combine with
+            other: Another Observable to combine with, or a plain value to add
 
         Returns:
-            A MergedObservable containing both values as a tuple
+            A MergedObservable for observable operands; otherwise the plain
+            Python addition result.
         """
-        return self.alongside(other)  # type: ignore
+        if is_observable_operand(other):
+            return self.alongside(other)  # type: ignore
+        return self.value + other  # type: ignore[attr-defined]
 
-    def __radd__(self, other: Any) -> "Mergeable":
+    @overload
+    def __radd__(self, other: ObservableOperand[U]) -> "MergedObservable[U, T]": ...
+
+    @overload
+    def __radd__(self, other: Any) -> Any: ...
+
+    def __radd__(self, other: Any) -> Any:
         """
         Support right-side addition for merging observables.
 
@@ -172,9 +214,11 @@ class OperatorMixin(OperationsMixin):
         Returns:
             A MergedObservable containing both values as a tuple
         """
-        return other.alongside(self)  # type: ignore
+        if is_observable_operand(other):
+            return unwrap_observable(other).alongside(self)  # type: ignore
+        return other + self.value  # type: ignore[attr-defined]
 
-    def __rshift__(self, func: Callable) -> "Observable":
+    def __rshift__(self, func: Callable[[T], U]) -> "Observable[U]":
         """
         Apply a transformation function using the >> operator to create computed observables.
 
@@ -190,14 +234,13 @@ class OperatorMixin(OperationsMixin):
         """
         return self.then(func)
 
-    def __and__(self, condition: Any) -> "Conditional":
+    def __and__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
         """
         Create a conditional observable using the & operator for filtered reactivity.
 
-        This creates a ConditionalObservable that only emits values when all
-        specified conditions are True, enabling precise control over reactive updates.
-        The operation represents a pullback—filtering the reactive stream through
-        boolean conditions.
+        Creates a ConditionalObservable that only emits values when every
+        condition is True - a pullback that filters the reactive stream
+        through boolean conditions.
 
         Args:
             condition: A boolean Observable, callable, or compound condition
@@ -220,7 +263,7 @@ class OperatorMixin(OperationsMixin):
         """
         return self.negate()  # type: ignore
 
-    def __or__(self, other: Any) -> "Observable":
+    def __or__(self, other: ObservableOperand[Any]) -> "Observable[bool]":
         """
         Create a logical OR condition using the | operator.
 
@@ -241,10 +284,8 @@ class TupleMixin:
     """
     Mixin class providing tuple-like operators for merged observables.
 
-    This mixin adds tuple-like behavior to observables that represent collections
-    of values (like MergedObservable). It provides operators for iteration,
-    indexing, and length operations that make merged observables behave like
-    tuples of their component values.
+    Adds iteration, indexing, and length operators so a MergedObservable
+    behaves like a tuple of its component values.
 
     Classes inheriting from this mixin get automatic support for:
     - Iteration with `for item in merged:`
@@ -278,20 +319,22 @@ class TupleMixin:
             raise IndexError("Index out of range")
 
 
-class ValueMixin:
+class ValueMixin(Generic[T]):
     """
     Mixin class providing value wrapper operators for ObservableValue.
 
-    This mixin adds operators that make observable values behave transparently
-    like their underlying values in most Python contexts. It provides magic
-    methods for equality, string conversion, iteration, indexing, etc., while
-    also supporting the reactive operators.
+    Adds the magic methods (equality, string conversion, iteration, indexing)
+    that let an observable value behave like its underlying value in most
+    Python contexts, alongside the reactive operators.
 
     Classes inheriting from this mixin get automatic support for:
     - Value-like behavior (equality, string conversion, etc.)
     - Reactive operators (__add__, __and__, __invert__, __rshift__)
     - Transparent access to the wrapped observable
     """
+
+    if TYPE_CHECKING:
+        _observable: Any
 
     def _raise_if_transform_reads(self) -> None:
         self._observable._raise_if_transform_reads()  # type: ignore[attr-defined]
@@ -303,6 +346,10 @@ class ValueMixin:
     def __str__(self) -> str:
         self._raise_if_transform_reads()
         return str(self._current_value)  # type: ignore
+
+    def __format__(self, format_spec: str) -> str:
+        self._raise_if_transform_reads()
+        return format(self._current_value, format_spec)  # type: ignore
 
     def __repr__(self) -> str:
         self._raise_if_transform_reads()
@@ -348,68 +395,113 @@ class ValueMixin:
 
     def _unwrap_operand(self, operand):
         """Unwrap operand if it's an ObservableValue, otherwise return as-is."""
-        if hasattr(operand, "observable"):
+        from .descriptors import ObservableValue
+
+        if isinstance(operand, ObservableValue):
             return operand.observable  # type: ignore
         return operand
 
-    def __add__(self, other) -> "Mergeable":
+    @overload
+    def __add__(self, other: ObservableOperand[U]) -> "MergedObservable[T, U]": ...
+
+    @overload
+    def __add__(self: "ValueMixin[list[V]]", other: list[V]) -> list[V]: ...
+
+    @overload
+    def __add__(self, other: Any) -> Any: ...
+
+    def __add__(self, other: Any) -> Any:
         """Support merging observables with + operator."""
-        unwrapped_other = self._unwrap_operand(other)  # type: ignore
         from .merged import MergedObservable
 
-        return MergedObservable(self._observable, unwrapped_other)  # type: ignore[attr-defined]
+        if not is_observable_operand(other):
+            return self._current_value + other  # type: ignore
 
-    def __radd__(self, other) -> "Mergeable":
+        return MergedObservable.from_sources(  # type: ignore[arg-type, return-value]
+            self._observable, unwrap_observable(other)
+        )
+
+    @overload
+    def __radd__(self, other: ObservableOperand[U]) -> "MergedObservable[U, T]": ...
+
+    @overload
+    def __radd__(self: "ValueMixin[list[V]]", other: list[V]) -> list[V]: ...
+
+    @overload
+    def __radd__(self, other: Any) -> Any: ...
+
+    def __radd__(self, other: Any) -> Any:
         """Support right-side addition for merging observables."""
-        unwrapped_other = self._unwrap_operand(other)  # type: ignore
         from .merged import MergedObservable
 
-        return MergedObservable(unwrapped_other, self._observable)  # type: ignore[attr-defined]
+        if not is_observable_operand(other):
+            return other + self._current_value  # type: ignore
 
-    def __and__(self, condition) -> "Conditional":
+        return MergedObservable.from_sources(  # type: ignore[arg-type, return-value]
+            unwrap_observable(other), self._observable
+        )
+
+    def __and__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
         """Support conditional observables with & operator."""
-        unwrapped_condition = self._unwrap_operand(condition)  # type: ignore
+        unwrapped_condition = unwrap_condition(condition)
 
         # Handle callable conditions by creating computed observables
-        if callable(unwrapped_condition) and not hasattr(unwrapped_condition, "value"):
+        if callable(unwrapped_condition):
             # Create a computed observable that evaluates the condition
             bool_condition = self._observable.then(
                 lambda x: x is not None and bool(unwrapped_condition(x))
             )
             from .conditional import ConditionalObservable
 
-            return ConditionalObservable(self._observable, bool_condition)  # type: ignore[attr-defined]
+            return ConditionalObservable(self._observable, bool_condition)
         else:
             # Boolean observable
             from .conditional import ConditionalObservable
 
-            return ConditionalObservable(self._observable, unwrapped_condition)  # type: ignore[attr-defined]
+            return ConditionalObservable(self._observable, unwrapped_condition)
 
-    def __invert__(self):
+    def __invert__(self) -> "Observable[bool]":
         """Support negating conditions with ~ operator."""
-        return self._observable.__invert__()  # type: ignore[attr-defined]
+        return self._observable.__invert__()
 
-    def __rshift__(self, func):
+    def __or__(self, other: ObservableOperand[Any]) -> "Observable[bool]":
+        """Support logical OR conditions with | operator."""
+        unwrapped_other = unwrap_observable(other)
+        return self._observable.either(unwrapped_other)
+
+    def __rshift__(self, func: Callable[[T], U]) -> "Observable[U]":
         """Support computed observables with >> operator."""
-        return self._observable >> func  # type: ignore[attr-defined]
+        return self._observable >> func
+
+    def then(self, func: Callable[[T], U]) -> "Observable[U]":
+        """Transform this observable value with a typed natural-language method."""
+        return self._observable.then(func)
+
+    def alongside(self, other: ObservableOperand[U]) -> "MergedObservable[T, U]":
+        """Combine this observable value with another observable-like value."""
+        return self + other
+
+    def requiring(self, *conditions: ConditionOperand[T]) -> "ConditionalObservable[T]":
+        """Gate this observable value behind one or more conditions."""
+        return self._observable.requiring(*conditions)
+
+    def negate(self) -> "Observable[bool]":
+        """Negate this observable value as a boolean condition."""
+        return ~self
+
+    def either(self, other: ObservableOperand[Any]) -> "Observable[bool]":
+        """Combine this observable value with another condition using OR."""
+        return self | other
 
 
-def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable[U]":
+def rshift_operator(obs: "Observable[T]", func: Callable[[T], U]) -> "Observable[U]":
     """
-    Implement the `>>` operator with comprehensive categorical optimization.
+    Implement the `>>` operator for pure reactive transforms.
 
-    This operator creates computed observables using the full categorical optimization
-    system, applying functor composition fusion, product factorization, and cost-optimal
-    materialization strategies automatically.
-
-    **Categorical Optimization System**:
-    - **Rule 1**: Functor composition collapse (fuses sequential transformations)
-    - **Rule 2**: Product factorization (shares common subexpressions)
-    - **Rule 3**: Pullback fusion (combines sequential filters)
-    - **Rule 4**: Cost-optimal materialization (decides what to cache vs recompute)
-
-    The optimization uses a cost functional C(σ) = α·|Dep(σ)| + β·E[Updates(σ)] + γ·depth(σ)
-    to find semantically equivalent observables with minimal computational cost.
+    Sequential pure transforms compose over the original source when no
+    observed boundary requires an intermediate notification: `obs >> f >> g`
+    behaves like mapping through `f` then `g`, while the runtime represents
+    it as one composed transform.
 
     For merged observables (created with `+`), the function receives multiple arguments
     corresponding to the tuple values. For single observables, it receives one argument.
@@ -421,9 +513,9 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
               observables, receives unpacked tuple values as separate arguments.
 
     Returns:
-        A new computed observable with optimal structure. Updates automatically
-        when source observables change, but with dramatically improved performance
-        through categorical optimizations.
+        A new computed observable. Unobserved computed values are cached and
+        version-validated lazily; observed values are maintained eagerly enough
+        to deliver subscriber notifications.
 
     Examples:
         ```python
@@ -434,36 +526,36 @@ def rshift_operator(obs: "Observable[T]", func: Callable[..., U]) -> "Observable
         result = counter >> (lambda x: x * 2) >> (lambda x: x + 10) >> str
         # Automatically optimized to single fused computation
 
-        # Complex reactive pipelines are optimized globally
+        # Repeated products reuse the same ordered product while live
         width = Observable("width", 10)
         height = Observable("height", 20)
         area = (width + height) >> (lambda w, h: w * h)
         volume = (width + height + Observable("depth", 5)) >> (lambda w, h, d: w * h * d)
-        # Shared width/height computations are factored out automatically
         ```
 
     Performance:
-        - **Chain fusion**: O(N) depth → O(1) for transformation chains
-        - **Subexpression sharing**: Eliminates redundant computations
-        - **Cost optimization**: Balances memory vs computation tradeoffs
-        - **Typical speedup**: 1000× - 10000× for deep reactive graphs
+        - **Transform fusion**: reduces intermediate reactive-node overhead
+        - **Canonical products**: reuses repeated ordered products while live
+        - **Version invalidation**: refreshes lazy values only when inputs changed
+        - **Demand frontier**: subscribers create eager maintenance where needed
 
     See Also:
         Observable.then: The method that creates computed observables
         MergedObservable: For combining multiple observables with `+`
-        optimizer: The categorical optimization system
     """
     # Delegate to the observable's optimized _create_computed method
     return obs._create_computed(func, obs)
 
 
-def and_operator(obs: Any, condition: Any) -> "Conditional":
+def and_operator(
+    obs: "Observable[T]", condition: ConditionOperand[T]
+) -> "ConditionalObservable[T]":
     """
     Implement the `&` operator for creating conditional observables.
 
-    This operator creates conditional observables that only emit values when boolean
-    conditions are satisfied. The resulting observable filters the reactive stream,
-    preventing unnecessary updates and computations when conditions aren't met.
+    Creates a conditional observable that only emits values when its boolean
+    condition is satisfied, filtering out updates and recomputation while the
+    condition is unmet.
 
     Args:
         obs: The source observable whose values will be conditionally emitted.
@@ -498,7 +590,7 @@ def and_operator(obs: Any, condition: Any) -> "Conditional":
         is_critical = Observable("critical", False)
 
         alarm_trigger = temperature & alarm_enabled & is_critical
-        alarm_trigger.subscribe(lambda t: print(f"🚨 Alarm: {t}°C"))
+        alarm_trigger.subscribe(lambda t: print(f"Alarm: {t}°C"))
         ```
 
     Note:
@@ -511,8 +603,11 @@ def and_operator(obs: Any, condition: Any) -> "Conditional":
     """
     from .conditional import ConditionalObservable
 
+    condition = unwrap_condition(condition)
+
     # Handle both observables and functions as conditions
-    if callable(condition) and not hasattr(condition, "value"):
+    condition_obs: ConditionOperand[T]
+    if callable(condition):
         # If condition is a function, create a computed observable
         # For conditionals, the condition should depend on the source value, not the conditional result
 

@@ -1,58 +1,48 @@
 """
-FynX Store - Reactive State Management Components
-=================================================
+FynX Store - reactive state management components
+====================================================
 
-Consider a filing cabinet: each drawer holds related documents, and you can watch
-the cabinet to know when anything inside changes. That cabinet is a Store—a container
-that groups related reactive values together and provides unified change notification.
-
-Stores organize reactive state into logical units. Instead of scattering observables
-throughout your codebase, Stores group related data together and provide methods for
-subscribing to changes, serializing state, and managing the reactive lifecycle. This
-gives you structured state management—each Store becomes a cohesive unit that you can
-observe, persist, and compose.
-
-We apply that pattern to application architecture. Stores work well for application
-state like user preferences and theme settings, feature state like shopping carts and
-user profiles, component state that needs sharing across multiple components, and business
-logic that computes derived values from raw data. That organization reduces coupling
-and makes state changes predictable.
+A Store groups related observables into a single container with unified
+change notification, instead of scattering them through the codebase. It
+works well for application state (preferences, theme), feature state
+(shopping carts, user profiles), component state shared across several
+components, or derived values computed from raw data.
 
 Core Components
 ---------------
 
 **Store**: Base class for reactive state containers. Store classes define observable
 attributes using the `observable()` descriptor, and Store provides methods for subscribing
-to changes and managing state. The metaclass intercepts attribute assignment, allowing
-`Store.attr = value` syntax to work seamlessly with observables.
+to changes and managing state. The metaclass intercepts attribute assignment, so
+`Store.attr = value` works directly with observables.
 
 **observable**: Descriptor function that creates observable attributes on Store classes.
-Use this to define reactive properties in your Store subclasses. The metaclass converts
-these to descriptors that provide transparent reactive access.
+Use this to define reactive properties in your Store subclasses. The returned
+Observable is itself a typed descriptor, so class access returns an ObservableValue
+with the right static type while preserving reactive operators.
 
 **StoreSnapshot**: Immutable snapshot of store state at a specific point in time. Useful
 for debugging, logging, and ensuring consistent state access during reactive callbacks.
 Each snapshot captures all observable values at creation time.
 
-**StoreMeta**: Metaclass that automatically converts observable attributes to descriptors
-and provides type hint compatibility for mypy. This metaclass processes class definitions
-to wrap observables in descriptors and handles inheritance of observable attributes.
+**StoreMeta**: Metaclass that records observable attributes, provides class-level
+assignment (`Store.attr = value`), and gives inherited Store fields owner-specific
+backing observables so subclasses do not share mutable state accidentally.
 
 Key Features
 ------------
 
-- **Automatic Observable Management**: Store metaclass handles observable creation and
-  descriptor wrapping, including support for inherited observables from parent classes
-- **Unified Subscriptions**: Subscribe to all changes in a store with a single callback
-  that receives a StoreSnapshot, or subscribe to individual observables directly
-- **State Serialization**: Save and restore store state with `to_dict()` and `load_state()`.
-  The `to_dict()` method serializes all observables including computed ones; use
-  `_get_primitive_observable_attrs()` to filter out computed observables for persistence
-- **Type Safety**: Full type hint support for better IDE experience and static analysis
-- **Memory Efficient**: Automatic cleanup through subscription context management and
-  efficient change detection that avoids redundant updates
-- **Composable**: Multiple stores operate independently, allowing you to organize state
-  by domain without cross-store dependencies
+- Store's metaclass records observable descriptors and resolves inherited
+  ones to owner-specific backing observables, so subclasses never share
+  mutable state by accident
+- Subscribe to every change in a store with one callback that receives a
+  StoreSnapshot, or subscribe to individual observables directly
+- Save and restore state with `to_dict()` and `load_state()`. `to_dict()`
+  serializes every observable including computed ones; use
+  `_get_primitive_observable_attrs()` to filter those out for persistence
+- Full type hints, so class access gets the right static type
+- Stores operate independently, so you can organize state by domain without
+  creating cross-store dependencies
 
 Basic Usage
 -----------
@@ -120,9 +110,9 @@ UserStore.first_name = "Jane"
 print(UserStore.full_name)  # "Jane Doe" (automatically updated)
 ```
 
-That pattern lets you define derived state alongside raw data. The computed observables
-participate in store subscriptions—when you subscribe to a store, computed values trigger
-updates just like primitive observables.
+Computed observables participate in store subscriptions the same way -
+subscribing to a store triggers updates for computed values just like
+primitive ones.
 
 ### State Persistence
 
@@ -162,8 +152,8 @@ AppStore.theme = "dark"
 UserStore.name = "Bob"
 ```
 
-That independence means you can compose complex applications from focused stores. Each
-store manages its own domain without creating cross-store dependencies.
+That independence lets you compose complex applications out of focused
+stores, each managing its own domain.
 
 Common Patterns
 ---------------
@@ -208,18 +198,14 @@ from typing import (
     Optional,
     Type,
     TypeVar,
-    Union,
+    overload,
 )
 
 from .observable import Observable, SubscriptableDescriptor
 from .observable.computed import ComputedObservable
+from .types import SessionValue, StoreState, StoreStateMapping
 
 T = TypeVar("T")
-
-# Type alias for session state values (used for serialization)
-SessionValue = Union[
-    None, str, int, float, bool, Dict[str, "SessionValue"], List["SessionValue"]
-]
 
 
 class StoreSnapshot:
@@ -267,7 +253,15 @@ class StoreSnapshot:
         return f"StoreSnapshot({', '.join(fields)})"
 
 
-def observable(initial_value: Optional[T] = None) -> Any:
+@overload
+def observable() -> Observable[None]: ...
+
+
+@overload
+def observable(initial_value: T) -> Observable[T]: ...
+
+
+def observable(initial_value: Any = None) -> Observable[Any]:
     """
     Create an observable with an initial value, used as a descriptor in Store classes.
     """
@@ -280,63 +274,50 @@ Subscriptable = SubscriptableDescriptor[Optional[T]]
 
 class StoreMeta(type):
     """
-    Metaclass for Store to automatically convert observable attributes to descriptors
-    and adjust type hints for mypy compatibility.
+    Metaclass for Store observable registration and class-level assignment.
+
+    Observable instances are already typed descriptors. StoreMeta records them,
+    resolves inherited descriptors to owner-specific backing observables, and
+    intercepts class assignment so `Store.attr = value` delegates to `.set()`.
     """
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict) -> Type:
-        # Process annotations and replace observable instances with descriptors
         annotations = namespace.get("__annotations__", {})
         new_namespace = namespace.copy()
-        observable_attrs = []
+        observable_attrs: List[str] = []
 
-        # First, collect inherited observable attributes that need descriptors
-        inherited_observables = {}
         for base in bases:
             if hasattr(base, "_observable_attrs"):
-                base_attrs = getattr(base, "_observable_attrs", [])
-                for attr_name in base_attrs:
-                    if (
-                        attr_name not in namespace
-                        and hasattr(base, "__dict__")
-                        and attr_name in base.__dict__
-                    ):
-                        # This inherited attribute needs a descriptor in the child class
-                        base_descriptor = base.__dict__[attr_name]
-                        if isinstance(base_descriptor, SubscriptableDescriptor):
-                            inherited_observables[attr_name] = base_descriptor
+                for attr_name in getattr(base, "_observable_attrs", []):
+                    if attr_name not in observable_attrs:
+                        observable_attrs.append(attr_name)
 
-        # Create descriptors for inherited observables
-        for attr_name, base_descriptor in inherited_observables.items():
-            new_namespace[attr_name] = SubscriptableDescriptor(
-                initial_value=base_descriptor._initial_value,
-                original_observable=None,  # Don't share original observable
-            )
-
-        # Process directly defined observables
         for attr_name, attr_value in namespace.items():
             if isinstance(attr_value, Observable):
-                observable_attrs.append(attr_name)
-                # Wrap all observables (including computed ones) in descriptors
-                initial_value = attr_value.value
-                new_namespace[attr_name] = SubscriptableDescriptor(
-                    initial_value=initial_value, original_observable=attr_value
-                )
-
-        # Add inherited observables to the list
-        observable_attrs.extend(inherited_observables.keys())
+                if attr_name not in observable_attrs:
+                    observable_attrs.append(attr_name)
 
         new_namespace["__annotations__"] = annotations
         cls = super().__new__(mcs, name, bases, new_namespace)
 
-        # Cache observable attributes and their instances for efficient access
         cls._observable_attrs = list(observable_attrs)
-        # Store the original observables from the namespace before they get replaced
         cls._observables = {
-            attr: namespace[attr] for attr in observable_attrs if attr in namespace
+            attr: descriptor._observable_for_owner(cls)
+            for attr in observable_attrs
+            if isinstance(
+                descriptor := mcs._find_observable_descriptor(cls, attr), Observable
+            )
         }
 
         return cls
+
+    @staticmethod
+    def _find_observable_descriptor(cls: Type, attr_name: str) -> Optional[Observable]:
+        for owner in cls.__mro__:
+            descriptor = owner.__dict__.get(attr_name)
+            if isinstance(descriptor, Observable):
+                return descriptor
+        return None
 
     def __setattr__(cls, name: str, value: Any) -> None:
         """Intercept class attribute assignment for observables."""
@@ -351,14 +332,12 @@ class Store(metaclass=StoreMeta):
     """
     Base class for reactive state containers with observable attributes.
 
-    Store groups related observable values together and manages their lifecycle
-    as a cohesive unit. Store subclasses define observable attributes using the
-    `observable()` descriptor, and Store provides methods for subscribing to changes,
+    Store subclasses define observable attributes with the `observable()`
+    descriptor; Store provides methods for subscribing to changes,
     serializing state, and managing reactive relationships.
 
-    The metaclass intercepts attribute assignment, allowing `Store.attr = value` syntax
-    to work seamlessly with observables. When you assign to a store attribute, the
-    metaclass delegates to the underlying observable's `set()` method, which triggers
+    The metaclass intercepts attribute assignment so `Store.attr = value`
+    delegates to the underlying observable's `set()` method, triggering
     reactive updates.
 
     Key Features:
@@ -390,8 +369,8 @@ class Store(metaclass=StoreMeta):
         ```
 
     Note:
-        Store uses a metaclass to intercept attribute assignment, allowing
-        `Store.attr = value` syntax to work seamlessly with observables. The
+        Store uses a metaclass to intercept attribute assignment, so
+        `Store.attr = value` works directly with observables. The
         `subscribe()` method is a classmethod that takes a function, not a decorator.
         Use `@reactive(Store)` from `fynx.reactive` for decorator syntax.
     """
@@ -415,19 +394,19 @@ class Store(metaclass=StoreMeta):
         ]
 
     @classmethod
-    def to_dict(cls) -> Dict[str, SessionValue]:
+    def to_dict(cls) -> StoreState:
         """Serialize all observable values to a dictionary."""
         return {attr: observable.value for attr, observable in cls._observables.items()}
 
     @classmethod
-    def load_state(cls, state_dict: Dict[str, SessionValue]) -> None:
+    def load_state(cls, state_dict: StoreStateMapping) -> None:
         """Load state from a dictionary into the store's observables."""
         for attr_name, value in state_dict.items():
             if attr_name in cls._observables:
                 cls._observables[attr_name].set(value)
 
     @classmethod
-    def subscribe(cls, func: Callable[[StoreSnapshot], None]) -> None:
+    def subscribe(cls, func: Callable[[StoreSnapshot], object]) -> None:
         """Subscribe a function to react to all observable changes in the store."""
         snapshot = StoreSnapshot(cls, cls._observable_attrs)
 
@@ -442,6 +421,6 @@ class Store(metaclass=StoreMeta):
             observable.add_observer(context.run)
 
     @classmethod
-    def unsubscribe(cls, func: Callable) -> None:
+    def unsubscribe(cls, func: Callable[[StoreSnapshot], object]) -> None:
         """Unsubscribe a function from all observables."""
         Observable._dispose_subscription_contexts(func)

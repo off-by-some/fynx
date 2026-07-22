@@ -45,6 +45,7 @@ count = observable(0)
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately: "Count: 0"
 
 count.set(5)   # Prints: "Count: 5"
 count.set(10)  # Prints: "Count: 10"
@@ -117,6 +118,9 @@ With `@reactive`, you declare the relationships once:
 
 ```python
 # Reactive: Declare what should happen
+# Each @reactive fires immediately with the current value (0), then again on
+# every later change - so decorating these three already prints three lines
+# before count.set(42) is even called.
 @reactive(count)
 def update_ui(value):
     print(f"UI: {value}")
@@ -131,10 +135,9 @@ def log_change(value):
 
 # Now just update state
 count.set(42)
-# All three functions run automatically
-# UI: 42
-# Saving: 42
-# Log: 42
+# All three functions run automatically, printing "UI: 42", "Saving: 42",
+# and "Log: 42" - but not necessarily in that order, since execution order
+# between independent subscribers isn't guaranteed.
 ```
 
 You've moved from "remember to update everything" to "declare what should stay synchronized." The burden of coordination shifts from you to FynX.
@@ -143,49 +146,56 @@ You've moved from "remember to update everything" to "declare what should stay s
 
 Here's where `@reactive` becomes truly powerful. You can combine observables with logical operators to create conditional reactions that only fire when specific conditions are met:
 
+Before reaching for `&`, it's important to get its meaning right: `&` **gates** a value by a condition (`data & condition` means "emit `data` while `condition` is true"), it is *not* boolean AND, and `+` **combines** observables into a tuple - it is *not* boolean OR. Reserve `|` for real logical OR and `~` for NOT; both produce plain booleans that notify on every value change, unlike the stateful, asymmetric gate `&` creates.
+
+For a pure gating use case - suppress a side effect while a condition doesn't hold - `&` is exactly right:
+
+```python
+is_logged_in = observable(True)
+is_verified = observable(True)
+
+# Emits is_logged_in's value only while is_verified is true.
+@reactive(is_logged_in & is_verified)
+def show_gated_value(value):
+    print(f"Gated value: {value}")
+# Fires immediately since the gate starts open: "Gated value: True"
+
+is_logged_in.set(False)
+# Gate is still open (is_verified is True) and the value changed -> fires
+# Prints: "Gated value: False"
+
+is_verified.set(False)
+# Gate closes. Nothing passes through, so nothing prints.
+
+is_logged_in.set(True)
+# Gate is still closed (is_verified is still False) -> nothing prints,
+# even though is_logged_in changed.
+
+is_verified.set(True)
+# Gate reopens, and the current value (True) differs from what was last
+# delivered (False) -> fires
+# Prints: "Gated value: True"
+```
+
+Notice `is_verified.set(False)` and `is_logged_in.set(True)` print nothing - the gate stays closed across both. This is easy to mistake for boolean AND if you don't watch closely.
+
+When you need a plain boolean that notifies on every relevant change - including complex expressions that mix AND/OR/NOT - build it with `+` and `>>` instead of `&`:
+
 ```python
 is_logged_in = observable(False)
 has_data = observable(False)
 is_loading = observable(True)
 should_sync = observable(False)
 
-# React only when logged in AND has data AND NOT loading OR should sync
-@reactive(is_logged_in & has_data & ~is_loading + should_sync)
+# Ready when logged in AND has data AND (NOT loading OR should_sync)
+ready_to_sync = (is_logged_in + has_data + is_loading + should_sync) >> (
+    lambda logged_in, data, loading, sync: logged_in and data and (not loading or sync)
+)
+
+@reactive(ready_to_sync)
 def sync_to_server(should_run):
     if should_run:
         perform_sync()
-```
-
-The operators work exactly as you'd expect:
-
-* `&` is logical AND
-* `+` is logical OR (when used with observables on both sides)
-* `~` is logical NOT (negation)
-
-These create composite observables that emit values based on boolean logic. The critical insight: the reaction still follows the change-only semantics. Even if your condition is `True` when you attach the reactive function, it won't fire until something changes *and* the condition evaluates.
-
-```python
-logged_in = observable(True)
-verified = observable(True)
-
-# Even though both are already True, this doesn't fire yet
-@reactive(logged_in & verified)
-def enable_premium_features(both_true):
-    print(f"Premium features: {both_true}")
-
-# Nothing printed yet - waiting for first change
-
-logged_in.set(False)  # Condition now False, triggers reaction
-# Prints: "Premium features: False"
-
-verified.set(False)  # Both False, triggers reaction
-# Prints: "Premium features: False"
-
-logged_in.set(True)  # One is True, one is False, triggers reaction
-# Prints: "Premium features: False"
-
-verified.set(True)  # Both True now, triggers reaction
-# Prints: "Premium features: True"
 ```
 
 This mirrors MobX's `when` behavior, but with more compositional flexibility. You're not limited to simple conditions—you can build arbitrarily complex boolean expressions that describe exactly when your side effect should consider running.
@@ -200,7 +210,11 @@ def maybe_sync(status):
         perform_sync()
 
 # You can write this:
-@reactive(logged_in & has_data & ~is_loading)
+is_ready = (is_logged_in + has_data + is_loading) >> (
+    lambda logged_in, data, loading: logged_in and data and not loading
+)
+
+@reactive(is_ready)
 def sync_when_ready(should_sync):
     if should_sync:
         perform_sync()
@@ -223,8 +237,7 @@ full_name = (first_name + last_name) >> (lambda f, l: f"{f} {l}")
 @reactive(full_name)
 def update_display(display_name):
     print(f"Display: {display_name}")
-
-# Nothing prints yet - waiting for first change
+# Fires immediately: "Display: Alice Smith"
 
 first_name.set("Bob")  # Triggers with "Bob Smith"
 last_name.set("Jones")  # Triggers with "Bob Jones"
@@ -265,8 +278,7 @@ class UserStore(Store):
 @reactive(UserStore)
 def sync_to_server(store_snapshot):
     print(f"Syncing: {store_snapshot.name}, {store_snapshot.email}")
-
-# Doesn't run immediately - waits for first change
+# Fires immediately with a snapshot: "Syncing: Alice, alice@example.com"
 
 UserStore.name = "Bob"  # Triggers reaction
 # Prints: "Syncing: Bob, alice@example.com"
@@ -296,8 +308,7 @@ item_count = CartStore.items >> (lambda items: len(items))
 @reactive(item_count)
 def update_badge(count):
     print(f"Cart badge: {count}")
-
-# Doesn't run immediately - waits for first change
+# Fires immediately: "Cart badge: 0"
 
 CartStore.items = [{'name': 'Widget', 'price': 10}]
 # Computed value recalculates: 1
@@ -319,6 +330,7 @@ length = items >> (lambda i: len(i))
 @reactive(length)
 def log_length(l):
     print(f"Length: {l}")
+# Fires immediately: "Length: 3"
 
 items.set([4, 5, 6])  # Length is still 3, reaction doesn't fire
 items.set([7, 8, 9, 10])  # Length is now 4, reaction fires
@@ -334,6 +346,7 @@ Once you decorate a function with `@reactive`, you're making a commitment. The f
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately with the current value of count
 
 log_count(10)  # Raises fynx.reactive.ReactiveFunctionWasCalled exception
 ```
@@ -346,6 +359,7 @@ You can always change your mind, though. Call `.unsubscribe()` to sever the reac
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately with the current value of count
 
 count.set(5)   # Prints: "Count: 5"
 
@@ -422,24 +436,33 @@ def update_match_indicator(match):
 def update_submit_button(is_valid):
     state = "enabled" if is_valid else "disabled"
     print(f"Submit button: {state}")
+# email_valid, password_valid, and passwords_match are ordinary computed
+# observables, so all three fire immediately here:
+# Email: ✗
+# Password strength: ✗
+# Passwords match: ✗
+# form_valid is a conditional gate that starts inactive (nothing is valid
+# yet), so update_submit_button does not fire yet.
 
-# Reactive functions don't run immediately
 # Now update the form fields:
 FormStore.email = "alice@example.com"
 # Email: ✓ (email indicator runs)
 
 FormStore.password = "secure123"
 # Password strength: ✓ (password indicator runs)
-# Passwords match: ✗ (match indicator runs - passwords don't match yet)
+# passwords_match does NOT run here: it was already False (empty == empty
+# is true, but the "pwd != ''" check made it False) and is still False now
+# ("secure123" != "" and "secure123" != confirm_password), so its value
+# hasn't changed and it doesn't notify.
 
 FormStore.confirm_password = "secure123"
-# Passwords match: ✓ (match indicator runs)
-# Submit button: enabled (form becomes valid)
+# Passwords match: ✓ (match indicator runs - value changed from False to True)
+# Submit button: enabled (form becomes valid for the first time)
 ```
 
 Every UI element updates automatically in response to the relevant state changes. You never write "when email changes, check if it's valid and update the indicator." You just declare the relationship and FynX handles the orchestration.
 
-Notice how we use the `&` operator to create `form_valid`—it only becomes true when all three conditions are met. The reactive function on `form_valid` only fires when something changes, giving you precise control over when the submit button updates.
+Notice how we use the `&` operator to create `form_valid`—it only becomes active when all three conditions are met, and only then does it pass a value through. Like any computed observable (including a conditional), the reactive function only fires when the delivered value actually changes, giving you precise control over when the submit button updates.
 
 ## The Core Insight: Where @reactive Belongs
 
@@ -581,17 +604,26 @@ order_total = order_items >> (lambda items:
 
 ### Anti-Patterns to Avoid
 
-**The infinite loop.** When a reaction modifies what it's watching, you've created a feedback cycle:
+**Self-mutation.** When a reaction modifies the very thing it's watching, you'd expect an infinite feedback cycle:
 
 ```python
 count = observable(0)
 
 @reactive(count)
 def increment_forever(value):
-    count.set(value + 1)  # Every change triggers another change
+    count.set(value + 1)  # Modifying the observable this reaction watches
 ```
 
-This is obvious in toy examples but can hide in real code when the dependency is indirect. The change semantics don't save you here—each change triggers the reaction, which causes another change, ad infinitum.
+FynX doesn't actually let this loop forever. Decoration runs the function once immediately (`0 → 1`) before the subscription is even registered, so that first call succeeds quietly. But once subscribed, any *later* external change is different:
+
+```python
+count.set(5)
+# Raises RuntimeError: Circular dependency detected in reactive computation!
+# FynX detects that increment_forever is trying to modify `count` while
+# running in response to a `count` change, and refuses rather than looping.
+```
+
+So this doesn't silently run away - it fails loudly the first time it would actually recurse. Still worth avoiding: relying on the framework to catch a self-mutation is worse than not writing one, and the failure is harder to spot when the dependency is indirect.
 
 **The hidden cache.** When reactions maintain their own state, you've split your application's state across two systems:
 
@@ -633,11 +665,12 @@ user = observable(None)
 has_permission = observable(False)
 is_online = observable(False)
 
-# Only sync when user is logged in, has permission, and is online
+# Gates `user`'s value by has_permission and is_online: the function only
+# runs while both conditions hold, and receives user's current value
+# (which may still be None if no one has logged in yet).
 @reactive(user & has_permission & is_online)
-def sync_sensitive_data(should_sync):
-    current_user = user.value
-    if should_sync and current_user is not None:
+def sync_sensitive_data(current_user):
+    if current_user is not None:
         api.sync_user_data(current_user.id)
 
 # Later, when you want to stop syncing entirely:
@@ -708,7 +741,7 @@ The rule of thumb: `@reactive` for static, declarative reactions with optional c
 
 ## Gotchas and Edge Cases
 
-**Infinite loops are possible**
+**Self-mutation raises, it doesn't loop**
 
 ```python
 # BAD: Modifying what you're watching
@@ -719,7 +752,7 @@ def increment_forever(value):
     count.set(value + 1)  # DON'T DO THIS
 ```
 
-Solution: Reactive functions should perform *side effects*, not modify the observables they're watching. Use computed observables for transformations.
+FynX's circular-dependency detection catches this and raises `RuntimeError` on the next external change to `count`, rather than looping forever - see [Anti-Patterns to Avoid](#anti-patterns-to-avoid) above for the full walkthrough. Reactive functions should perform *side effects*, not modify the observables they're watching; use computed observables for transformations instead.
 
 **Prefer explicit reaction inputs**
 
@@ -730,9 +763,10 @@ other_count = observable(10)
 @reactive(count)
 def show_sum(value):
     print(f"Sum: {value + other_count.value}")
+# Prints immediately: "Sum: 10"
 
 count.set(5)  # Prints: "Sum: 15"
-other_count.set(20)
+other_count.set(20)  # Prints: "Sum: 25"
 ```
 
 FynX tracks `.value` reads during reactive execution, so this still updates. For code that teammates can understand at a glance, prefer making reaction inputs explicit:

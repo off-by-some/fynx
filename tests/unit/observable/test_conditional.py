@@ -158,7 +158,7 @@ def test_conditional_observable_operator_creates_flat_structure():
 
 import pytest
 
-from fynx.observable.base import Observable
+from fynx.observable.base import Observable, TransformPurityError
 from fynx.observable.conditional import (
     ConditionalNeverMet,
     ConditionalNotMet,
@@ -210,6 +210,60 @@ def test_conditional_with_empty_conditions_is_always_active():
     assert always_open.value == 10
     src.set(20)
     assert always_open.value == 20
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_inactive_conditional_transform_constructs_without_reading_missing_value():
+    """Mapping an inactive gate preserves inactivity instead of reading .value."""
+    source = Observable("source", 0)
+    gate = source & (lambda value: value > 0)
+
+    mapped = gate >> (lambda value: value * 10)
+
+    assert mapped.is_active is False
+    with pytest.raises(ConditionalNeverMet):
+        _ = mapped.value
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_conditional_transform_emits_mapped_value_when_gate_opens():
+    """Mapped conditionals transform only values that pass through the source gate."""
+    source = Observable("source", 0)
+    mapped = (source & (lambda value: value > 0)) >> (lambda value: value * 10)
+    received = []
+
+    mapped.subscribe(received.append)
+    source.set(2)
+
+    assert mapped.value == 20
+    assert received == [20]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_conditional_transform_becomes_inactive_when_source_gate_closes():
+    """Mapped conditionals close when their source gate closes."""
+    source = Observable("source", 1)
+    mapped = (source & (lambda value: value > 0)) >> (lambda value: value * 10)
+
+    source.set(0)
+
+    assert mapped.is_active is False
+    with pytest.raises(ConditionalNotMet):
+        _ = mapped.value
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_conditional_transform_rejects_hidden_observable_reads():
+    """Conditional transforms keep the same purity boundary as ordinary transforms."""
+    source = Observable("source", 1)
+    hidden = Observable("hidden", 2)
+
+    with pytest.raises(TransformPurityError, match="inside a transform"):
+        (source & (lambda value: value > 0)) >> (lambda value: value + hidden.value)
 
 
 @pytest.mark.unit
@@ -440,48 +494,30 @@ def test_conditional_observable_handles_transition_to_inactive():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_conditional_observable_debug_info_handles_callable_with_tuple():
-    """get_debug_info handles callable conditions with tuple source values."""
-    source1 = Observable("s1", 1)
-    source2 = Observable("s2", 2)
-    merged = source1 + source2
+@pytest.mark.parametrize(
+    "conditional_factory",
+    [
+        lambda: Observable("source", 5) & (lambda value: value > 3),
+        lambda: (
+            (Observable("left", 1) + Observable("right", 2))
+            & (lambda left, right: left + right > 2)
+        ),
+    ],
+)
+def test_conditional_debug_info_reports_callable_condition_result(
+    conditional_factory,
+):
+    """get_debug_info reports callable results for single and product sources."""
+    conditional = conditional_factory()
 
-    def check_values(a, b):
-        return a + b > 2
-
-    conditional = merged & check_values
-
-    # Get debug info
     info = conditional.get_debug_info()
-
-    # Should have callable condition info
     callable_conditions = [
-        cs for cs in info["condition_states"] if cs["type"] == "Callable"
+        state for state in info["condition_states"] if state["type"] == "Callable"
     ]
-    assert len(callable_conditions) == 1
-    assert callable_conditions[0]["result"] is True  # 1 + 2 > 2
 
-
-@pytest.mark.unit
-@pytest.mark.observable
-def test_conditional_observable_debug_info_handles_callable_with_single_value():
-    """get_debug_info handles callable conditions with single source values."""
-    source = Observable("source", 5)
-
-    def check_value(x):
-        return x > 3
-
-    conditional = source & check_value
-
-    # Get debug info
-    info = conditional.get_debug_info()
-
-    # Should have callable condition info
-    callable_conditions = [
-        cs for cs in info["condition_states"] if cs["type"] == "Callable"
+    assert callable_conditions == [
+        {"index": 0, "type": "Callable", "result": True, "is_truthy": True}
     ]
-    assert len(callable_conditions) == 1
-    assert callable_conditions[0]["result"] is True  # 5 > 3
 
 
 @pytest.mark.unit
@@ -523,52 +559,6 @@ def test_conditional_observable_evaluate_single_condition_unknown_type():
     # This should treat unknown condition as falsy
     result = conditional._evaluate_single_condition(unknown_condition, 5)
     assert result is False
-
-
-@pytest.mark.unit
-@pytest.mark.observable
-def test_conditional_observable_debug_info_handles_callable_with_tuple_source():
-    """Test get_debug_info() with callable condition and tuple source (line 698)"""
-    source1 = Observable("s1", 1)
-    source2 = Observable("s2", 2)
-    merged = source1 + source2
-
-    def check_tuple(a, b):
-        return a + b > 2
-
-    conditional = merged & check_tuple
-
-    # Get debug info
-    info = conditional.get_debug_info()
-
-    # Should handle tuple source values in callable conditions
-    callable_conditions = [
-        cs for cs in info["condition_states"] if cs["type"] == "Callable"
-    ]
-    assert len(callable_conditions) == 1
-    assert callable_conditions[0]["result"] is True  # 1 + 2 > 2
-
-
-@pytest.mark.unit
-@pytest.mark.observable
-def test_conditional_observable_debug_info_handles_callable_with_single_source():
-    """Test get_debug_info() with callable condition and single source (line 714->696)"""
-    source = Observable("source", 5)
-
-    def check_single(x):
-        return x > 3
-
-    conditional = source & check_single
-
-    # Get debug info
-    info = conditional.get_debug_info()
-
-    # Should handle single source values in callable conditions
-    callable_conditions = [
-        cs for cs in info["condition_states"] if cs["type"] == "Callable"
-    ]
-    assert len(callable_conditions) == 1
-    assert callable_conditions[0]["result"] is True  # 5 > 3
 
 
 @pytest.mark.unit

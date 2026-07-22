@@ -1,18 +1,13 @@
 """
-FynX Operations - Natural Language Reactive Operations
-======================================================
+FynX Operations - natural language reactive operations
+==========================================================
 
-This module provides natural language methods for transforming, merging, and filtering
-reactive values. These operations read like English sentences while maintaining the
-precision of reactive programming—operations like `then()`, `alongside()`, and `requiring()`
-create new observables that update automatically when dependencies change.
+This module provides readable methods for transforming, merging, and
+filtering reactive values - the implementation layer that operators.py
+delegates to. Each method creates a new observable that derives from its
+sources and updates automatically when they change.
 
-The operations serve as the core implementation layer that operators.py delegates to.
-Each method creates new observables that derive from their sources, updating automatically
-when dependencies change. That automatic propagation eliminates manual synchronization—you
-declare relationships, and the framework maintains them.
-
-We provide five core operations:
+Five core operations:
 
 - `then(func)` transforms values through functions (equivalent to `>>` operator)
 - `alongside(other)` merges observables into tuples (equivalent to `+` operator)
@@ -20,13 +15,21 @@ We provide five core operations:
 - `negate()` inverts boolean values (equivalent to `~` operator)
 - `either(other)` creates boolean OR observables
 
-Result: a fluent API that reads like natural language while maintaining the precision of reactive programming. The methods compose naturally—chain transformations, nest conditions, build complex reactive pipelines from simple operations.
+They compose naturally - chain transformations, nest conditions, and build
+larger reactive pipelines out of these primitives.
 """
 
-from typing import TYPE_CHECKING, Callable, TypeVar, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Callable, Generic, Set, TypeVar, cast
+
+from ..types import ConditionOperand, ObservableOperand
+from .operands import unwrap_observable
 
 if TYPE_CHECKING:
     from .base import Observable, ReactiveContext
+    from .conditional import ConditionalObservable
+    from .merged import MergedObservable
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -51,41 +54,41 @@ def _ComputedObservable():
     return ComputedObservable
 
 
-def _OptimizationContext():
-    from ..optimizer import OptimizationContext
-
-    return OptimizationContext
-
-
-class OperationsMixin:
+class OperationsMixin(Generic[T]):
     """
     Mixin providing natural language reactive operations.
 
-    Reactive operations extend the standard function pattern: instead of running once and
-    returning, they create new observables that update automatically when sources change.
-    Pass an observable, apply a transformation, and get a new observable that maintains
-    the relationship reactively.
+    Unlike a plain function that runs once and returns, these operations
+    build a new observable that keeps updating as its sources change. This
+    mixin is the foundation for both the operator syntax (`+`, `>>`, `&`, in
+    operators.py) and the direct method calls (`.then()`, `.alongside()`, etc).
 
-    This mixin provides the core reactive operations that any observable class can use. It serves as the foundation for both operator syntax (in operators.py) and direct method calls. The methods create computed observables internally—each operation builds a new reactive value that derives from its sources.
-
-    The mixin integrates with FynX's optimization system. When operations create computed observables, they register with the current OptimizationContext for automatic dependency tracking and performance optimization. That registration happens transparently—you call the method, and the framework handles the reactive infrastructure.
+    The mixin keeps the runtime representation aligned with FynX's algebra:
+    pure transform chains compose, products are explicit, and observed values
+    create the notification boundary.
     """
 
-    def _create_computed(self, func: Callable, observable) -> "Observable":
+    def _create_computed(
+        self, func: Callable[..., U], observable: "Observable[Any]"
+    ) -> "Observable[U]":
         """
         Create a computed observable that derives its value from other observables.
 
-        This method creates reactive computations that run automatically when inputs change,
-        producing new computed values. The function receives observable values as arguments
-        and returns a result that becomes the computed observable's value.
+        For a single observable, applies the function to its value directly.
+        For a merged observable, unpacks the tuple and passes its elements as
+        separate arguments. Transform functions may only use those explicit
+        argument values; reading or mutating observables inside the transform
+        raises TransformPurityError with a fix-it hint.
 
-        The method handles two cases: single observables and merged observables. For single observables, it applies the function to the observable's value directly. For merged observables, it unpacks the tuple and passes values as separate arguments. That distinction enables functions that work with both single values and coordinate pairs. Transform functions may only use those explicit argument values; reading or mutating observables inside the transform raises TransformPurityError with a fix-it hint.
-
-        The computed observable subscribes to its source and updates automatically when dependencies change. It also registers with the current OptimizationContext for automatic optimization. That registration enables the framework to track dependencies, detect optimization opportunities, and manage reactive graph structure.
+        Transform chains fuse onto their original source when possible, so
+        `obs >> f >> g` is represented as one composed transform over `obs`
+        rather than as a line of separately maintained runtime nodes. The
+        derived value is version-validated and recomputed lazily when read; if
+        it has subscribers, those subscribers create the eager boundary needed
+        to deliver notifications.
         """
         MergedObservable = _MergedObservable()
         ComputedObservable = _ComputedObservable()
-        OptimizationContext = _OptimizationContext()
 
         source_observable = observable
         computation_func = func
@@ -108,16 +111,12 @@ class OperationsMixin:
         if (
             isinstance(observable, ComputedObservable)
             and not isinstance(observable, MergedObservable)
-            and getattr(observable, "_source_observable", None) is not None
-            and getattr(observable, "_computation_func", None) is not None
+            and observable._source_observable is not None
+            and observable._computation_func is not None
         ):
             previous = observable
             source_observable = previous._source_observable
-            previous_unpack = getattr(
-                previous,
-                "_fusion_unpack_source",
-                getattr(previous, "_unpack_source", False),
-            )
+            previous_unpack = previous._fusion_unpack_source
             fusion_funcs = tuple(previous._get_fusion_funcs())
 
             def computation_func(source_value):
@@ -134,42 +133,32 @@ class OperationsMixin:
                 return func(intermediate)
 
             unpack_source = False
-            source_version_before = getattr(source_observable, "_version", 0)
+            source_version_before = source_observable._version
             source_value = source_observable.value
             initial_value = evaluate_transform(lambda: computation_func(source_value))
-            dynamic_dependencies = set()
-            activate_immediately = (
-                getattr(source_observable, "_version", 0) != source_version_before
-            )
+            dynamic_dependencies: Set["Observable[Any]"] = set()
+            activate_immediately = source_observable._version != source_version_before
         elif unpack_source:
-            source_version_before = getattr(source_observable, "_version", 0)
+            source_version_before = source_observable._version
             source_value = source_observable.value
-            initial_value = evaluate_transform(lambda: computation_func(*source_value))
+            source_values = cast(tuple[Any, ...], source_value)
+            initial_value = evaluate_transform(lambda: computation_func(*source_values))
             dynamic_dependencies = set()
-            activate_immediately = (
-                getattr(source_observable, "_version", 0) != source_version_before
-            )
+            activate_immediately = source_observable._version != source_version_before
         else:
-            source_version_before = getattr(source_observable, "_version", 0)
+            source_version_before = source_observable._version
             source_value = source_observable.value
             initial_value = evaluate_transform(lambda: computation_func(source_value))
             dynamic_dependencies = set()
-            activate_immediately = (
-                getattr(source_observable, "_version", 0) != source_version_before
-            )
+            activate_immediately = source_observable._version != source_version_before
 
-        computed_obs: "Observable" = ComputedObservable(
+        computed_obs: "Observable[U]" = ComputedObservable(
             None,
             initial_value,
             computation_func,
             source_observable,
             unpack_source=unpack_source,
         )
-
-        # Register with current optimization context for analysis and global rewrites.
-        context = OptimizationContext.current()
-        if context is not None:
-            context.register_observable(computed_obs)
 
         if isinstance(computed_obs, ComputedObservable):
             dynamic_dependencies.discard(computed_obs)
@@ -201,12 +190,12 @@ class OperationsMixin:
         """
         Transform this observable's value using a function.
 
-        This method creates a reactive transformation pipeline. The function runs automatically
-        whenever the source value changes, producing a new computed observable with the
-        transformed result. The transformation maintains the reactive relationship—changes
-        to the source propagate through the function to the computed value.
-
-        The method creates a ComputedObservable that applies the given function to this observable's value. When the source changes, the computed observable recalculates automatically. That automatic recalculation eliminates manual updates—you declare the transformation, and the framework maintains it.
+        Creates a ComputedObservable that applies `func` to this observable's
+        value and re-runs whenever the source changes. Chained pure
+        transforms (`obs.then(f).then(g)`) compose internally rather than
+        maintaining a separate reactive node per step. The result is cached
+        and version-checked, and gains subscribers eagerly enough to deliver
+        notifications.
 
         Args:
             func: A pure function to apply to the observable's value. For merged
@@ -234,20 +223,19 @@ class OperationsMixin:
             print(uppercase.value)  # "HELLO"
             ```
         """
-        return self._create_computed(func, self)
+        return self._create_computed(func, cast("Observable[Any]", self))
 
-    def alongside(self, other: "Observable") -> "Observable":
+    def alongside(self, other: ObservableOperand[U]) -> "MergedObservable[T, U]":
         """
         Merge this observable with another into a tuple.
 
-        This method combines two observables into a single reactive tuple that updates when
-        either component changes. The merged observable treats both values as a single atomic
-        unit, enabling functions that need multiple related parameters to receive them
-        together in a coordinated update.
+        Creates a MergedObservable holding both values as a tuple, updated
+        whenever either changes. Products are canonical for a given ordered
+        source list, so repeated expressions like `a + b` reuse the same
+        product node while it's live, and the product stays lazy until read
+        or observed.
 
-        The method creates a MergedObservable that combines the values of both observables into a tuple. When either source changes, the merged observable recalculates automatically. That automatic coordination eliminates manual synchronization—you declare the relationship, and the framework maintains it.
-
-        If the other observable is already merged, the method combines with its sources directly, creating a flat merged observable. If this observable is already merged, chaining creates nested tuples—the merged observable becomes one component of a new tuple.
+        If either side is already merged, FynX combines with its sources directly, creating a flat ordered product.
 
         Args:
             other: Another observable to merge with. If other is a MergedObservable,
@@ -271,30 +259,27 @@ class OperationsMixin:
 
             z = observable(30)
             point3d = x.alongside(y).alongside(z)
-            print(point3d.value)  # ((10, 20), 30) - nested tuple
+            print(point3d.value)  # (10, 20, 30)
             ```
         """
         MergedObservable = _MergedObservable()
 
-        if hasattr(other, "_source_observables"):
-            # If other is already merged, combine with its sources
-            return MergedObservable(self, *other._source_observables)  # type: ignore
-        else:
-            # Standard case: combine two observables
-            return MergedObservable(self, other)  # type: ignore
+        return MergedObservable.from_sources(  # type: ignore[return-value]
+            cast("Observable[Any]", self), unwrap_observable(other)
+        )
 
-    def requiring(self, *conditions) -> "Observable":
+    def requiring(self, *conditions: ConditionOperand[T]) -> "ConditionalObservable[T]":
         """
         Compose this observable with conditions using AND logic.
 
-        This method creates a conditional observable that only emits values when every
-        condition evaluates to True. Combine this observable with multiple conditions,
-        and the result represents the logical AND of all conditions—the gate opens only
-        when all conditions are satisfied.
+        Creates a ConditionalObservable that only emits when every condition
+        evaluates to True. Each condition can be a boolean observable, a
+        callable taking the source value and returning a boolean, or another
+        ConditionalObservable.
 
-        The method creates a ConditionalObservable that combines this observable with additional conditions. Each condition can be a boolean observable, a callable that takes the source value and returns a boolean, or another ConditionalObservable. The result represents the logical AND of all conditions—the gate opens only when every condition approves.
-
-        If this observable is already a ConditionalObservable, the method creates a nested conditional. That nesting enables building complex condition chains incrementally—each call adds another guard to the checkpoint.
+        If this observable is already a ConditionalObservable, this nests a
+        new conditional on top, so condition chains can be built up
+        incrementally.
 
         Args:
             *conditions: Variable number of conditions. Each condition can be:
@@ -335,12 +320,10 @@ class OperationsMixin:
         """
         Create a negated boolean version of this observable.
 
-        This method applies logical negation to a boolean observable, producing a new
-        observable with inverted values. When the source changes, the negated observable
-        updates automatically with the opposite boolean value. This enables expressing
-        negative conditions directly without separate "is_not_X" observables.
-
-        The method creates a computed observable that returns the logical negation of the current boolean value. When the source changes, the negated observable updates automatically. That automatic inversion enables expressing negative conditions directly—you don't need separate "is_not_X" observables.
+        Produces a computed observable holding the logical negation of the
+        current boolean value, updating automatically as the source changes -
+        useful for expressing a negative condition without a separate
+        "is_not_X" observable.
 
         Returns:
             A computed observable with negated boolean values. The observable updates
@@ -365,18 +348,15 @@ class OperationsMixin:
         """
         return self.then(lambda x: not x)  # type: ignore
 
-    def either(self, other: "Observable") -> "Observable":
+    def either(self, other: ObservableOperand[Any]) -> "Observable[bool]":
         """
         Create a boolean OR observable between this observable and another.
 
-        This method combines two boolean observables with OR logic, creating a computed
-        observable that is True when either source is truthy and False otherwise. The
-        result is a total boolean observable, making it suitable as a reusable condition
-        for `&` / `.requiring()` and for further boolean composition.
-
-        The method creates a computed observable that calculates the logical OR of both
-        boolean values. It does not gate or suppress falsy values; both True and False are
-        valid values of the resulting observable.
+        Produces a computed observable that's True when either source is
+        truthy, False otherwise. It's a total boolean observable - both True
+        and False are valid values, nothing is gated or suppressed - so it
+        works as a reusable condition for `&` / `.requiring()` and further
+        boolean composition.
 
         Args:
             other: Another boolean observable to OR with. Both this observable and other

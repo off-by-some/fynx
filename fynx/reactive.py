@@ -1,36 +1,51 @@
-from typing import Any, Callable
+from __future__ import annotations
+
+from typing import Any, Callable, Generic, TypeVar, overload
+
+from typing_extensions import ParamSpec
 
 from .observable import Observable
+from .observable.descriptors import ObservableValue
+from .observable.operands import unwrap_observable
 from .store import Store, StoreSnapshot
+from .types import ObservableOperand
+
+P = ParamSpec("P")
+R = TypeVar("R")
+A = TypeVar("A")
+B = TypeVar("B")
+C = TypeVar("C")
+D = TypeVar("D")
+E = TypeVar("E")
+F = TypeVar("F")
+G = TypeVar("G")
+H = TypeVar("H")
+I = TypeVar("I")
+J = TypeVar("J")
 
 
 class ReactiveFunctionWasCalled(Exception):
     """Raised when a reactive function is called manually instead of through reactive triggers.
 
-    Reactive functions run automatically when their observable dependencies change.
-    Manual invocation mixes reactive and imperative paradigms—the framework prevents this
-    to maintain clear separation. Modify the observable values that trigger the function instead,
-    or call `.unsubscribe()` to convert the function back to normal, callable form.
+    A reactive function is meant to run only when its observable dependencies
+    change, not be called directly. Modify the observables that trigger it
+    instead, or call `.unsubscribe()` to turn it back into a plain callable.
     """
 
     pass
 
 
-class ReactiveWrapper:
+class ReactiveWrapper(Generic[P, R]):
     """
     Wraps a reactive function and manages its subscription lifecycle.
 
-    Consider a thermostat: it monitors temperature and triggers heating when needed.
-    You don't manually flip the switch—the system responds automatically. This wrapper
-    enforces that pattern: while subscribed, the function runs reactively, not manually.
-    After `unsubscribe()`, it reverts to normal function behavior—you can call it directly.
-
-    The wrapper preserves function metadata (name, docstring) and tracks subscriptions
-    internally. When targets change, it invokes the function automatically. Manual calls
-    raise `ReactiveFunctionWasCalled` to prevent mixing paradigms.
+    While subscribed, the function runs automatically when its targets
+    change, and calling it directly raises `ReactiveFunctionWasCalled`. After
+    `unsubscribe()`, it reverts to a plain callable. The wrapper preserves
+    function metadata (name, docstring) and tracks subscriptions internally.
     """
 
-    def __init__(self, func: Callable, targets: tuple):
+    def __init__(self, func: Callable[P, R], targets: tuple[Any, ...]):
         """
         Initialize the wrapper with the function and its reactive targets.
 
@@ -41,20 +56,19 @@ class ReactiveWrapper:
         self._func = func
         self._targets = targets
         self._subscribed = False
-        self._subscriptions = []  # Track what we subscribed to
+        self._subscriptions: list[tuple[Any, Callable[..., Any]]] = []
 
         # Preserve function metadata
         self.__name__ = func.__name__
         self.__doc__ = func.__doc__
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         """
         Call the wrapped function, raising an error if still subscribed.
 
-        While subscribed, manual calls raise `ReactiveFunctionWasCalled`. This enforces
-        the reactive contract: functions run automatically when dependencies change, not
-        when you call them. After `unsubscribe()`, this method delegates to the original
-        function normally.
+        While subscribed, manual calls raise `ReactiveFunctionWasCalled`,
+        since the function is meant to run only when its dependencies change.
+        After `unsubscribe()`, this delegates to the original function normally.
         """
         if self._subscribed:
             raise ReactiveFunctionWasCalled(
@@ -64,25 +78,23 @@ class ReactiveWrapper:
             )
         return self._func(*args, **kwargs)
 
-    def _invoke_reactive(self, *args, **kwargs):
+    def _invoke_reactive(self, *args: Any, **kwargs: Any) -> R:
         """
         Internal method to invoke the function reactively (bypasses the check).
 
-        This bypasses the manual-call protection, allowing the subscription system
-        to trigger the function when observables change. External code should not
-        call this directly—use the observable's `set()` method or store assignments
-        to trigger reactive updates.
+        Lets the subscription system trigger the function when observables
+        change. Don't call this from outside the framework - use the
+        observable's `set()` method or a store assignment instead.
         """
         return self._func(*args, **kwargs)
 
-    def unsubscribe(self):
+    def unsubscribe(self) -> None:
         """
         Unsubscribe from all reactive targets, making this a normal function again.
 
-        This severs the reactive connection: the function stops responding to changes
-        and becomes callable normally. The operation is idempotent—calling it multiple
-        times is safe. After unsubscription, you can call the function manually without
-        raising `ReactiveFunctionWasCalled`.
+        Idempotent - calling it multiple times is safe. Afterward, the
+        function stops responding to changes and can be called manually
+        without raising `ReactiveFunctionWasCalled`.
         """
         if not self._subscribed:
             return  # Already unsubscribed, idempotent
@@ -126,6 +138,8 @@ class ReactiveWrapper:
                 self._subscriptions.append((target, store_handler))
 
             else:
+                target = unwrap_observable(target)
+
                 # Single observable subscription
                 def observable_handler():
                     from .observable.conditional import ConditionalObservable
@@ -159,9 +173,9 @@ class ReactiveWrapper:
                     self._subscriptions.append((target, self._func))
         else:
             # Multiple observables - merge them
-            merged = self._targets[0]
+            merged = unwrap_observable(self._targets[0])
             for obs in self._targets[1:]:
-                merged = merged + obs
+                merged = merged + unwrap_observable(obs)
 
             def merged_handler(*values):
                 self._invoke_reactive(*values)
@@ -176,13 +190,160 @@ class ReactiveWrapper:
             self._subscriptions.append((merged, merged_handler))
 
 
-def reactive(*targets: Any) -> Callable[[Callable], ReactiveWrapper]:
+@overload
+def reactive() -> Callable[[Callable[P, R]], ReactiveWrapper[P, R]]: ...
+
+
+@overload
+def reactive(
+    target: type[Store], /
+) -> Callable[[Callable[[StoreSnapshot], R]], ReactiveWrapper[[StoreSnapshot], R]]: ...
+
+
+@overload
+def reactive(
+    target: Observable[A], /
+) -> Callable[[Callable[[A], R]], ReactiveWrapper[[A], R]]: ...
+
+
+@overload
+def reactive(
+    target: ObservableValue[A], /
+) -> Callable[[Callable[[A], R]], ReactiveWrapper[[A], R]]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    /,
+) -> Callable[[Callable[[A, B], R]], ReactiveWrapper[[A, B], R]]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    /,
+) -> Callable[[Callable[[A, B, C], R]], ReactiveWrapper[[A, B, C], R]]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    /,
+) -> Callable[[Callable[[A, B, C, D], R]], ReactiveWrapper[[A, B, C, D], R]]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    /,
+) -> Callable[[Callable[[A, B, C, D, E], R]], ReactiveWrapper[[A, B, C, D, E], R]]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    sixth: ObservableOperand[F],
+    /,
+) -> Callable[
+    [Callable[[A, B, C, D, E, F], R]], ReactiveWrapper[[A, B, C, D, E, F], R]
+]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    sixth: ObservableOperand[F],
+    seventh: ObservableOperand[G],
+    /,
+) -> Callable[
+    [Callable[[A, B, C, D, E, F, G], R]],
+    ReactiveWrapper[[A, B, C, D, E, F, G], R],
+]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    sixth: ObservableOperand[F],
+    seventh: ObservableOperand[G],
+    eighth: ObservableOperand[H],
+    /,
+) -> Callable[
+    [Callable[[A, B, C, D, E, F, G, H], R]],
+    ReactiveWrapper[[A, B, C, D, E, F, G, H], R],
+]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    sixth: ObservableOperand[F],
+    seventh: ObservableOperand[G],
+    eighth: ObservableOperand[H],
+    ninth: ObservableOperand[I],
+    /,
+) -> Callable[
+    [Callable[[A, B, C, D, E, F, G, H, I], R]],
+    ReactiveWrapper[[A, B, C, D, E, F, G, H, I], R],
+]: ...
+
+
+@overload
+def reactive(
+    first: ObservableOperand[A],
+    second: ObservableOperand[B],
+    third: ObservableOperand[C],
+    fourth: ObservableOperand[D],
+    fifth: ObservableOperand[E],
+    sixth: ObservableOperand[F],
+    seventh: ObservableOperand[G],
+    eighth: ObservableOperand[H],
+    ninth: ObservableOperand[I],
+    tenth: ObservableOperand[J],
+    /,
+) -> Callable[
+    [Callable[[A, B, C, D, E, F, G, H, I, J], R]],
+    ReactiveWrapper[[A, B, C, D, E, F, G, H, I, J], R],
+]: ...
+
+
+@overload
+def reactive(*targets: Any) -> Callable[[Callable[P, R]], ReactiveWrapper[P, R]]: ...
+
+
+def reactive(*targets: Any) -> Any:
     """
     Create a reactive handler that works as a decorator.
 
-    This decorator bridges declarative state management with imperative side effects.
-    Instead of manually subscribing and unsubscribing, you declare what observables
-    matter and the framework handles the lifecycle.
+    Declare which observables the function cares about and FynX handles
+    subscribing and unsubscribing for you.
 
     The decorator accepts three patterns:
 
@@ -239,7 +400,7 @@ def reactive(*targets: Any) -> Callable[[Callable], ReactiveWrapper]:
         manual calls while subscribed.
     """
 
-    def decorator(func: Callable) -> ReactiveWrapper:
+    def decorator(func: Callable[P, R]) -> ReactiveWrapper[P, R]:
         wrapper = ReactiveWrapper(func, targets)
         wrapper._setup_subscriptions()
         return wrapper

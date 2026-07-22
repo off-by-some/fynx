@@ -1,24 +1,13 @@
 """
-FynX Registry - Global Reactive Context Management
-==================================================
+FynX Registry - global reactive context management
+=====================================================
 
-This module provides global registries that track reactive contexts and their
-relationships. These registries enable efficient subscription management and
-cleanup across the entire FynX reactive system.
+Two module-level registries track reactive contexts across the whole
+system, used internally by Observable and Store to manage subscriptions and
+clean them up when no longer needed:
 
-Global Registries:
-- **_all_reactive_contexts**: Set of all active ReactiveContext instances
-- **_func_to_contexts**: Mapping from user functions to their reactive contexts
-
-These registries support:
-- **Efficient Unsubscription**: O(1) lookup of contexts by function
-- **Memory Management**: Tracking all active contexts for cleanup
-- **Cross-Component Coordination**: Managing reactive relationships globally
-- **Debugging Support**: Inspecting active reactive contexts
-
-The registries are primarily used internally by Observable and Store classes
-for managing subscriptions and ensuring proper cleanup when reactive contexts
-are no longer needed.
+- `_all_reactive_contexts`: every active ReactiveContext instance
+- `_func_to_contexts`: maps a user function to its reactive contexts, for O(1) unsubscribe
 """
 
 from typing import Callable, Dict, Set

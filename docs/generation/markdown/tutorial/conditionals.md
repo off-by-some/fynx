@@ -15,10 +15,11 @@ temperature = observable(20)
 weather_alerts = []
 
 # You only want alerts when temperature is extreme
-temperature.subscribe(lambda temp: {
+def on_temperature_change(temp):
     if temp > 30 or temp < 0:
         weather_alerts.append(f"Temperature alert: {temp}°C")
-})
+
+temperature.subscribe(on_temperature_change)
 ```
 
 This works, but it's verbose. You have to write filtering logic in every subscriber. The filtering is mixed with the reaction logic. And if multiple subscribers need the same filtering, you repeat yourself.
@@ -36,9 +37,7 @@ is_extreme = temperature >> (lambda temp: temp > 30 or temp < 0)
 # Then, filter the original observable based on that condition
 extreme_temps = temperature & is_extreme
 
-extreme_temps.subscribe(lambda temp: {
-    print(f"Temperature alert: {temp}°C")
-})
+extreme_temps.subscribe(lambda temp: print(f"Temperature alert: {temp}°C"))
 ```
 
 Now the filtering is declarative and reusable. The `extreme_temps` observable only produces values when the condition is met.
@@ -58,9 +57,7 @@ is_high_score = scores >> (lambda score: score > 90)
 # Filter the original scores based on the condition
 high_scores = scores & is_high_score
 
-high_scores.subscribe(lambda score: {
-    print(f"🎉 High score achieved: {score}")
-})
+high_scores.subscribe(lambda score: print(f"🎉 High score achieved: {score}"))
 
 scores.set(88)  # No emission (condition became False)
 scores.set(95)  # Prints: "🎉 High score achieved: 95" (condition became True)
@@ -102,25 +99,33 @@ Your condition functions can be as complex as needed with the `&` operator:
 user = observable({"name": "Alice", "age": 30, "country": "US"})
 
 # Complex validation logic as a boolean observable
-is_valid_user = user >> (lambda u: {
+is_valid_user = user >> (lambda u: (
     u["age"] >= 18 and
     u["country"] in ["US", "CA", "UK"] and
     len(u["name"]) > 2 and
     "@" not in u["name"]  # No emails in names
-})
+))
 
-# Create compound boolean condition with & operator
+# Gate: only reacts while the user is valid
 valid_users = user & is_valid_user
 
-valid_users.subscribe(lambda user_data: {
-    if user_data is not None:
-        print(f"✅ Valid user: {user_data['name']}")
-    else:
-        print("❌ User no longer valid")
-})
+valid_users.subscribe(lambda user_data: print(f"✅ Valid user: {user_data['name']}"))
+
+user.set({"name": "Bob", "age": 15, "country": "US"})  # No output - gate closes silently
+user.set({"name": "Carol", "age": 25, "country": "CA"})  # Prints: "✅ Valid user: Carol"
 ```
 
-The `&` operator emits `None` when validation fails, allowing you to react to both valid and invalid states.
+`&` doesn't emit `None` when the condition fails - it simply doesn't call your subscriber at all while the gate is closed. If you need to react to *both* the valid and invalid states (for example, to show a validation error in the UI), subscribe to the boolean condition itself instead of gating with `&`:
+
+```python
+def on_validity_change(is_valid):
+    if is_valid:
+        print(f"✅ Valid user: {user.value['name']}")
+    else:
+        print("❌ User is not valid")
+
+is_valid_user.subscribe(on_validity_change)
+```
 
 ## The ~ Operator: Logical Negation
 
@@ -132,15 +137,16 @@ is_online = observable(True)
 # Create a negated boolean observable
 is_offline = ~is_online
 
-# React when user goes offline (when is_offline becomes True)
-offline_events = is_offline
+# is_offline is a plain boolean - it notifies on every change, both
+# True and False - so check the value if you only care about one direction.
+def on_offline_change(offline):
+    if offline:
+        print("User went offline")
 
-offline_events.subscribe(lambda _: {
-    print("User went offline")
-})
+is_offline.subscribe(on_offline_change)
 
 is_online.set(False)  # is_offline becomes True, prints: "User went offline"
-is_online.set(True)   # is_offline becomes False, no output
+is_online.set(True)   # is_offline becomes False, no output (guarded by the if)
 ```
 
 ## The | Operator: Logical OR
@@ -149,24 +155,27 @@ The `|` operator creates total boolean OR observables. The result is `True` when
 
 ```python
 is_error = observable(False)
-is_warning = observable(True)
+is_warning = observable(False)
 is_critical = observable(False)
 
 # Logical OR using | operator
 needs_attention = is_error | is_warning | is_critical
 
-# Alternative using .either() method
+# Alternative using .either() method - equivalent to the above
 needs_attention_alt = is_error.either(is_warning).either(is_critical)
 
-needs_attention.subscribe(lambda needs_attention: {
-    if needs_attention:
+def on_attention_change(needs_attention_val):
+    if needs_attention_val:
         print("⚠️ System needs attention!")
-})
 
-# Updates automatically when any condition changes
-is_error.set(True)    # Prints: "⚠️ System needs attention!"
-is_warning.set(False) # Stays True because is_error is True
-is_error.set(False)   # Becomes False because all conditions are false
+needs_attention.subscribe(on_attention_change)
+
+# Like any computed observable, needs_attention only notifies when its
+# actual value changes - not on every .set() call to one of its inputs.
+is_error.set(True)    # False -> True: prints "⚠️ System needs attention!"
+is_warning.set(True)  # True -> True (still True): no notification at all
+is_error.set(False)   # True -> True (is_warning keeps it True): no notification
+is_warning.set(False) # True -> False: notifies, but the `if` guard hides it
 ```
 
 The `|` operator does not gate away falsy results. It produces an ordinary boolean observable whose value can be safely read as `True` or `False`. Use `&` when you want that boolean condition to gate another observable.
@@ -183,17 +192,18 @@ is_moderator = observable(True)
 # Create boolean conditions
 has_input = user_input >> (lambda u: len(u) > 0)
 has_permission = is_admin | is_moderator  # OR condition
-is_not_empty = has_input & (lambda h: h == True)  # AND condition
 
-# Complex condition: user has input AND (is admin OR moderator)
-can_submit = user_input & has_input & has_permission
+# We want to react to both the "can submit" and "cannot submit" states, so
+# this is built as a total boolean with `+` / `>>`, not gated with `&`.
+can_submit = (has_input + has_permission) >> (lambda inp, perm: inp and perm)
 
-can_submit.subscribe(lambda can_submit: {
-    if can_submit is not None:
+def on_can_submit_change(can_submit_val):
+    if can_submit_val:
         print("✅ User can submit")
     else:
         print("❌ User cannot submit")
-})
+
+can_submit.subscribe(on_can_submit_change)
 
 user_input.set("Hello")  # Prints: "✅ User can submit"
 is_moderator.set(False)  # Prints: "❌ User cannot submit" (no permission)
@@ -213,9 +223,7 @@ is_not_loading = status >> (lambda s: s != "loading")
 # React to any status except "loading"
 non_loading_status = status & is_not_loading
 
-non_loading_status.subscribe(lambda status_val: {
-    print(f"Status changed to: {status_val}")
-})
+non_loading_status.subscribe(lambda status_val: print(f"Status changed to: {status_val}"))
 
 status.set("loading")    # No output (filtered out)
 status.set("success")    # Prints: "Status changed to: success"
@@ -236,27 +244,33 @@ email_valid = email >> (lambda e: "@" in e and "." in e.split("@")[1])
 password_strong = password >> (lambda p: len(p) >= 8)
 terms_checked = terms_accepted >> (lambda t: t == True)
 
-# Form is valid only when all conditions are true
-form_valid = email & email_valid & password_strong & terms_checked
+# We need to show both "valid" and "invalid" states in the UI, so this is a
+# total boolean built with `+` / `>>`, not a gate built with `&`.
+form_valid = (email_valid + password_strong + terms_checked) >> (
+    lambda e_ok, p_ok, t_ok: e_ok and p_ok and t_ok
+)
 
-form_valid.subscribe(lambda is_valid: {
-    if is_valid is not None:
+def on_form_valid_change(is_valid):
+    if is_valid:
         print("✅ Form is complete and valid!")
     else:
         print("❌ Form validation failed")
-})
 
-# Simulate form filling
-email.set("user@")           # Prints: "❌ Form validation failed" (email invalid)
-password.set("pass")         # Still invalid
-terms_accepted.set(True)     # Still invalid
+form_valid.subscribe(on_form_valid_change)
+
+# Simulate form filling. form_valid starts False and only notifies when its
+# value actually changes, so these first three calls print nothing - the
+# form was already invalid and stays invalid.
+email.set("user@")           # Still invalid (no "." after @)
+password.set("pass")         # Still invalid (too short)
+terms_accepted.set(True)     # Still invalid (email and password still bad)
 
 email.set("user@example.com")  # Still invalid (password too short)
-password.set("secure123")      # Prints: "✅ Form is complete and valid!"
-password.set("short")          # Prints: "❌ Form validation failed" (password weak)
+password.set("secure123")      # False -> True: prints "✅ Form is complete and valid!"
+password.set("short")          # True -> False: prints "❌ Form validation failed"
 ```
 
-The `&` operator emits `None` when validation fails, allowing you to handle both valid and invalid states in your UI.
+`&` does not emit `None` when validation fails - it simply stops notifying while the gate is closed. Use `&` when you only want to act while a condition holds (see the earlier examples); use `+` / `>>` when you need to observe both the true and false states, as here.
 
 ## Advanced Patterns: State Machines with Conditionals
 
@@ -280,13 +294,8 @@ ready_state = app_state & is_app_ready & is_user_auth & is_data_loaded
 error_state = app_state & is_app_error
 
 # React to state transitions
-ready_state.subscribe(lambda _: {
-    print("🚀 Application is fully ready!")
-})
-
-error_state.subscribe(lambda _: {
-    print("❌ Application encountered an error")
-})
+ready_state.subscribe(lambda _: print("🚀 Application is fully ready!"))
+error_state.subscribe(lambda _: print("❌ Application encountered an error"))
 
 # Simulate app lifecycle
 app_state.set("authenticating")
@@ -312,9 +321,7 @@ valid_readings = sensor_readings & has_enough_data
 # Then calculate statistics
 average_reading = valid_readings >> (lambda readings: sum(readings) / len(readings))
 
-average_reading.subscribe(lambda avg: {
-    print(f"Average sensor reading: {avg:.2f}")
-})
+average_reading.subscribe(lambda avg: print(f"Average sensor reading: {avg:.2f}"))
 
 sensor_readings.set([1, 2])        # No output (not enough data)
 sensor_readings.set([1, 2, 3, 4])  # Prints: "Average sensor reading: 2.50"
@@ -365,18 +372,16 @@ cold_weather.subscribe(lambda t: print(f"🧊 Cold: {t}°C"))
 api_response = observable(None)
 
 # Create validation condition
-is_valid_response = api_response >> (lambda resp: {
+is_valid_response = api_response >> (lambda resp: (
     resp is not None and
     resp.get("status") == "success" and
     resp.get("data") is not None
-})
+))
 
 # Only process successful responses with data
 valid_responses = api_response & is_valid_response
 
-valid_responses.subscribe(lambda resp: {
-    process_data(resp["data"])
-})
+valid_responses.subscribe(lambda resp: process_data(resp["data"]))
 ```
 
 ### Pattern 3: Feature Flags with Conditions
@@ -394,9 +399,7 @@ is_experiment_on = experiment_active >> (lambda a: a == True)
 # Feature is available only under specific conditions
 can_use_feature = feature_enabled & is_feature_on & is_premium_user & is_experiment_on
 
-can_use_feature.subscribe(lambda _: {
-    enable_premium_feature()
-})
+can_use_feature.subscribe(lambda _: enable_premium_feature())
 ```
 
 ## Gotchas and Best Practices
@@ -417,11 +420,13 @@ valid_data = is_valid & (lambda v: v == True)
 ```python
 flag = observable(True)
 
-# This creates an observable that emits when flag becomes False
+# A total boolean: notifies on every change, in either direction
 not_flag = ~flag
 
-# But this doesn't do what you might expect
-wrong_not_flag = flag & (lambda f: not f)  # Less clear than ~
+# A gate, not a negation: only emits flag's value while flag is falsy - it
+# stays silent while flag is True, and silent again once flag flips back
+# to True, rather than tracking the negated value the way ~flag does
+wrong_not_flag = flag & (lambda f: not f)  # Not equivalent to ~flag
 ```
 
 ### Best Practice: Keep Conditions Simple
@@ -432,12 +437,12 @@ is_adult = age & (lambda a: a >= 18)
 has_permission = role & (lambda r: r in ["admin", "moderator"])
 
 # Avoid - complex conditions
-complex_check = user & (lambda u: {
+complex_check = user & (lambda u: (
     u["age"] >= 18 and
     u["role"] in ["admin", "moderator"] and
     u["verified"] and
     not u["banned"]
-})
+))
 ```
 
 ### Best Practice: Name Your Conditions
@@ -450,9 +455,14 @@ def is_strong_password(pwd):
     return len(pwd) >= 8
 
 # Much clearer than inline lambdas
-email_ok = email & is_valid_email
-password_ok = password & is_strong_password
-form_valid = (email_ok & (lambda _: True)) & (password_ok & (lambda _: True))
+email_ok = email & is_valid_email             # gate: emits email while it's valid
+password_ok = password & is_strong_password   # gate: emits password while it's strong
+
+# To combine named predicates into a single "form is valid" boolean, build
+# them as plain booleans and combine with `+` / `>>` - don't nest `&`:
+email_valid = email >> is_valid_email
+password_valid = password >> is_strong_password
+form_valid = (email_valid + password_valid) >> (lambda e, p: e and p)
 ```
 
 ## The Big Picture

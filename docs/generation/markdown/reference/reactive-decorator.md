@@ -14,12 +14,13 @@ count = observable(0)
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately: "Count: 0"
 
 count.set(5)   # Prints: "Count: 5"
 count.set(10)  # Prints: "Count: 10"
 ```
 
-The function runs automatically whenever `count` changes. You declare what should happen when data changes, and the framework handles the timing.
+The function runs automatically whenever `count` changes. You declare what should happen when data changes, and the framework handles the timing. Notice that decorating `log_count` runs it immediately with the current value (`0`) - `@reactive` always fires eagerly when it can. See [A Crucial Detail](#a-crucial-detail-initial-state-and-change-semantics) below for the exact rules.
 
 ## The Commitment: What You Gain and What You Give Up
 
@@ -29,6 +30,7 @@ Once you decorate a function with `@reactive`, you're making a commitment. The f
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately with the current value of count
 
 log_count(10)  # Raises fynx.reactive.ReactiveFunctionWasCalled exception
 ```
@@ -41,6 +43,7 @@ You can always change your mind, though. Call `.unsubscribe()` to sever the reac
 @reactive(count)
 def log_count(value):
     print(f"Count: {value}")
+# Prints immediately with the current value of count
 
 count.set(5)   # Prints: "Count: 5"
 
@@ -54,7 +57,13 @@ After unsubscribing, the function reverts to its original, non-reactive form. Yo
 
 ## A Crucial Detail: Initial State and Change Semantics
 
-When you create a reactive function with an active observable or store, it runs immediately with the current value, then runs again whenever the dependency changes. Conditional observables are the exception: if the condition is inactive at setup time, the function waits until the condition becomes active.
+`@reactive` is eager whenever it can be, so it fires immediately on decoration and then again on every later qualifying change:
+
+- **Store targets** (`@reactive(SomeStore)`) fire immediately with a `StoreSnapshot` of the store's current state.
+- **Ordinary observable, computed, or merged targets** fire immediately with their current value.
+- **Conditional targets** (built with `&`) fire immediately only if the gate is *already active* at decoration time - if it's closed, the function waits until the gate opens.
+
+Then, in every case, the function runs again on each later change that qualifies (a value change for ordinary/computed/merged targets; the gate opening or its passed-through value changing for conditional targets).
 
 ```python
 ready = observable(True)  # Already true
@@ -62,65 +71,93 @@ ready = observable(True)  # Already true
 @reactive(ready)
 def on_ready(value):
     print(f"Ready: {value}")
-
-# Prints: "Ready: True"
+# Prints immediately: "Ready: True"
 
 ready.set(False)  # Prints: "Ready: False"
 ready.set(True)   # Prints: "Ready: True"
 ```
 
-This immediate run is useful for initialization: attach the reaction, and the external system can be brought into sync with the current state right away. For conditionals, inactive setup means there is no valid gated value to deliver yet, so the first run occurs when the gate opens.
+This eager-first-run behavior is useful in practice: it means attaching a reaction is enough to bring an external system (a UI, a log, a cache) into sync with the current state - you don't need a separate "initialize once" call before the reactive updates take over.
 
-## Conditional Reactions: The MobX `when` Pattern
+## Conditional Reactions: Gating, Not Boolean Logic
 
-Here's where things get powerful. You can combine observables with logical operators to create conditional reactions that only fire when specific conditions are met:
+FynX gives you operators for building conditional reactions, but it's important to get their meaning right up front:
+
+* `&` **gates** a value by a condition - `data & condition` means "emit `data`'s value while `condition` is true." It is *not* boolean AND, and the two sides aren't interchangeable: `data & is_ready` gates `data` by `is_ready`, while `is_ready & data` gates `is_ready` by `data`.
+* `+` **combines** observables into a tuple so a transform can read several of them at once (`(a + b) >> f`). It is *not* boolean OR.
+* `|` is logical OR, and `~` is logical NOT. Both produce plain boolean observables that notify on every value change, not gates.
+
+Because `&` is a gate rather than an AND, chaining it (`a & b & c`) only works cleanly when you want "pass through `a`'s value while `b` and `c` both hold" - a genuine gating relationship. Reach for `&` when you want to suppress a side effect while some condition doesn't hold:
 
 ```python
-is_logged_in = observable(False)
-has_data = observable(False)
+is_logged_in = observable(True)
+is_verified = observable(True)
+
+# Emits is_logged_in's value only while is_verified is true.
+gated = is_logged_in & is_verified
+
+@reactive(gated)
+def show_gated_value(value):
+    print(f"Gated value: {value}")
+# Prints immediately since the gate starts open: "Gated value: True"
+
+is_logged_in.set(False)
+# Gate is still open (is_verified is True) and the value changed -> fires
+# Prints: "Gated value: False"
+
+is_verified.set(False)
+# Gate closes. Nothing passes through, so nothing prints.
+
+is_logged_in.set(True)
+# Gate is still closed (is_verified is still False) -> nothing prints,
+# even though is_logged_in changed.
+
+is_verified.set(True)
+# Gate reopens, and the current value (True) differs from what was last
+# delivered (False) -> fires
+# Prints: "Gated value: True"
+```
+
+Notice `verified.set(False)` and `logged_in.set(True)` print nothing at all - the gate stays closed across both, since closing (or staying closed) never delivers a value. This is the asymmetric, stateful nature of a gate, and it's easy to mistake for boolean AND if you don't watch closely.
+
+When what you actually want is a plain boolean that updates on every relevant change - for a UI flag, a button's enabled state, or any "total" condition - build it with `+` and `>>` instead of `&`:
+
+```python
+is_logged_in = observable(True)
+is_verified = observable(True)
+
+# A total boolean: recomputes (and notifies) on every actual change to the
+# logical AND of the two inputs, with no gating quirks.
+both_ready = (is_logged_in + is_verified) >> (
+    lambda logged_in, verified: logged_in and verified
+)
+
+@reactive(both_ready)
+def on_both_ready(ready):
+    print(f"Both ready: {ready}")
+# Prints immediately: "Both ready: True"
+```
+
+The same `+` / `>>` pattern scales to more complex boolean expressions, including ones that mix AND/OR/NOT:
+
+```python
+is_logged_in = observable(True)
+has_data = observable(True)
 is_loading = observable(True)
 should_sync = observable(False)
 
-# React only when logged in AND has data AND NOT loading OR should sync
-@reactive(is_logged_in & has_data & ~is_loading + should_sync)
+# Ready when logged in AND has data AND (NOT loading OR should_sync)
+ready_to_sync = (is_logged_in + has_data + is_loading + should_sync) >> (
+    lambda logged_in, data, loading, sync: logged_in and data and (not loading or sync)
+)
+
+@reactive(ready_to_sync)
 def sync_to_server(should_run):
     if should_run:
         perform_sync()
 ```
 
-The operators work as you'd expect:
-
-* `&` is logical AND
-* `+` is logical OR
-* `~` is logical NOT (negation)
-
-These create composite observables that emit values based on boolean logic applied to their constituent observables. The critical insight: the reaction still follows the change-only semantics. Even if your condition is `True` at the moment you attach the reactive function, it won't fire until something changes *and* the condition is met.
-
-```python
-logged_in = observable(True)
-verified = observable(True)
-
-# Even though both are already True, this doesn't fire yet
-@reactive(logged_in & verified)
-def enable_premium_features(both_true):
-    print("Premium features enabled")
-
-# Nothing printed yet
-
-logged_in.set(False)  # Condition now False, triggers reaction
-# Prints: "Premium features enabled" with value False
-
-verified.set(False)  # Both False, triggers reaction
-# Prints: "Premium features enabled" with value False
-
-logged_in.set(True)  # One is True, one is False, triggers reaction
-# Prints: "Premium features enabled" with value False
-
-verified.set(True)  # Both True now, triggers reaction
-# Prints: "Premium features enabled" with value True
-```
-
-This mirrors MobX's `when` behavior, but with more compositional flexibility. You're not limited to simple conditions—you can build arbitrarily complex boolean expressions that describe exactly when your side effect should consider running.
+As a rule of thumb: use `&` to gate a value or a side effect ("only do this while X holds"); use `+` with `>>` (optionally combined with `|` / `~`) whenever you need a real boolean expression that should notify on every change to its truth value.
 
 ## Multiple Dependencies Without Conditions
 
@@ -137,6 +174,7 @@ full_name = (name + age) >> (lambda n, a: f"{n} ({a} years old)")
 @reactive(full_name)
 def update_display(display_name):
     print(f"Display: {display_name}")
+# Prints immediately: "Display: Alice (30 years old)"
 
 name.set("Bob")  # Triggers with "Bob (30 years old)"
 age.set(31)      # Triggers with "Bob (31 years old)"
@@ -198,17 +236,26 @@ The reactions appear only at the boundary. They're where your perfect functional
 
 The biggest pitfall with `@reactive` is trying to be too clever. Three patterns consistently cause problems:
 
-**The infinite loop.** When a reaction modifies what it's watching, you've created a feedback cycle:
+**Self-mutation.** When a reaction modifies the very thing it's watching, you'd expect an infinite feedback cycle:
 
 ```python
 count = observable(0)
 
 @reactive(count)
 def increment_forever(value):
-    count.set(value + 1)  # Every change triggers another change
+    count.set(value + 1)  # Modifying the observable this reaction watches
 ```
 
-This is obvious in toy examples but can hide in real code when the dependency is indirect. The change semantics don't save you here—each change triggers the reaction, which causes another change, ad infinitum.
+FynX doesn't actually let this loop forever. The decoration itself runs once immediately (`0 → 1`) before the subscription is even registered, so that first call succeeds quietly. But once the reaction is subscribed, any *later* external change is a different story:
+
+```python
+count.set(5)
+# Raises RuntimeError: Circular dependency detected in reactive computation!
+# FynX detects that increment_forever is trying to modify `count` while
+# running in response to a `count` change, and refuses rather than looping.
+```
+
+So this pattern doesn't silently run away - it fails loudly and immediately the first time it would actually recurse. That said, it's still a trap worth avoiding: relying on the framework to catch a self-mutation is worse than not writing one, and the failure can be harder to spot when the dependency is indirect (reaction A changes something that reaction B watches, and B changes what A watches).
 
 **The hidden cache.** When reactions maintain their own state, you've split your application's state across two systems:
 
@@ -250,11 +297,12 @@ user = observable(None)
 has_permission = observable(False)
 is_online = observable(False)
 
-# Only sync when user is logged in, has permission, and is online
+# Gates `user`'s value by has_permission and is_online: the function only
+# runs while both conditions hold, and receives user's current value
+# (which may still be None if no one has logged in yet).
 @reactive(user & has_permission & is_online)
-def sync_sensitive_data(should_sync):
-    current_user = user.value
-    if should_sync and current_user is not None:
+def sync_sensitive_data(current_user):
+    if current_user is not None:
         api.sync_user_data(current_user.id)
 
 # Later, when you want to stop syncing entirely:
@@ -274,25 +322,32 @@ class UserStore(Store):
     is_active = observable(True)
 
     user_summary = (name + age) >> (lambda n, a: f"{n}, {a}")
-    should_display = is_active & (age >> (lambda a: a >= 18))
+
+    # should_display is a total boolean UI flag, so it's built with `+` / `>>`
+    # rather than `&` - it should notify on every real change to the value,
+    # not just when a gate opens.
+    is_adult = age >> (lambda a: a >= 18)
+    should_display = (is_active + is_adult) >> (lambda active, adult: active and adult)
 
 @reactive(UserStore.user_summary)
 def sync_to_server(summary):
     api.post('/user/update', {'summary': summary})
+# Fires immediately: sync_to_server("Alice, 30")
 
 @reactive(UserStore.should_display)
 def toggle_profile_visibility(should_show):
     profile_element.visible = should_show
+# Fires immediately: toggle_profile_visibility(True)
 
-UserStore.name = "Bob"  # Triggers first reaction
-UserStore.age = 31      # Triggers both reactions
-UserStore.is_active = False  # Triggers second reaction only
+UserStore.name = "Bob"  # Triggers first reaction (user_summary changed)
+UserStore.age = 31      # Triggers first reaction only (is_adult is still True, so should_display is unchanged)
+UserStore.is_active = False  # Triggers second reaction only (should_display flips to False)
 ```
 
 The store becomes your functional core. The reactions watching it become your shell. This separation makes testing straightforward—test the store logic in isolation, mock the side effects in the reactions.
 
 ***
 
-**The Big Picture:** Use `@reactive` sparingly. Most of your code should be pure derivations using `>>`, `+`, `&`, and `~`. Reactions appear only at the edges, where your application must interact with something external. The conditional operators let you express exactly when these interactions should happen without mixing conditions into your business logic. When you find yourself reaching for `@reactive`, pause and ask: "Is this really a side effect, or am I just deriving new state?" That question alone will guide you toward cleaner, more maintainable reactive systems.
+**The Big Picture:** Use `@reactive` sparingly. Most of your code should be pure derivations using `>>` and `+` (plus `|` / `~` for boolean logic), with `&` reserved for gating a value or a side effect rather than computing AND. Reactions appear only at the edges, where your application must interact with something external. When you find yourself reaching for `@reactive`, pause and ask: "Is this really a side effect, or am I just deriving new state?" That question alone will guide you toward cleaner, more maintainable reactive systems.
 
 ::: fynx.reactive
