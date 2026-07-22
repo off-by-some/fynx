@@ -13,9 +13,10 @@ reactive calls track their own dependencies correctly, and that same stack is
 what lets circular-dependency detection work - if a computation tries to
 modify one of its own inputs, it raises an error instead of looping.
 
-Observable also implements `__eq__`, `__str__`, and `__bool__` so it behaves
-like the value it wraps in boolean contexts, string formatting, and equality
-checks, without needing `.value` everywhere.
+Observable also implements `__str__` and `__bool__` so it behaves like the
+value it wraps in boolean contexts and string formatting without needing
+`.value` everywhere. Equality is identity-based so mutable graph nodes remain
+safe in sets and dictionaries.
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ from typing import (
 )
 from weakref import WeakKeyDictionary
 
+from ..equality import value_changed, values_equal
 from ..registry import _all_reactive_contexts, _func_to_contexts
 from ..types import Observer, Subscriber, ValueObserver
 from .interfaces import Observable as ObservableInterface
@@ -192,10 +194,11 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
     dependency and adds the context's re-run function as an observer; calling
     `.set()` later notifies those observers with the fresh value.
 
-    Observable also implements `__bool__`, `__str__`, and `__eq__`, so it can
+    Observable also implements `__bool__` and `__str__`, so it can
     be used in boolean contexts (`if observable:`), string formatting
-    (`f"{observable}"`), and equality comparisons (`observable == 5`) without
-    reaching for `.value` explicitly.
+    (`f"{observable}"`), without reaching for `.value` explicitly. Equality
+    is identity-based so observables remain safe in dependency sets and dicts;
+    compare `.value` explicitly for value equality.
 
     Changes are batched and notified in topological order - source
     observables first, then computed, then conditional - so a conditional
@@ -234,7 +237,7 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
 
         # Direct access (transparent behavior)
         print(counter.value)  # 0
-        print(counter == 0)   # True
+        print(counter.value == 0)  # True
         print(str(counter))   # "0"
 
         # Subscribe to changes
@@ -381,7 +384,9 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
             ```
 
         Note:
-            Equality is checked using the `!=` operator, so custom objects should implement proper equality comparison if needed.
+            Equality is checked defensively. If a value's equality operator
+            raises or returns a non-boolean comparison object that cannot be
+            coerced safely, FynX treats the assignment as changed and notifies.
         """
         if _TRANSFORM_EVALUATION_STATE[0]:
             raise TransformPurityError(_transform_purity_message("mutate", self._key))
@@ -412,7 +417,7 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
             raise RuntimeError(error_msg)
 
         # Only update and notify if the value actually changed
-        if self._value != value:
+        if value_changed(self._value, value):
             self._value = value
             self._version += 1
             observers = self._observers
@@ -788,19 +793,10 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
             reactive: Decorator-based subscription with automatic dependency tracking
         """
 
-        existing_observer = self._direct_observers.pop(func, None)
-        if existing_observer is not None:
-            self.remove_observer(existing_observer)
-            self._direct_callbacks.discard(func)
-
         def direct_reaction():
             func(self._value)
 
-        self._direct_observers[func] = direct_reaction
-        self._direct_callbacks.add(func)
-        self._direct_callback_snapshot = ()
-        self._refresh_single_direct_callback()
-        self.add_observer(direct_reaction)
+        self._subscribe_direct_callback(func, direct_reaction)
         return self
 
     def unsubscribe(self, func: Subscriber[T]) -> None:
@@ -810,16 +806,34 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
         Args:
             func: The function to unsubscribe from this observable
         """
+        self._unsubscribe_direct_callback(func)
+        self._dispose_subscription_contexts(
+            func, lambda ctx: ctx.subscribed_observable is self
+        )
+
+    def _subscribe_direct_callback(
+        self, func: Callable[..., Any], observer: Observer
+    ) -> None:
+        """Register or replace a direct subscription observer."""
+        existing_observer = self._direct_observers.pop(func, None)
+        if existing_observer is not None:
+            self.remove_observer(existing_observer)
+            self._direct_callbacks.discard(func)
+
+        self._direct_observers[func] = observer
+        self._direct_callbacks.add(func)
+        self._direct_callback_snapshot = ()
+        self._refresh_single_direct_callback()
+        self.add_observer(observer)
+
+    def _unsubscribe_direct_callback(self, func: Callable[..., Any]) -> None:
+        """Remove a direct subscription observer if it is currently registered."""
         direct_observer = self._direct_observers.pop(func, None)
         if direct_observer is not None:
             self.remove_observer(direct_observer)
             self._direct_callbacks.discard(func)
             self._direct_callback_snapshot = ()
             self._refresh_single_direct_callback()
-
-        self._dispose_subscription_contexts(
-            func, lambda ctx: ctx.subscribed_observable is self
-        )
 
     @staticmethod
     def _create_subscription_context(
@@ -950,16 +964,18 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
 
     def __eq__(self, other: object) -> bool:
         """
-        Equality comparison with another value or observable.
+        Identity comparison with another object.
 
-        Compares the wrapped values for equality. If comparing with another
-        Observable, compares their wrapped values.
+        Observables are mutable reactive graph nodes, so equality is based on
+        node identity rather than wrapped value. This preserves Python's
+        equality/hash contract when observables are used in dependency sets and
+        dictionaries. Compare `.value` explicitly for value equality.
 
         Args:
             other: Value or Observable to compare with
 
         Returns:
-            True if the values are equal, False otherwise.
+            True only when `other` is this same observable object.
 
         Example:
             ```python
@@ -967,17 +983,13 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
             obs2 = Observable("b", 5)
             regular_val = 5
 
-            obs1 == obs2      # True (both wrap 5)
-            obs1 == regular_val  # True (observable equals regular value)
-            obs1 == 10        # False (5 != 10)
+            obs1 == obs2          # False (different graph nodes)
+            obs1.value == obs2.value  # True
+            obs1.value == regular_val # True
             ```
         """
         self._raise_if_transform_reads()
-        if isinstance(other, Observable):
-            other._raise_if_transform_reads()
-        if isinstance(other, Observable):
-            return self._value == other._value
-        return self._value == other
+        return self is other
 
     def __hash__(self) -> int:
         """
@@ -998,8 +1010,8 @@ class Observable(OperatorMixin[T], ObservableInterface[T]):
             obs1 = Observable("a", [1, 2, 3])
             obs2 = Observable("b", [1, 2, 3])
 
-            # These will have different hashes despite same value
-            hash(obs1) != hash(obs2)  # True
+            # Hashing follows graph-node identity, not wrapped value
+            hash(obs1) == id(obs1)  # True
 
             # But identical objects hash the same
             hash(obs1) == hash(obs1)  # True

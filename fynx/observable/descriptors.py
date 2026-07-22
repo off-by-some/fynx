@@ -45,8 +45,8 @@ Two components do this together:
 
 2. **ObservableValue**: Returned when accessing descriptor attributes, provides
    transparent value access through ValueMixin while maintaining reactive capabilities.
-   This wrapper subscribes to the underlying Observable to keep its displayed value
-   synchronized.
+   This wrapper reads the underlying Observable directly, so repeated attribute
+   access does not create hidden subscriptions.
 
 When you write `class UserStore(Store): name = observable("Alice")`, the
 Observable itself is the descriptor. Accessing `UserStore.name` calls its
@@ -106,7 +106,7 @@ class UserStore(Store):
 # All operators work transparently
 full_name = UserStore.first_name + UserStore.last_name >> (lambda f, l: f"{f} {l}")
 is_adult = UserStore.age >> (lambda a: a >= 18)
-valid_user = UserStore.name & is_adult
+valid_user = UserStore.name @ is_adult
 ```
 
 Implementation Details
@@ -127,8 +127,9 @@ Performance Considerations
 --------------------------
 
 Observable instances are reused across attribute access, stored as class
-attributes. Only the ObservableValue wrapper is created on-demand, so
-overhead stays close to a regular attribute access.
+attributes. Only the lightweight ObservableValue wrapper is created on-demand,
+and it does not register observer callbacks unless you explicitly call
+`.subscribe()`, so overhead stays close to a regular attribute access.
 
 Limitations
 -----------
@@ -155,6 +156,7 @@ from typing import (
     cast,
 )
 
+from ..equality import values_equal
 from ..types import Subscriber
 from .base import Observable as ObservableImpl
 from .conditional import ConditionalObservable
@@ -176,11 +178,12 @@ class ObservableValue(Generic[T], ValueMixin[T]):
     `store.attr.subscribe(callback)` through the same attribute.
 
     The ValueMixin provides transparent behavior: `__str__` delegates to the value,
-    `__eq__` compares against the value (delegating to the underlying Observable's equality),
-    `__iter__` iterates over collections or wraps scalars in a single-item list, `__len__`
-    returns 0 for non-collections or the collection length otherwise, and `__contains__`
-    works for collections but returns False for scalars. Reactive operators (`+`, `>>`, `&`)
-    unwrap ObservableValue operands and delegate to the underlying Observable.
+    `__eq__` compares against the wrapped value, `__iter__` iterates over
+    collections or wraps scalars in a single-item list, `__len__` returns 0
+    for non-collections or the collection length otherwise, and `__contains__`
+    works for collections but returns False for scalars. Reactive operators
+    (`+`, `>>`, `&`) unwrap ObservableValue operands and delegate to the
+    underlying Observable.
 
     Example:
         ```python
@@ -251,15 +254,13 @@ class ObservableValue(Generic[T], ValueMixin[T]):
     def __getattr__(self, name: str):
         return getattr(self._observable, name)
 
-    def __hash__(self) -> int:
-        """Make ObservableValue hashable by delegating to the underlying observable."""
-        return hash(self._observable)
+    __hash__ = None  # type: ignore[assignment]
 
     def __eq__(self, other) -> bool:
-        """Equality comparison delegates to the underlying observable."""
+        """Compare wrapped values while remaining unhashable."""
         if isinstance(other, ObservableValue):
-            return self._observable == other._observable
-        return self._observable == other
+            return values_equal(self.value, other.value)
+        return values_equal(self.value, other)
 
 
 class SubscriptableDescriptor(Generic[T]):

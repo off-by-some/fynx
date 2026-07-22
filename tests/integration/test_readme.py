@@ -89,14 +89,14 @@ class TestReadmeExamples:
         User.first_name = "Jane"
         assert full_name.value == "Jane Doe"
 
-    def test_filtering_with_and_not(self):
-        """Test the & and ~ operator examples."""
+    def test_filtering_with_at_not(self):
+        """Test the @ and ~ operator examples."""
         uploaded_file = observable(None)
         is_processing = observable(False)
 
         # Conditional observables
         is_valid = uploaded_file >> (lambda f: f is not None)
-        preview_ready = uploaded_file & is_valid & (~is_processing)
+        preview_ready = uploaded_file @ is_valid @ (~is_processing)
 
         # Initially conditions never met, so accessing value raises ConditionalNeverMet
         from fynx.observable.conditional import ConditionalNeverMet
@@ -155,7 +155,7 @@ class TestReadmeExamples:
         condition2 = observable(False)
         watch_log = []
 
-        @reactive(condition1 & condition2)
+        @reactive(condition1 @ condition2)
         def on_conditions_met(value):
             watch_log.append("All conditions satisfied!")
 
@@ -237,7 +237,7 @@ class TestReadmeExamples:
         is_even = data >> (lambda x: x % 2 == 0)
 
         # Pullback: only emits when both conditions hold
-        filtered = data & is_positive & is_even
+        filtered = data @ is_positive @ is_even
 
         # Initial value should be 42 (positive and even)
         assert filtered.value == 42
@@ -273,9 +273,9 @@ class TestReadmeExamples:
         is_positive = data >> (lambda x: x > 0)
         is_even = data >> (lambda x: x % 2 == 0)
 
-        # Guard-order commutativity for a fixed source, not global `&` commutativity.
-        filter1 = data & is_positive & is_even
-        filter2 = data & is_even & is_positive
+        # Guard-order commutativity for a fixed source.
+        filter1 = data @ is_positive @ is_even
+        filter2 = data @ is_even @ is_positive
 
         # Both should behave identically
         assert filter1.value == filter2.value == 42
@@ -291,7 +291,7 @@ class TestReadmeExamples:
         discount = observable(0.1)
         is_valid = quantity >> (lambda q: q > 0)
 
-        total = ((price + quantity) >> (lambda p, q: p * q)) & is_valid
+        total = ((price + quantity) >> (lambda p, q: p * q)) @ is_valid
         discounted = (total + discount) >> (
             lambda t, d: t * (1 - d) if t is not None else 0
         )

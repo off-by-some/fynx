@@ -128,14 +128,14 @@ def conditional_observable_or_example():
 
 
 def conditional_observable_and_example():
-    """Demonstrate gated reactions with the & operator.
+    """Demonstrate gated reactions with the @ operator.
 
-    The & operator gates a source observable by conditions. It is useful when
+    The @ operator gates a source observable by conditions. It is useful when
     you want a reaction only while conditions are active.
     """
-    print("=== Gated Reactions with & Operator ===")
+    print("=== Gated Reactions with @ Operator ===")
     print(
-        "Using & operator for AND conditions: has_items & is_logged_in & payment_valid"
+        "Using & for boolean AND and @ for gating: has_items @ (is_logged_in & payment_valid)"
     )
     print()
 
@@ -143,11 +143,11 @@ def conditional_observable_and_example():
     is_logged_in = observable(False)
     payment_valid = observable(False)
 
-    @reactive(has_items & is_logged_in & payment_valid)
+    @reactive(has_items @ (is_logged_in & payment_valid))
     def on_ready_to_checkout_and_op(condition_value):
-        print("Ready to checkout - all conditions met using & operator!")
+        print("Ready to checkout - all conditions met using @ gate!")
 
-    # Demonstrate the & operator behavior
+    # Demonstrate the @ operator behavior
     print("Initial state: has_items=False, is_logged_in=False, payment_valid=False")
 
     has_items.set(True)
@@ -250,7 +250,7 @@ def complex_conditions_example():
     # Create conditional observable for complex conditions
     is_comfortable = (temperature + humidity) >> (lambda t, h: t > 25 and h < 60)
 
-    comfortable_climate = (temperature + humidity) & is_comfortable
+    comfortable_climate = (temperature + humidity) @ is_comfortable
 
     @reactive(comfortable_climate)
     def on_comfortable_complex(climate_values):
@@ -303,7 +303,7 @@ def one_time_vs_repeating_events_example():
     # Create conditional observables for milestone tracking
     is_first_login = login_count >> (lambda count: count == 1)
 
-    first_login_count = login_count & is_first_login
+    first_login_count = login_count @ is_first_login
 
     @reactive(first_login_count)
     def on_first_login_milestone(count):
@@ -311,7 +311,7 @@ def one_time_vs_repeating_events_example():
 
     is_milestone_login = login_count >> (lambda count: count > 0 and count % 10 == 0)
 
-    milestone_login_count = login_count & is_milestone_login
+    milestone_login_count = login_count @ is_milestone_login
 
     @reactive(milestone_login_count)
     def on_login_milestone_repeat(count):
@@ -386,11 +386,11 @@ def computed_observables_combination_example():
 def conditional_observable_with_computed_example():
     """Demonstrate gated reactions combined with computed values.
 
-    This example uses & to pass the cart total only when every condition is
+    This example uses @ to pass the cart total only when every condition is
     active.
     """
     print("=== Gated Reactions with Computed Values ===")
-    print("Using & to pass cart total only when computed conditions are true")
+    print("Using @ to pass cart total only when computed conditions are true")
     print()
 
     user_logged_in = observable(False)
@@ -400,8 +400,8 @@ def conditional_observable_with_computed_example():
     # Computed observable: cart meets minimum total
     has_minimum_total = cart_total >> (lambda total: total >= 50)
 
-    premium_checkout_total = (
-        cart_total & user_logged_in & data_loaded & has_minimum_total
+    premium_checkout_total = cart_total @ (
+        user_logged_in & data_loaded & has_minimum_total
     )
 
     @reactive(premium_checkout_total)

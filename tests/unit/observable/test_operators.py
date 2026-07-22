@@ -4,7 +4,7 @@ from fynx import Store, observable
 from fynx.observable.base import Observable
 from fynx.observable.descriptors import ObservableValue
 from fynx.observable.merged import MergedObservable
-from fynx.observable.operators import and_operator
+from fynx.observable.operators import and_operator, matmul_operator
 
 
 @pytest.mark.unit
@@ -171,26 +171,26 @@ def test_value_mixin_scalar_iter_and_getitem_type_error():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_value_mixin_and_with_callable_condition():
-    """Using & with a callable evaluates predicate against the source value."""
-    # Arrange
-    source = Observable("x", 5)
-    filtered = ObservableValue(source) & (lambda x: x > 3)
-    # Act / Assert
-    assert filtered.is_active is True
-    source.set(2)
-    assert filtered.is_active is False
+def test_value_mixin_and_with_boolean_observable():
+    """Using & with a boolean observable creates a total boolean AND."""
+    source = Observable("x", True)
+    ready = Observable("ready", False)
+
+    result = ObservableValue(source) & ready
+
+    assert result.value is False
+    ready.set(True)
+    assert result.value is True
 
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_value_mixin_and_with_boolean_observable():
-    """Using & with a boolean observable gates emissions by that flag."""
-    # Arrange
+def test_value_mixin_matmul_with_boolean_observable():
+    """Using @ with a boolean observable gates emissions by that flag."""
     source = Observable("x", 10)
     ready = Observable("ready", False)
-    filtered = ObservableValue(source) & ready
-    # Act / Assert
+    filtered = ObservableValue(source) @ ready
+
     assert filtered.is_active is False
     ready.set(True)
     assert filtered.is_active is True
@@ -199,14 +199,13 @@ def test_value_mixin_and_with_boolean_observable():
 @pytest.mark.unit
 @pytest.mark.observable
 @pytest.mark.operators
-def test_and_operator_with_conditional_source_uses_root_value():
-    """and_operator evaluates callable conditions against the root source when source is conditional."""
-    # Arrange
+def test_matmul_operator_with_conditional_source_uses_root_value():
+    """matmul_operator evaluates callable conditions against the root source."""
     data = Observable("data", 1)
-    step1 = data & (lambda x: x > 0)
-    # Act
-    step2 = and_operator(step1, lambda x: x < 5)
-    # Assert
+    step1 = data @ (lambda x: x > 0)
+
+    step2 = matmul_operator(step1, lambda x: x < 5)
+
     assert step1.is_active is True
     assert step2.is_active is True
 
@@ -461,30 +460,29 @@ def test_rshift_operator_delegates_to_create_computed():
 @pytest.mark.unit
 @pytest.mark.observable
 def test_and_operator_with_callable_condition_creates_computed():
-    """and_operator creates computed observable for callable conditions."""
+    """and_operator creates a total boolean AND observable."""
     from fynx.observable.operators import and_operator
 
-    obs = Observable("test", 5)
+    obs = Observable("test", True)
+    other = Observable("other", False)
 
-    # Should create computed observable for callable condition
-    result = and_operator(obs, lambda x: x > 3)
-    assert result.is_active is True
+    result = and_operator(obs, other)
 
-    obs.set(2)
-    assert result.is_active is False
+    assert result.value is False
+    other.set(True)
+    assert result.value is True
 
 
 @pytest.mark.unit
 @pytest.mark.observable
 def test_and_operator_with_observable_condition_uses_directly():
-    """and_operator uses observable conditions directly without creating computed."""
-    from fynx.observable.operators import and_operator
+    """matmul_operator uses observable conditions directly for gating."""
+    from fynx.observable.operators import matmul_operator
 
     obs = Observable("test", 5)
     condition_obs = Observable("condition", True)
 
-    # Should use observable condition directly
-    result = and_operator(obs, condition_obs)
+    result = matmul_operator(obs, condition_obs)
     assert result.is_active is True
 
     condition_obs.set(False)

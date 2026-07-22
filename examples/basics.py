@@ -159,7 +159,7 @@ ExampleStore.name.set("Bob")
 
 print()
 print("=" * 100)
-print("Conditional reactions with @reactive and & operator")
+print("Conditional reactions with @reactive and @ operator")
 print("-" * 100)
 print()
 
@@ -172,7 +172,7 @@ is_online = user_status >> (lambda s: s == "online")
 has_messages = message_count >> (lambda c: c is not None and c > 0)
 
 
-new_messages_while_online = message_count & is_online & has_messages
+new_messages_while_online = message_count @ (is_online & has_messages)
 
 
 @reactive(new_messages_while_online)

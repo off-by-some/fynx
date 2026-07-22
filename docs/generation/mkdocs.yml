@@ -26,6 +26,7 @@ nav:
       - Conditionals: tutorial/conditionals.md
       - Stores: tutorial/stores.md
       - Using @reactive: tutorial/using-reactive.md
+      - Best Practices: tutorial/best-practices.md
   - API Reference:
       - Overview: reference/api.md
       - Observable Types:

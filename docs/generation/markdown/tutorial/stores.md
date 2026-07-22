@@ -34,7 +34,7 @@ CounterStore.count.subscribe(lambda c: print(f"Count: {c}"))
 CounterStore.count = 10  # Prints: "Count: 10"
 ```
 
-Notice the asymmetry: you read with direct access (`CounterStore.count`), but the value is still an observable. You can still subscribe to it, transform it with `>>`, merge it with `+`. The Store class uses Python descriptors to give you clean syntax while preserving all of observable's power.
+Notice the asymmetry: you read with direct access (`CounterStore.count`), but the value is still an observable. You can still subscribe to it, transform it with `.then()`, merge it with `.alongside()`. The Store class uses Python descriptors to give you clean syntax while preserving all of observable's power.
 
 ## Why Stores Matter
 
@@ -102,10 +102,10 @@ MyStore.value = 200           # Direct assignment
 
 # But you can still use it as an observable:
 MyStore.value.subscribe(lambda v: print(v))
-doubled = MyStore.value >> (lambda v: v * 2)
+doubled = MyStore.value.then(lambda v: v * 2)
 ```
 
-The descriptor pattern means you don't need `.value` and `.set()` for Store attributes—just read and write naturally. But the underlying observable is still there, ready for transformations and subscriptions.
+The descriptor pattern means you don't need `.value` and `.set()` for Store attributes—just read and write naturally. But the underlying observable is still there, ready for transformations and subscriptions. See [Observable Descriptors](../reference/observable-descriptors.md) for the full descriptor API.
 
 **Important:** This clean syntax only works for Store class attributes. Standalone observables (not in a Store) still require `.value` and `.set()`:
 
@@ -123,7 +123,7 @@ print(CounterStore.counter)  # No .value needed
 CounterStore.counter = 5     # No .set() needed
 ```
 
-Inside a `>>` / `.then()` transform, Store attributes follow the same rule as standalone observables: combine them explicitly before transforming.
+Inside a `.then()` transform, Store attributes follow the same rule as standalone observables: combine them explicitly before transforming.
 
 ```python
 class Pricing(Store):
@@ -131,15 +131,15 @@ class Pricing(Store):
     discount = observable(0.1)
 
 # Good: explicit inputs
-discounted = (Pricing.price + Pricing.discount) >> (lambda p, d: p * (1 - d))
+discounted = Pricing.price.alongside(Pricing.discount).then(lambda p, d: p * (1 - d))
 
 # Error: hidden Store read inside the transform
-discounted = Pricing.price >> (lambda p: p * (1 - Pricing.discount.value))
+discounted = Pricing.price.then(lambda p: p * (1 - Pricing.discount.value))
 ```
 
 ## Adding Computed Values
 
-The real power of Stores emerges when you add derived state using the `>>` operator:
+The real power of Stores emerges when you add derived state using `.then()`:
 
 ```python
 class CartStore(Store):
@@ -147,10 +147,10 @@ class CartStore(Store):
     tax_rate = observable(0.08)
 
     # Computed: recalculates when items changes
-    item_count = items >> (lambda items: len(items))
+    item_count = items.then(lambda items: len(items))
 
     # Computed: recalculates when items changes
-    subtotal = items >> (
+    subtotal = items.then(
         lambda items: sum(item['price'] * item['quantity'] for item in items)
     )
 ```
@@ -174,29 +174,29 @@ Computed values memoize their results. After the first access, they return the c
 
 ## Combining Multiple Observables
 
-Most computed values depend on more than one observable. Use the `+` operator to merge observables:
+Most computed values depend on more than one observable. Use `.alongside()` to merge observables:
 
 ```python
 class CartStore(Store):
     items = observable([])
     tax_rate = observable(0.08)
 
-    subtotal = items >> (
+    subtotal = items.then(
         lambda items: sum(item['price'] * item['quantity'] for item in items)
     )
 
     # Merge subtotal and tax_rate
-    tax_amount = (subtotal + tax_rate) >> (
+    tax_amount = subtotal.alongside(tax_rate).then(
         lambda sub, rate: sub * rate
     )
 
     # Merge subtotal and tax_amount
-    total = (subtotal + tax_amount) >> (
+    total = subtotal.alongside(tax_amount).then(
         lambda sub, tax: sub + tax
     )
 ```
 
-The `+` operator creates a merged observable that emits a tuple. When you transform it with `>>`, the function receives one argument per observable:
+`.alongside()` creates a merged observable that emits a tuple. When you transform it with `.then()`, the function receives one argument per observable:
 
 ```python
 CartStore.items = [{'name': 'Widget', 'price': 20, 'quantity': 1}]
@@ -210,7 +210,7 @@ print(CartStore.tax_amount)   # 2.0 (recalculated)
 print(CartStore.total)        # 22.0 (recalculated)
 ```
 
-Any change to a merged observable triggers recomputation. This makes `+` perfect for values that need to coordinate multiple pieces of state.
+Any change to a merged observable triggers recomputation. This makes `.alongside()` perfect for values that need to coordinate multiple pieces of state.
 
 ## Methods: Encapsulating State Changes
 
@@ -304,30 +304,30 @@ This immutable update pattern is crucial. It ensures reactivity works correctly 
 
 ## Chaining Computed Values
 
-Computed values can depend on other computed values, creating transformation pipelines:
+Because updates always produce new values instead of mutating existing ones, it's safe for computed values to build on each other in turn. Computed values can depend on other computed values, creating transformation pipelines:
 
 ```python
 class AnalyticsStore(Store):
     values = observable([10, 20, 30, 40, 50])
 
     # Level 1: Basic stats
-    count = values >> (lambda v: len(v))
-    total = values >> (lambda v: sum(v))
+    count = values.then(lambda v: len(v))
+    total = values.then(lambda v: sum(v))
 
     # Level 2: Depends on count and total
-    mean = (total + count) >> (
+    mean = total.alongside(count).then(
         lambda t, c: t / c if c > 0 else 0
     )
 
     # Level 3: Depends on values and mean
-    variance = (values + mean + count) >> (
+    variance = values.alongside(mean).alongside(count).then(
         lambda vals, avg, n: (
             sum((x - avg) ** 2 for x in vals) / (n - 1) if n > 1 else 0
         )
     )
 
     # Level 4: Depends on variance
-    std_dev = variance >> (lambda v: v ** 0.5)
+    std_dev = variance.then(lambda v: v ** 0.5)
 ```
 
 When `values` changes, FynX propagates updates through the entire chain in the correct order. Each level recalculates only if its dependencies actually changed:
@@ -359,31 +359,31 @@ class UserProfileStore(Store):
     is_premium = observable(False)
 
     # Computed: full name
-    full_name = (first_name + last_name) >> (
+    full_name = first_name.alongside(last_name).then(
         lambda first, last: f"{first} {last}".strip()
     )
 
     # Computed: display name (falls back if no name)
-    display_name = full_name >> (
+    display_name = full_name.then(
         lambda name: name if name else "Anonymous User"
     )
 
     # Computed: email validation
-    is_email_valid = email >> (
+    is_email_valid = email.then(
         lambda e: '@' in e and '.' in e.split('@')[-1] if e else False
     )
 
     # Computed: age validation
-    is_adult = age >> (lambda a: a >= 18)
+    is_adult = age.then(lambda a: a >= 18)
 
     # Computed: profile completeness
-    is_complete = (first_name + last_name + email + is_email_valid) >> (
+    is_complete = first_name.alongside(last_name).alongside(email).alongside(is_email_valid).then(
         lambda first, last, email_addr, email_valid:
             bool(first and last and email_addr and email_valid)
     )
 
     # Computed: user tier
-    user_tier = (is_premium + is_complete) >> (
+    user_tier = is_premium.alongside(is_complete).then(
         lambda premium, complete: (
             "Premium" if premium else
             "Complete" if complete else
@@ -454,7 +454,7 @@ Every computed value updates automatically when its dependencies change. You nev
 
 ## Cross-Store Dependencies
 
-Stores can reference observables from other Stores, enabling modular architecture:
+Every example so far has kept its computed values inside a single Store. That's not a hard boundary: Stores can reference observables from other Stores, enabling modular architecture:
 
 ```python
 class ThemeStore(Store):
@@ -465,16 +465,16 @@ class UIStore(Store):
     sidebar_open = observable(True)
 
     # Depends on ThemeStore
-    background_color = ThemeStore.mode >> (
+    background_color = ThemeStore.mode.then(
         lambda mode: "#ffffff" if mode == "light" else "#1a1a1a"
     )
 
-    text_color = ThemeStore.mode >> (
+    text_color = ThemeStore.mode.then(
         lambda mode: "#000000" if mode == "light" else "#ffffff"
     )
 
     # Depends on multiple observables from ThemeStore
-    css_vars = (ThemeStore.mode + ThemeStore.font_size) >> (
+    css_vars = ThemeStore.mode.alongside(ThemeStore.font_size).then(
         lambda mode, size: {
             '--bg': "#ffffff" if mode == "light" else "#1a1a1a",
             '--text': "#000000" if mode == "light" else "#ffffff",
@@ -518,9 +518,9 @@ class FormStore(Store):
     email = observable("")
     password = observable("")
 
-    email_valid = email >> (lambda e: '@' in e)
-    password_valid = password >> (lambda p: len(p) >= 8)
-    form_valid = (email_valid + password_valid) >> (lambda e, p: e and p)
+    email_valid = email.then(lambda e: '@' in e)
+    password_valid = password.then(lambda p: len(p) >= 8)
+    form_valid = email_valid.alongside(password_valid).then(lambda e, p: e and p)
 ```
 
 **State that needs encapsulated modification:**
@@ -593,87 +593,7 @@ Store inheritance prioritizes predictability and state isolation. Since Stores a
 
 **Best Practice:** Use inheritance for shared behavior (methods, computed properties), but define separate observables for each Store class that needs independent state.
 
-## Best Practices
-
-**1. Keep Stores focused on a single domain**
-
-Each Store should represent one cohesive area of your application:
-
-```python
-# Good: Focused domains
-class AuthStore(Store): ...
-class CartStore(Store): ...
-class UIStore(Store): ...
-
-# Bad: Everything in one Store
-class AppStore(Store):
-    user = observable(None)
-    cart_items = observable([])
-    modal_open = observable(False)
-    ...  # 50 more observables
-```
-
-**2. Use class methods for state modifications**
-
-Encapsulate how state changes:
-
-```python
-# Good: Clear API
-@classmethod
-def add_item(cls, item):
-    cls.items = cls.items + [item]
-
-# Bad: Direct manipulation everywhere
-SomeStore.items = SomeStore.items + [item]
-```
-
-**3. Always create new values, never mutate**
-
-```python
-# Good: New list
-cls.items = cls.items + [new_item]
-cls.items = [item for item in cls.items if item['id'] != id]
-
-# Bad: Store attributes do not proxy list mutator methods
-cls.items.append(new_item)
-cls.items.remove(item)
-
-# Also bad: direct value mutation bypasses notification
-cls.items.value.append(new_item)
-cls.items.value.remove(item)
-```
-
-**4. Handle edge cases in computed values**
-
-Computed values should be defensive:
-
-```python
-# Good: Handles empty list
-average = values >> (
-    lambda vals: sum(vals) / len(vals) if len(vals) > 0 else 0
-)
-
-# Good: Handles None
-user_name = user >> (
-    lambda u: u['name'] if u and 'name' in u else "Guest"
-)
-```
-
-**5. Name computed values clearly**
-
-Use names that indicate derivation:
-
-```python
-# Good: Clear that these are derived
-is_valid = email >> (lambda e: '@' in e)
-item_count = items >> len
-total_price = items >> (lambda items: sum(item['price'] for item in items))
-
-# Less clear:
-valid = email >> (lambda e: '@' in e)
-count = items >> len
-price = items >> (lambda items: sum(item['price'] for item in items))
-```
+See the [Best Practices](best-practices.md) page for guidance on structuring Stores, naming computed values, and avoiding common mutation mistakes.
 
 ## Summary
 
@@ -683,10 +603,10 @@ Core concepts:
 
 * **Stores group related observables** — Keep state that belongs together in the same Store
 * **Observable descriptors enable clean syntax** — Read and write Store attributes naturally
-* **The `>>` operator creates computed values** — Derived state updates automatically
-* **The `+` operator merges observables** — Combine multiple sources for multi-input computations
+* **`.then()` creates computed values** — Derived state updates automatically
+* **`.alongside()` merges observables** — Combine multiple sources for multi-input computations
 * **Always create new values** — Never mutate observable contents in place
 * **Methods encapsulate state changes** — Define clear APIs for modifying state
 * **Stores can depend on other Stores** — Build modular applications with cross-Store relationships
 
-With Stores, you can build reactive applications that scale from simple counters to complex, multi-domain state management systems. The secret is organization: each Store owns its domain, exposes a clean API, and lets FynX handle all the synchronization automatically.
+Each Store owns its domain and exposes a clean API; FynX handles the synchronization underneath it. The next step is [@reactive](using-reactive.md), which turns these observables and computed values into automatic side effects.

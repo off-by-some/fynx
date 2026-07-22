@@ -39,6 +39,7 @@ StoreState: TypeAlias = Dict[str, SessionValue]
 StoreStateMapping: TypeAlias = Mapping[str, SessionValue]
 
 ObservableOperand: TypeAlias = Union["Observable[T]", "ObservableValue[T]"]
+BooleanOperand: TypeAlias = Union["Observable[Any]", "ObservableValue[Any]"]
 ConditionOperand: TypeAlias = Union[
     "Observable[bool]",
     "ObservableValue[bool]",

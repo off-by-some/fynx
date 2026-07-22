@@ -63,14 +63,12 @@ def test_observable_repr_shows_key_and_value():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_observable_equals_value_for_comparison():
-    """Observable compares equal to its current value"""
-    # Arrange
+def test_observable_compares_by_identity_not_wrapped_value():
+    """Observable equality preserves graph-node identity."""
     obs = Observable("key", "value")
 
-    # Act & Assert
-    assert obs == "value"
-    assert "value" == obs
+    assert obs == obs
+    assert obs != "value"
 
 
 @pytest.mark.unit
@@ -101,21 +99,22 @@ def test_observable_preserves_value_when_set_to_same():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_observable_equals_observable_with_same_value():
-    """Observable equals another observable when both have identical values"""
+def test_observable_does_not_equal_observable_with_same_value():
+    """Two observables with the same value remain distinct graph nodes."""
     obs1 = Observable("key1", "same_value")
     obs2 = Observable("key2", "same_value")
 
-    assert obs1 == obs2
+    assert obs1 != obs2
+    assert obs1.value == obs2.value
 
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_observable_equals_primitive_value_when_identical():
-    """Observable equals primitive value when current value matches exactly"""
+def test_observable_value_supports_explicit_primitive_comparison():
+    """Wrapped values are compared explicitly through .value."""
     obs = Observable("key", "test_value")
 
-    assert obs == "test_value"
+    assert obs.value == "test_value"
 
 
 @pytest.mark.unit
@@ -130,14 +129,15 @@ def test_observable_differs_from_observable_with_different_value():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_observable_equality_updates_when_value_changes():
-    """Observable equality relationship changes when observable value is updated"""
+def test_observable_identity_equality_is_stable_when_value_changes():
+    """Changing values does not change observable identity equality."""
     obs1 = Observable("key1", "original")
     obs2 = Observable("key2", "different")
 
-    obs1.set("different")  # Now both have "different"
+    obs1.set("different")
 
-    assert obs1 == obs2
+    assert obs1 != obs2
+    assert obs1.value == obs2.value
 
 
 @pytest.mark.unit
@@ -176,15 +176,66 @@ def test_computed_observable_formatting_delegates_to_value():
 @pytest.mark.observable
 def test_observable_hash_based_on_object_identity():
     """Observable hash is based on object identity, not value"""
-    # Arrange
     obs1 = Observable("key", "value")
     obs2 = Observable("key", "value")
 
-    # Act & Assert
-    # Different objects should have different hashes
-    assert hash(obs1) != hash(obs2)
-    # Same object should have consistent hash
-    assert hash(obs1) == hash(obs1)
+    assert obs1 != obs2
+    assert hash(obs1) == id(obs1)
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_observable_identity_equality_keeps_sets_and_dicts_distinct():
+    """Equal wrapped values do not collapse dependency set or dict keys."""
+    obs1 = Observable("first", 1)
+    obs2 = Observable("second", 1)
+
+    observables = {obs1, obs2}
+    lookup = {obs1: "first", obs2: "second"}
+
+    assert len(observables) == 2
+    assert lookup == {obs1: "first", obs2: "second"}
+
+
+class EqualityRaises:
+    def __eq__(self, other: object) -> bool:
+        raise ValueError("ambiguous")
+
+
+class AmbiguousComparison:
+    def __bool__(self) -> bool:
+        raise ValueError("ambiguous")
+
+
+class EqualityReturnsAmbiguous:
+    def __eq__(self, other: object) -> AmbiguousComparison:
+        return AmbiguousComparison()
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_set_treats_raising_equality_as_changed():
+    """Values whose equality raises still update and notify dependents."""
+    obs = Observable("value", EqualityRaises())
+    notifications = []
+
+    obs.subscribe(notifications.append)
+    obs.set(EqualityRaises())
+
+    assert len(notifications) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_set_treats_ambiguous_equality_as_changed():
+    """Non-boolean equality results cannot silently suppress updates."""
+    obs = Observable("value", EqualityReturnsAmbiguous())
+    notifications = []
+
+    obs.subscribe(notifications.append)
+    obs.set(EqualityReturnsAmbiguous())
+
+    assert len(notifications) == 1
 
 
 @pytest.mark.unit

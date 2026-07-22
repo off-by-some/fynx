@@ -6,6 +6,16 @@ from fynx.observable import Observable
 from fynx.observable.computed import ComputedObservable
 
 
+class AmbiguousComparison:
+    def __bool__(self) -> bool:
+        raise ValueError("ambiguous")
+
+
+class EqualityReturnsAmbiguous:
+    def __eq__(self, other: object) -> AmbiguousComparison:
+        return AmbiguousComparison()
+
+
 @pytest.mark.unit
 @pytest.mark.observable
 @pytest.mark.operators
@@ -68,3 +78,17 @@ def test_computed_observable_stores_source_observable_reference():
 
     # Implementation detail: stores source reference
     assert computed_obs._source_observable is source
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_computed_observable_treats_ambiguous_equality_as_changed():
+    """Computed values with ambiguous equality still notify dependents."""
+    source = Observable("source", 0)
+    computed = source >> (lambda _: EqualityReturnsAmbiguous())
+    notifications = []
+
+    computed.subscribe(notifications.append)
+    source.set(1)
+
+    assert len(notifications) == 1

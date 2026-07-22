@@ -528,7 +528,7 @@ def test_conditional_unsubscribe_removes_effect_delivery(
     received: list[int],
 ) -> None:
     """Unsubscribed conditional effects do not fire on later source changes."""
-    gate = source & (lambda value: value > 0)
+    gate = source @ (lambda value: value > 0)
     callback = received.append
 
     gate.subscribe(callback)

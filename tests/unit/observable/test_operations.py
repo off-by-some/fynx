@@ -57,6 +57,50 @@ def test_then_method_with_merged_observable_unpacks_values():
 
 @pytest.mark.unit
 @pytest.mark.observable
+def test_all_method_creates_total_boolean_observable():
+    """all() creates a total boolean AND observable."""
+    obs1 = Observable("obs1", True)
+    obs2 = Observable("obs2", False)
+
+    result = obs1.all(obs2)
+
+    assert result.value is False
+    obs2.set(True)
+    assert result.value is True
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_all_method_accepts_multiple_operands():
+    """all() combines all operands into one boolean condition."""
+    obs1 = Observable("obs1", True)
+    obs2 = Observable("obs2", True)
+    obs3 = Observable("obs3", False)
+
+    result = obs1.all(obs2, obs3)
+
+    assert result.value is False
+    obs3.set(True)
+    assert result.value is True
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_all_method_flattens_chained_boolean_products():
+    """all() and chained & build the same canonical boolean source product."""
+    obs1 = Observable("obs1", True)
+    obs2 = Observable("obs2", True)
+    obs3 = Observable("obs3", False)
+
+    chained = obs1 & obs2 & obs3
+    direct = obs1.all(obs2, obs3)
+
+    assert chained.value is direct.value is False
+    assert chained._source_observable is direct._source_observable
+
+
+@pytest.mark.unit
+@pytest.mark.observable
 def test_either_operator_creates_boolean_observable():
     """either() operator creates a total boolean observable."""
     obs1 = Observable("obs1", False)

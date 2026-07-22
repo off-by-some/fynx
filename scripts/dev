@@ -1,0 +1,199 @@
+#!/bin/bash
+#
+# FynX Dev CLI
+# A single entry point for the scripts in ./scripts.
+#
+# Usage:
+#   ./scripts/dev <command> [args]
+#
+# Run `./scripts/dev help` for the full command list.
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Location: resolve the real project root so this works from any cwd.
+# ---------------------------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_ROOT"
+
+# ---------------------------------------------------------------------------
+# Colors
+# ---------------------------------------------------------------------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+print_header() {
+    echo ""
+    echo -e "${BOLD}${CYAN}== $1 ==${NC}"
+}
+
+print_status() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[OK]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+# Print a command before running it, so output stays transparent.
+run() {
+    echo -e "${BLUE}\$${NC} $*"
+    "$@"
+}
+
+# Prompt for a yes/no answer. Returns 0 (success) for yes, 1 for anything else.
+confirm() {
+    local prompt="${1:-Are you sure?}"
+    local reply
+    echo -en "${YELLOW}${prompt} [y/N]: ${NC}"
+    read -r reply
+    case "$reply" in
+        [yY]|[yY][eE][sS]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+current_version() {
+    grep -m1 '^version' "$PROJECT_ROOT/pyproject.toml" | sed -E 's/version = "(.*)"/\1/'
+}
+
+# ---------------------------------------------------------------------------
+# Commands
+# ---------------------------------------------------------------------------
+
+cmd_docs() {
+    print_header "Local documentation preview"
+    run "$PROJECT_ROOT/docs/generation/scripts/preview_html_docs.sh"
+}
+
+cmd_deploy_docs() {
+    print_header "Deploy documentation"
+    # deploy_docs.sh builds the site, then asks its own y/n before publishing.
+    run "$PROJECT_ROOT/scripts/deploy_docs.sh"
+}
+
+cmd_lint() {
+    print_header "Lint"
+    run "$PROJECT_ROOT/scripts/lint.sh" "$@"
+}
+
+cmd_test() {
+    print_header "Test"
+    if [ "$#" -eq 0 ]; then
+        run poetry run pytest -q
+    else
+        run poetry run pytest "$@"
+    fi
+}
+
+cmd_deploy_pypi() {
+    local version="${1:-}"
+    print_header "Deploy to PyPI"
+
+    if [ -n "$version" ]; then
+        print_status "Bumping version to $version"
+        run python3 "$PROJECT_ROOT/scripts/bump_version.py" "$version"
+    else
+        print_status "No version given, deploying current version $(current_version)"
+    fi
+
+    print_status "Running lint checks"
+    run "$PROJECT_ROOT/scripts/lint.sh"
+
+    echo ""
+    if ! confirm "Publish fynx $(current_version) to PyPI?"; then
+        print_warning "PyPI deployment cancelled."
+        exit 1
+    fi
+
+    print_status "Building and publishing to PyPI"
+    run "$PROJECT_ROOT/scripts/deploy_pypy.sh"
+
+    print_status "Verifying the published package on TestPyPI"
+    run "$PROJECT_ROOT/scripts/test_pypy.sh"
+
+    print_success "PyPI deployment complete."
+}
+
+cmd_deploy() {
+    local version="${1:-}"
+    print_header "Full deploy: PyPI + Docs"
+
+    local label="PyPI"
+    if [ -n "$version" ]; then
+        label="PyPI v$version"
+    fi
+    if ! confirm "Run full deploy ($label + Docs)? Each step will ask for its own confirmation too."; then
+        print_warning "Deployment cancelled."
+        exit 1
+    fi
+
+    cmd_deploy_pypi "$version"
+    cmd_deploy_docs
+
+    print_success "Full deployment complete."
+}
+
+print_help() {
+    echo -e "$(cat <<EOF
+${BOLD}FynX Dev CLI${NC}
+
+${BOLD}Usage:${NC}
+  ./scripts/dev <command> [args]
+
+${BOLD}Commands:${NC}
+  ${GREEN}docs${NC}                    Build docs and serve them locally at http://localhost:8000
+  ${GREEN}deploy-docs${NC}             Build docs, confirm, then deploy to GitHub Pages
+  ${GREEN}lint${NC} [--fix]            Run formatting/import checks (--fix to auto-format)
+  ${GREEN}test${NC} [pytest-args]      Run the test suite (defaults to -q)
+  ${GREEN}deploy-pypi${NC} [version]   Bump version (optional), lint, confirm, publish, verify on TestPyPI
+  ${GREEN}deploy${NC} [version]        Run deploy-pypi then deploy-docs (each with its own confirmation)
+  ${GREEN}help${NC}                    Show this help message
+
+${BOLD}Examples:${NC}
+  ./scripts/dev docs
+  ./scripts/dev lint --fix
+  ./scripts/dev test -k observable
+  ./scripts/dev deploy-pypi 0.2.0
+  ./scripts/dev deploy 0.2.0
+
+Runs correctly from any directory - it always operates on the FynX project root.
+EOF
+)"
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+COMMAND="${1:-help}"
+[ "$#" -gt 0 ] && shift
+
+case "$COMMAND" in
+    docs)         cmd_docs "$@" ;;
+    deploy-docs)  cmd_deploy_docs "$@" ;;
+    lint)         cmd_lint "$@" ;;
+    test)         cmd_test "$@" ;;
+    deploy-pypi)  cmd_deploy_pypi "$@" ;;
+    deploy)       cmd_deploy "$@" ;;
+    help|-h|--help) print_help ;;
+    *)
+        print_error "Unknown command: $COMMAND"
+        print_help
+        exit 1
+        ;;
+esac

@@ -7,11 +7,12 @@ filtering reactive values - the implementation layer that operators.py
 delegates to. Each method creates a new observable that derives from its
 sources and updates automatically when they change.
 
-Five core operations:
+Six core operations:
 
 - `then(func)` transforms values through functions (equivalent to `>>` operator)
 - `alongside(other)` merges observables into tuples (equivalent to `+` operator)
-- `requiring(*conditions)` composes boolean conditions with AND logic (equivalent to `&` operator)
+- `all(*conditions)` creates total boolean AND observables (equivalent to `&` operator)
+- `requiring(*conditions)` gates values by conditions (equivalent to `@` operator)
 - `negate()` inverts boolean values (equivalent to `~` operator)
 - `either(other)` creates boolean OR observables
 
@@ -23,7 +24,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Generic, Set, TypeVar, cast
 
-from ..types import ConditionOperand, ObservableOperand
+from ..types import BooleanOperand, ConditionOperand, ObservableOperand
 from .operands import unwrap_observable
 
 if TYPE_CHECKING:
@@ -60,8 +61,8 @@ class OperationsMixin(Generic[T]):
 
     Unlike a plain function that runs once and returns, these operations
     build a new observable that keeps updating as its sources change. This
-    mixin is the foundation for both the operator syntax (`+`, `>>`, `&`, in
-    operators.py) and the direct method calls (`.then()`, `.alongside()`, etc).
+    mixin is the foundation for both the operator syntax (`+`, `>>`, `&`, `@`,
+    in operators.py) and the direct method calls (`.then()`, `.alongside()`, etc).
 
     The mixin keeps the runtime representation aligned with FynX's algebra:
     pure transform chains compose, products are explicit, and observed values
@@ -270,7 +271,7 @@ class OperationsMixin(Generic[T]):
 
     def requiring(self, *conditions: ConditionOperand[T]) -> "ConditionalObservable[T]":
         """
-        Compose this observable with conditions using AND logic.
+        Gate this observable's value behind one or more conditions.
 
         Creates a ConditionalObservable that only emits when every condition
         evaluates to True. Each condition can be a boolean observable, a
@@ -309,12 +310,65 @@ class OperationsMixin(Generic[T]):
         """
         from .conditional import ConditionalObservable
 
-        # If this is already a ConditionalObservable, create nested conditional
-        if isinstance(self, ConditionalObservable):
-            # Create a new conditional with this conditional as source and new conditions
-            return ConditionalObservable(self, *conditions)  # type: ignore
-        else:
-            return ConditionalObservable(self, *conditions)  # type: ignore
+        return ConditionalObservable(self, *conditions)  # type: ignore
+
+    def all(self, *others: BooleanOperand) -> "Observable[bool]":
+        """
+        Create a total boolean AND observable.
+
+        Produces a boolean observable that's True when this value and every
+        other operand are truthy, False otherwise. Unlike `.requiring()`, this
+        never suppresses values: both True and False are ordinary emitted
+        values, making the result suitable for reusable readiness conditions.
+
+        Args:
+            *others: Other observable-like boolean values to combine.
+
+        Returns:
+            A computed Observable[bool] that updates whenever any input changes.
+
+        Example:
+            ```python
+            from fynx import observable
+
+            authenticated = observable(True)
+            connected = observable(True)
+            loading = observable(False)
+
+            ready = authenticated.all(connected, loading.negate())
+            print(ready.value)  # True
+            ```
+        """
+        ComputedObservable = _ComputedObservable()
+
+        def boolean_sources_from(observable: "Observable[Any]"):
+            if (
+                isinstance(observable, ComputedObservable)
+                and observable._boolean_all_sources is not None
+            ):
+                return observable._boolean_all_sources
+            return (observable,)
+
+        sources = tuple(
+            source
+            for operand in (cast("Observable[Any]", self), *others)
+            for source in boolean_sources_from(unwrap_observable(operand))
+        )
+
+        if len(sources) == 1:
+            result = sources[0].then(bool)
+            if isinstance(result, ComputedObservable):
+                result._boolean_all_sources = sources
+            return result  # type: ignore[return-value]
+
+        MergedObservable = _MergedObservable()
+        product = MergedObservable.from_sources(*sources)
+        result = product.then(  # type: ignore[no-any-return]
+            lambda *values: all(bool(value) for value in values)
+        )
+        if isinstance(result, ComputedObservable):
+            result._boolean_all_sources = sources
+        return result
 
     def negate(self) -> "Observable[bool]":
         """
@@ -355,7 +409,7 @@ class OperationsMixin(Generic[T]):
         Produces a computed observable that's True when either source is
         truthy, False otherwise. It's a total boolean observable - both True
         and False are valid values, nothing is gated or suppressed - so it
-        works as a reusable condition for `&` / `.requiring()` and further
+        works as a reusable condition for `@` / `.requiring()` and further
         boolean composition.
 
         Args:

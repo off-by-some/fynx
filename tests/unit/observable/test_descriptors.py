@@ -40,6 +40,18 @@ def test_observable_value_maintains_value_synchronization():
 @pytest.mark.unit
 @pytest.mark.observable
 @pytest.mark.operators
+def test_observable_value_is_unhashable_because_equality_is_value_like():
+    """ObservableValue cannot violate the equality/hash contract."""
+    obs = Observable("test", "initial")
+    obs_value = ObservableValue(obs)
+
+    with pytest.raises(TypeError, match="unhashable"):
+        hash(obs_value)
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+@pytest.mark.operators
 def test_observable_value_delegates_formatting_to_wrapped_value():
     """ObservableValue supports f-string format specs like the wrapped value."""
 
@@ -136,8 +148,8 @@ def test_observable_value_supports_reactive_operators():
     merged = obs_value1 + obs_value2
     assert merged.value == (10, 20)
 
-    # Test & operator (conditional)
-    conditional = obs_value1 & obs_value2
+    # Test @ operator (conditional)
+    conditional = obs_value1 @ obs_value2
     assert conditional.value == 10  # Both are truthy
 
     # Change condition to falsy

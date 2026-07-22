@@ -1,9 +1,13 @@
 """Focused tests for the algebraic runtime guarantees."""
 
+import gc
+import weakref
+
 import pytest
 
 from fynx import Store, observable, reactive
 from fynx.observable.base import Observable, TransformPurityError
+from fynx.observable.merged import MergedObservable
 
 
 @pytest.mark.unit
@@ -42,8 +46,8 @@ def test_diamond_convergence_recomputes_once_per_source_update():
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_conditional_diamond_with_merged_guard_notifies_once_per_source_update():
-    """A gate with plain and product-derived guards emits once after convergence."""
+def test_boolean_diamond_with_merged_guard_notifies_once_per_source_update():
+    """A boolean AND with plain and product-derived inputs emits once after convergence."""
     items = observable(0)
     subtotal = items >> (lambda count: count * 10)
     zero = items >> (lambda count: 0)
@@ -54,8 +58,8 @@ def test_conditional_diamond_with_merged_guard_notifies_once_per_source_update()
     total_positive = total >> (lambda current_total: current_total > 0)
     received = []
 
-    gate = has_items & total_positive
-    gate.subscribe(received.append)
+    ready = has_items & total_positive
+    ready.subscribe(received.append)
     items.set(2)
 
     assert received == [True]
@@ -63,8 +67,8 @@ def test_conditional_diamond_with_merged_guard_notifies_once_per_source_update()
 
 @pytest.mark.unit
 @pytest.mark.observable
-def test_nested_conditional_shared_guards_notify_once_per_source_update():
-    """Nested gates with shared upstream guards emit once after stabilization."""
+def test_nested_boolean_shared_guards_notify_once_per_source_update():
+    """Nested boolean ANDs with shared upstream guards emit once after stabilization."""
     items = observable(0)
     subtotal = items >> (lambda count: count * 10)
     discount = (subtotal + items) >> (lambda current_subtotal, count: count * 0)
@@ -76,8 +80,8 @@ def test_nested_conditional_shared_guards_notify_once_per_source_update():
     not_free = discount >> (lambda current_discount: current_discount == 0)
     received = []
 
-    gate = (has_items & total_positive) & not_free
-    gate.subscribe(received.append)
+    ready = (has_items & total_positive) & not_free
+    ready.subscribe(received.append)
     items.set(2)
 
     assert received == [True]
@@ -110,7 +114,8 @@ def test_reference_api_checkout_example_enables_once_when_cart_becomes_valid():
 
     @reactive(can_checkout)
     def enable_checkout_button(can_checkout_val):
-        enabled.append(can_checkout_val)
+        if can_checkout_val:
+            enabled.append(can_checkout_val)
 
     ShoppingCartStore.items.set([{"price": 20.0, "quantity": 2}])
 
@@ -131,7 +136,7 @@ def test_order_core_conditional_transform_can_start_inactive():
         has_items = items >> (lambda current_items: len(current_items) > 0)
         has_address = address >> bool
         has_payment = payment >> bool
-        can_checkout = (has_items & has_address & has_payment & ~is_processing) >> (
+        can_checkout = (has_items @ (has_address & has_payment & ~is_processing)) >> (
             lambda allowed: allowed
         )
 
@@ -286,6 +291,227 @@ def test_products_are_canonical_for_ordered_sources():
 
 @pytest.mark.unit
 @pytest.mark.observable
+def test_product_cache_does_not_keep_unobserved_products_alive():
+    """Canonical products are weakly cached, so unused product nodes can collect."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+    product_ref = weakref.ref(product)
+
+    del product
+    gc.collect()
+
+    assert product_ref() is None
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_product_cache_recreates_collected_products():
+    """A collected canonical product is recreated cleanly on the next expression."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product_ref = weakref.ref(first + last)
+
+    gc.collect()
+    product = first + last
+
+    assert product_ref() is None
+    assert product.value == ("Ada", "Lovelace")
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_product_cache_does_not_keep_source_graph_alive():
+    """The weak product cache does not retain otherwise unreachable sources."""
+
+    def build_product_refs():
+        first = Observable("first", "Ada")
+        last = Observable("last", "Lovelace")
+        product = first + last
+        return weakref.ref(first), weakref.ref(last), weakref.ref(product)
+
+    first_ref, last_ref, product_ref = build_product_refs()
+    gc.collect()
+
+    assert first_ref() is None
+    assert last_ref() is None
+    assert product_ref() is None
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_canonical_product_subscriptions_are_shared_by_identity():
+    """Callbacks attach to the canonical product, whichever expression creates it."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+    alias = first + last
+    received = []
+
+    product.subscribe(
+        lambda first_name, last_name: received.append((first_name, last_name))
+    )
+    last.set("Byron")
+
+    assert alias is product
+    assert alias.value == ("Ada", "Byron")
+    assert received == [("Ada", "Byron")]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_canonical_product_unsubscribe_removes_source_observers():
+    """Removing the final product subscriber returns sources to lazy-only tracking."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+
+    def callback(first_name: str, last_name: str) -> None:
+        pass
+
+    product.subscribe(callback)
+    assert product._source_observer in first._observers
+
+    (first + last).unsubscribe(callback)
+
+    assert product._source_observer not in first._observers
+    assert product._source_observer not in last._observers
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_canonical_product_subscriber_can_unsubscribe_itself_while_notifying():
+    """A product subscriber can remove itself during delivery without lingering."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+    received = []
+
+    def callback(first_name: str, last_name: str) -> None:
+        received.append((first_name, last_name))
+        product.unsubscribe(callback)
+
+    product.subscribe(callback)
+    last.set("Byron")
+    last.set("King")
+
+    assert received == [("Ada", "Byron")]
+    assert product._source_observer not in first._observers
+    assert product._source_observer not in last._observers
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_canonical_product_alias_unsubscribe_preserves_remaining_subscriber():
+    """Unsubscribing through one alias keeps other callbacks on the shared product."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+    alias = first + last
+    first_received = []
+    second_received = []
+
+    def first_callback(first_name: str, last_name: str) -> None:
+        first_received.append((first_name, last_name))
+
+    def second_callback(first_name: str, last_name: str) -> None:
+        second_received.append((first_name, last_name))
+
+    product.subscribe(first_callback)
+    alias.subscribe(second_callback)
+    alias.unsubscribe(first_callback)
+    last.set("Byron")
+
+    assert first_received == []
+    assert second_received == [("Ada", "Byron")]
+    assert product._source_observer in first._observers
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_canonical_product_reconstruction_during_notification_reuses_node():
+    """Rebuilding a product inside its callback returns the notifying node."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+    observed_aliases = []
+
+    def callback(first_name: str, last_name: str) -> None:
+        alias = first + last
+        observed_aliases.append((alias is product, alias.value))
+
+    product.subscribe(callback)
+    last.set("Byron")
+
+    assert observed_aliases == [(True, ("Ada", "Byron"))]
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_observed_product_cycle_collects_with_unreachable_sources():
+    """Observed products and their source observer cycles collect as a unit."""
+
+    def build_refs():
+        first = Observable("first", "Ada")
+        last = Observable("last", "Lovelace")
+        product = first + last
+
+        def callback(first_name: str, last_name: str) -> None:
+            pass
+
+        product.subscribe(callback)
+        return weakref.ref(first), weakref.ref(last), weakref.ref(product)
+
+    first_ref, last_ref, product_ref = build_refs()
+    gc.collect()
+
+    assert first_ref() is None
+    assert last_ref() is None
+    assert product_ref() is None
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_product_exception_after_self_unsubscribe_leaves_lazy_state_clean():
+    """A callback can disappear and raise without leaving stale source observers."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+    product = first + last
+
+    def callback(first_name: str, last_name: str) -> None:
+        product.unsubscribe(callback)
+        raise RuntimeError("boom")
+
+    product.subscribe(callback)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        last.set("Byron")
+
+    assert product._is_notifying is False
+    assert Observable._notification_scheduled is False
+    assert product._source_observer not in first._observers
+    assert product._source_observer not in last._observers
+
+    last.set("King")
+    assert product.value == ("Ada", "King")
+
+
+@pytest.mark.unit
+@pytest.mark.observable
+def test_direct_merged_constructor_does_not_enter_canonical_cache():
+    """Only public product construction through +/.alongside() is canonicalized."""
+    first = Observable("first", "Ada")
+    last = Observable("last", "Lovelace")
+
+    direct = MergedObservable(first, last)
+    canonical = first + last
+
+    assert direct is not canonical
+    assert direct.value == canonical.value
+
+
+@pytest.mark.unit
+@pytest.mark.observable
 def test_unobserved_computed_values_recompute_lazily_from_source_versions():
     """Unobserved derived values are invalidated by source version, then read lazily."""
     source = Observable("source", 1)
@@ -364,7 +590,7 @@ def test_callable_condition_tracks_external_observable_dependencies():
     """Callable pullbacks subscribe to observables read inside predicates."""
     source = Observable("source", 5)
     limit = Observable("limit", 10)
-    filtered = source & (lambda value: value < limit.value)
+    filtered = source @ (lambda value: value < limit.value)
 
     assert filtered.is_active is True
 
@@ -387,7 +613,7 @@ def test_callable_condition_switches_dynamic_dependencies():
     left_limit = Observable("left_limit", 10)
     right_limit = Observable("right_limit", 3)
 
-    filtered = source & (
+    filtered = source @ (
         lambda value: value
         < (left_limit.value if use_left.value else right_limit.value)
     )
@@ -417,7 +643,7 @@ def test_callable_condition_unsubscribes_from_stale_branch_dependencies():
     right_limit = Observable("right_limit", 10)
     received = []
 
-    filtered = source & (
+    filtered = source @ (
         lambda value: value
         < (left_limit.value if use_left.value else right_limit.value)
     )

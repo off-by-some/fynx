@@ -229,13 +229,13 @@ name_observables = UserProfile.first_name + UserProfile.last_name
 name_observables.subscribe(on_name_change)
 
 
-# Pattern 3: Conditional notifications with @reactive and &
+# Pattern 3: Conditional notifications with @reactive and @
 # Create computed observables for conditions
 is_adult = UserProfile.age >> (lambda age: age is not None and age >= 18)
 is_premium = UserProfile.subscription_tier >> (lambda tier: tier == "premium")
 
 
-eligible_premium_user = UserProfile.age & is_adult & is_premium
+eligible_premium_user = UserProfile.age @ (is_adult & is_premium)
 
 
 @reactive(eligible_premium_user)
@@ -250,7 +250,7 @@ notifications_disabled = UserProfile.notifications_enabled >> (
 )
 
 
-@reactive(many_logins & notifications_disabled)
+@reactive(many_logins @ notifications_disabled)
 def on_suspicious_activity(condition_value):
     print("🚨 Suspicious activity detected - many logins with notifications disabled")
 

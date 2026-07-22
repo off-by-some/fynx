@@ -216,6 +216,7 @@ class ComputedObservable(Observable[T]):
         self._fusion_func: Optional[Callable[..., Any]] = computation_func
         self._fusion_unpack_source = unpack_source
         self._captures_dynamic_dependencies = False
+        self._boolean_all_sources: Optional[tuple[Observable[Any], ...]] = None
         self._dependency_callback: Callable[..., Any] = self._dependency_changed
         self._dependency_uses_fast_observer = False
 
@@ -349,7 +350,7 @@ class ComputedObservable(Observable[T]):
             self._source_observable._version,
         )
         self._is_dirty = False
-        if self._value == new_value:
+        if _base.values_equal(self._value, new_value):
             return
 
         self._value = new_value
@@ -399,7 +400,7 @@ class ComputedObservable(Observable[T]):
 
             self._source_signature = (id(source), source._version)
             self._is_dirty = False
-            if self._value == new_value:
+            if _base.values_equal(self._value, new_value):
                 return
 
             self._value = new_value
@@ -474,7 +475,7 @@ class ComputedObservable(Observable[T]):
         new_value = self._apply_computation_to_source_value(source_value)
         self._source_signature = (id(source), source._version)
         self._is_dirty = False
-        if self._value == new_value:
+        if _base.values_equal(self._value, new_value):
             return
 
         self._value = new_value
@@ -508,7 +509,7 @@ class ComputedObservable(Observable[T]):
             self._is_dirty or self._source_changed()
         ):
             new_value = self._guarded_recompute_value()
-            if self._value != new_value:
+            if _base.value_changed(self._value, new_value):
                 self._value = new_value
                 self._version += 1
                 super()._notify_observers()
@@ -579,7 +580,7 @@ class ComputedObservable(Observable[T]):
             self._is_dirty or self._source_changed()
         ):
             new_value = self._guarded_recompute_value()
-            if self._value != new_value:
+            if _base.value_changed(self._value, new_value):
                 if self._observers:
                     self._set_computed_value(new_value)
                 else:

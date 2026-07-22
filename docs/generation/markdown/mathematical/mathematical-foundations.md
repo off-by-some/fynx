@@ -2,48 +2,116 @@
 
 ## Introduction
 
-Picture a temperature sensor in your application. Right now it reads 72°F. A moment from now, it might read 73°F. An hour from now, perhaps 68°F. This simple scenario—a value that changes over time—appears constantly in programming. User input changes. API responses arrive. Database queries complete. The world is full of values that vary.
+Picture a temperature sensor in your application. Right now it reads 72°F. A moment from now, it might read 73°F. An hour from now, perhaps 68°F. This simple scenario—a value that changes over time—appears constantly in programming: user input, API responses, database queries, anything that arrives on its own schedule.
 
-Most reactive programming libraries handle this straightforwardly enough. You create an observable, transform it a few times, connect some UI elements, and things work. Then you add another layer. Then another. Somewhere around the fifth or sixth transformation, you notice something odd. An update happens in an unexpected order. You add a `console.log` to debug it, and suddenly everything works perfectly. You remove the log. It breaks again.
+Most reactive programming libraries handle this straightforwardly enough. You create an observable, transform it a few times, connect some UI elements, and things work. Then you add another layer. Then another. Somewhere around the fifth or sixth transformation, you notice something odd. An update happens in an unexpected order. You add a log to debug it, and suddenly the behavior is easier to explain. You remove the log. The confusion comes back.
 
-These aren't always bugs in your code. Often they're symptoms of systems whose rules are hard to state. When a reactive library does not say exactly what a transformation, combination, or filter means, every new feature becomes harder to reason about.
+That kind of confusion rarely means a reactive system forgot to think about semantics. It usually means the system chose a different answer than the one the application author had in mind: dynamic dependency capture, scheduler-mediated effects, asynchronous tracking boundaries, or batched delivery. Those are legitimate design choices. They are also choices you need to understand before you can reason locally about a program.
 
-FynX takes a different path. Its API is designed around a small algebra of observables: transform with `>>`, combine with `+`, filter with `&`, choose with `|`, and negate with `~`. Category theory gives useful names for these patterns and, more importantly, tells us which rewrites are safe under FynX's semantic contract.
+FynX commits to a small, explicit algebra instead of leaving that meaning implicit: transform with `>>`, combine with `+`, combine booleans with `&` / `|` / `~`, and gate values with `@`. Category theory supplies names for these patterns, and because those names come with laws attached, they also supply a way to know which rewrites are safe under FynX's semantic contract.
 
-Let's explore how.
+---
+
+## Where Reactive Systems Diverge
+
+That contract is one particular set of answers. Existing reactive systems answer the same underlying questions differently: which reads become dependencies, when updates are batched, whether two effects triggered by the same change run in a defined order relative to each other, and whether effects may safely write back to reactive state. Those choices are reasonable - each solves a real problem for the library that made it - but they mean two visually similar programs in two different systems can obey different rules underneath.
+
+These differences show up as documented behavior in the libraries themselves, not as edge cases someone had to go looking for:
+
+**Logging can misrepresent what was tracked.**
+
+MobX tracks whichever observable properties are actually read while a tracked function runs:
+
+```js
+autorun(() => {
+  console.log(message);
+});
+
+message.updateTitle("Hello world");
+```
+
+`console.log(message)` logs the object, but doesn't read `message.title`, so this `autorun` never reads that property and won't rerun when it changes. Browsers can make this more confusing rather than less: some consoles format a logged object lazily, so the printed value can show the *new* title even though the reaction never tracked it. The `console.log` you added to understand the bug can show you a value the reaction never actually saw.
+
+**Two reactions triggered by the same change have no guaranteed order relative to each other.**
+
+MobX's documentation is explicit that reaction order isn't part of its contract:
+
+```js
+reaction(() => state.ready, () => persistState());
+reaction(() => state.ready, () => notifyServer());
+```
+
+Both reactions fire when `state.ready` changes; MobX does not guarantee which runs first. If `notifyServer` assumes `persistState` already completed, that assumption exists in the application, not in the reactive graph.
+
+**Dependency tracking stops at the first `await`.**
+
+Vue's `watchEffect`, Svelte's `$effect`, and MobX's tracked functions all register a dependency only for reads that happen synchronously. A read after that point doesn't count, no matter how visibly it appears in the function:
+
+```js
+watchEffect(async () => {
+  const user = currentUser.value;   // tracked
+  await loadProfile(user);
+  console.log(theme.value);         // read, but not tracked
+});
+```
+
+A later change to `theme` won't rerun this effect, even though `theme.value` is visibly read inside it. Moving that same line above the `await` would track it. The dependency graph reflects when a value was read, not only whether it was read.
+
+**Effects that write derived state hide part of the graph.**
+
+Both Solid and Angular's signal guides recommend against computing a derived value by writing to a signal inside an effect:
+
+```js
+// Discouraged
+createEffect(() => {
+  setTotal(price() * quantity());
+});
+```
+
+Both recommend a memo or computed value instead - because once an effect is allowed to write the state another effect reads, part of the dependency graph moves out of the declared dependencies and into whatever order the effects happen to run in.
+
+**Batching changes which updates an effect actually sees.**
+
+Vue watchers can run batched (the default) or synchronously:
+
+```js
+watchEffect(cb);                    // one call per flush
+watchEffect(cb, { flush: "sync" }); // one call per mutation
+```
+
+Pushing 1,000 items onto an array one at a time, a batched watcher sees one settled update; a synchronous one sees a thousand. Same data, same code, a different number of observed events, decided by a scheduling flag.
+
+These systems choose dynamic dependency capture and scheduler-mediated effects. FynX chooses explicit graph construction and synchronous state semantics. Dependencies come from composing observables with `+` and `>>`, so a transform can only derive a value from the arguments FynX actually hands it - reading or writing reactive state on the side isn't just discouraged, it raises `TransformPurityError`. That same explicitness carries through to propagation and effects: `@` / `.requiring()` is what restricts propagation, and `@reactive` / `.subscribe()` are the places effects belong.
+
+That still leaves a separate question open: which internal rewrites - fusing a chain, reusing a product node - is FynX itself allowed to make without changing what a program does? Answering that precisely starts with agreeing on what "the same" even means for two expressions.
 
 ---
 
 ## What We Mean by "Same"
 
-Before talking about functors or products, we need one plain-English definition.
+Before talking about functors or products, we need one plain-English definition of what "the same" means for two FynX expressions.
 
 Two FynX expressions are equivalent when, for the same sequence of source updates, they expose the same public values and active/inactive states through the public API. They do not have to be the same Python object. They do not have to allocate the same number of intermediate nodes. They do not promise the same private evaluation counts or memory layout.
 
-That distinction matters. This expression:
+This expression:
 
 ```python
 obs >> (lambda x: x)
 ```
 
-creates a derived observable. It is not `obs` by object identity. But as a value-level expression, it reflects the same values as `obs` whenever the source changes.
+creates a derived observable that is a different Python object from `obs` - but by the definition above, it's still "the same" as `obs`: it produces the same values, updating whenever `obs`'s source does.
 
-FynX's algebra relies on a few practical assumptions:
+Making that kind of claim - that two things behaving differently underneath are still "the same" - depends on a few practical assumptions holding:
 
-- Transform functions used with `>>` / `.then()` are pure. They may only use the plain argument values FynX passes in.
+- Transform functions used with `>>` / `.then()` are written as pure value functions in the semantic model. They may only use the plain argument values FynX passes in.
 - Extra observable inputs must be made explicit with `+` / `.alongside()`.
 - Transform functions may not read `.value` from observables or call `.set()` on observables. FynX raises `TransformPurityError` for those cases.
 - Side effects belong at the boundary: `.subscribe()` or `@reactive`.
 - FynX's core propagation model is synchronous and state-like: an observable always has a current value unless a conditional gate is inactive.
 
-With that contract in place, the mathematical structures below are more than decoration. They explain why the API composes cleanly and why certain optimizations preserve the behavior users can observe.
+There is an important distinction here. `TransformPurityError` enforces **reactive isolation**: no hidden observable reads, and no reactive mutations, inside transforms. It does not prove full referential transparency for arbitrary Python functions. A transform can still close over ordinary mutable Python state, perform I/O, raise exceptions, or call an effectful helper unless you choose not to write it that way. The mathematical laws below describe the well-behaved sublanguage: deterministic, total, observationally pure value functions used as FynX transforms. FynX enforces the reactive part of that contract; full functional purity remains a programmer obligation.
 
-FynX now leans into that contract directly in the runtime:
-
-- Pure transform chains are fused as they are built. `obs >> f >> g` keeps the same value behavior as mapping through `f` and then `g`, but it is represented as one composed transform over `obs` when no observed boundary says otherwise.
-- Ordered products are canonical while live. Repeating `a + b` gives the same product node, while `b + a` remains a different ordered tuple.
-- Derived values use source versions for invalidation. Unobserved nodes stay lazy and refresh only when read after an input version changes.
-- Subscribers create the eager frontier. A node with observers maintains itself enough to deliver notifications; a node without observers returns to lazy cached behavior.
+With that contract in place, the sections below make each structure precise, starting with the simplest: `>>` as a functor. [Runtime Representation](#runtime-representation-algebra-as-architecture), near the end, comes back to show exactly how the runtime leans on these same laws to fuse transforms, reuse products, and cache lazily - for now, the assumptions above are what everything that follows is built on.
 
 ---
 
@@ -55,7 +123,7 @@ Consider that temperature sensor again. Mathematically, we can think of it as a 
 
 $$\mathcal{T} \to \text{Temperature}$$
 
-At time $t_1$, it returns 72°F. At time $t_2$, it returns 73°F. The sensor isn't storing a single value—it's representing an entire temporal function.
+At time $t_1$, it returns 72°F. At time $t_2$, it returns 73°F. What the sensor actually represents is a temporal function - a rule that produces a temperature for each moment, not one stored number.
 
 Now suppose you have a function that converts Celsius to Fahrenheit. It's a simple function on ordinary numbers:
 
@@ -64,7 +132,7 @@ def celsius_to_fahrenheit(c: float) -> float:
     return c * 9/5 + 32
 ```
 
-But your sensor is an observable, not a number. What does it mean to apply this function to something that varies over time? The answer turns out to be elegant: you lift the function to work on the entire temporal function at once.
+Your sensor, though, is an observable rather than a plain number, so applying `celsius_to_fahrenheit` to it means lifting the function to work on the entire temporal function at once.
 
 ```python
 temp_c: Observable[float] = observable(20.0)
@@ -75,36 +143,38 @@ The `>>` operator performs this lifting automatically. Give it a function on val
 
 ### The Structure Beneath
 
-This lifting operation isn't arbitrary. It has mathematical structure—specifically, it defines what category theorists call a functor. The functor $\mathcal{O}$ takes types to observable types:
+This lifting operation has real mathematical structure behind it: category theorists call it a functor. As explanatory shorthand, write $\mathcal{O}$ for the operation that takes a value type to its observable type:
 
 $$\mathcal{O}: \mathbf{Type} \to \mathbf{Type}$$
 
-And it takes functions between types to lifted functions between observable types. But there's more. For this to be a proper functor, certain laws must hold.
+Read this in the restricted semantic category described above: objects are Python value types as FynX observes them, and morphisms are deterministic, total, observationally pure value functions accepted as transforms. Ordinary Python functions are more general than that - they can be partial, effectful, exception-raising, or dependent on mutable external state - so the functor laws are not claims about every callable Python will let you pass. They are the contract for the pure transform sublanguage in which FynX's rewrites are valid.
+
+Within that category, $\mathcal{O}$ takes functions between types to lifted functions between observable types. To behave as a functor in that restricted category, rather than as an arbitrary lifting, a couple of laws have to hold.
 
 The first law says: if you lift the identity function (which does nothing), you get the identity on observables (which also does nothing):
 
 $$\mathcal{O}(\text{id}_A) = \text{id}_{\mathcal{O}(A)}$$
 
-In code: `obs >> (lambda x: x)` has the same value behavior as `obs`. It may be a different Python object, and internally it may have a different subscription or caching structure, but it represents the same changing value.
+In code, this is the `obs >> (lambda x: x)` example from [What We Mean by "Same"](#what-we-mean-by-same) - a different Python object, possibly a different subscription or caching structure internally, but the same changing value. That it works out this way isn't a coincidence; it's what the identity law promises.
 
-This works because transforms are pure. The identity transform cannot mutate state, read hidden observables, or perform effects at surprising times. FynX enforces the most important observable-specific part of that rule at runtime: reading or mutating an observable from inside a transform raises `TransformPurityError`.
+The law only holds in the pure transform model - the identity transform can't mutate state, read hidden observables, or run effects at surprising times. FynX enforces the reactive part of that model at runtime: reading or mutating an observable from inside a transform raises `TransformPurityError`. It remains your responsibility to keep the ordinary Python body of the transform deterministic and side-effect-free if you want the categorical laws to apply fully.
 
-The second law is more interesting. If you have two functions $f$ and $g$, then composing them first and then lifting should give the same result as lifting each separately and then composing:
+A second law covers composition. If you have two functions $f$ and $g$, then composing them first and then lifting should give the same result as lifting each separately and then composing:
 
 $$\mathcal{O}(g \circ f) = \mathcal{O}(g) \circ \mathcal{O}(f)$$
 
-What this means in practice is beautiful: these two expressions are mathematically equivalent:
+In practice, these two expressions are mathematically equivalent:
 
 ```python
 result = obs >> (lambda x: g(f(x)))
 result = obs >> f >> g
 ```
 
-You can split function chains or merge them freely as value-level expressions. The order of functions is preserved, and the public result is the same under the transform-purity contract.
+Because they're equivalent, you can split function chains or merge them freely as value-level expressions - the order of functions is preserved, and the public result is the same under the transform-purity contract.
 
 ### Why This Matters
 
-Here's where theory meets practice in an unexpected way. Because the composition law holds, FynX can optimize your code automatically. When you write:
+Because the composition law holds, FynX can optimize your code automatically. When you write:
 
 ```python
 obs >> f >> g >> h
@@ -116,11 +186,13 @@ FynX can internally transform this into:
 obs >> (lambda x: h(g(f(x))))
 ```
 
-This is not a benchmark-specific trick. Under the transform contract above, the two expressions have the same public value behavior. The mathematics tells us why this rewrite is safe for pure transformations.
+Under the transform contract above, the two expressions have the same public value behavior, so the rewrite is safe for any pure transformation, not a fusion built for one specific benchmark.
 
 This is why FynX stays efficient even with deep transformation chains. Fusion removes intermediate reactive-node overhead such as dispatch, subscriptions, and graph traversal. It does not magically remove the work of arbitrary Python functions: evaluating `n` meaningful transformations is still `O(n)` in the number of functions. The win is that the reactive machinery does much less work around those functions.
 
-The elegance here is worth pausing to appreciate. You write code naturally, chaining transformations as makes sense to you. The mathematical structure gives FynX a disciplined way to keep that code predictable while trimming unnecessary machinery.
+None of that internal bookkeeping changes how you write the code, though: you chain transformations however makes sense to you, and the mathematical structure is what lets FynX keep that predictable while trimming unnecessary machinery underneath it.
+
+A functor lifts a function of one argument. Plenty of real computations need more than one observable at once - that's the next structure.
 
 ---
 
@@ -128,7 +200,7 @@ The elegance here is worth pausing to appreciate. You write code naturally, chai
 
 ### When Two Become One
 
-Consider a simple scenario: you're building a form with first name and last name fields. Each field is independent—users can type into either one at any time. But at some point, you need both values together. Maybe to display a full name. Maybe to validate that both fields are filled. Maybe to submit them to a server.
+Consider a simple scenario: you're building a form with first name and last name fields. Each field is independent - users can type into either one at any time. But at some point you need both values together: to display a full name, validate that both fields are filled, or submit them to a server.
 
 You want to combine two separate time-varying values into a single time-varying pair:
 
@@ -139,9 +211,9 @@ last_name: Observable[str] = observable("Doe")
 full_name_data: Observable[tuple[str, str]] = first_name + last_name
 ```
 
-The `+` operator creates this combination. But what exactly has happened here? Category theory gives us a precise answer: we've constructed a product.
+The `+` operator creates this combination, and category theory has a name for it: a product.
 
-For FynX's state-like observables, the product satisfies an elegant relationship:
+For FynX's state-like observables, the product satisfies this relationship:
 
 $$\mathcal{O}(A) \times \mathcal{O}(B) \cong \mathcal{O}(A \times B)$$
 
@@ -151,11 +223,9 @@ This is not the only possible meaning of "combine" in reactive programming. Stre
 
 ### The Universal Property
 
-Products come with something called a universal property. The term sounds abstract, but the idea is practical: the product is the "most general" way to capture "both A and B together."
+Products come with a universal property: the product is the most general way to capture "both A and B together," so any computation that needs the paired values can be expressed as that shared product plus a downstream transform. Build the pair once; map from it into whatever shape you need.
 
-Formally, once this product has been selected, any computation that consumes the paired current values can be expressed through the product and a downstream transform. That is the practical meaning of the universal property here: build the pair once, then map from that pair into whatever shape you need.
-
-In practice, this manifests in a useful way. Consider:
+In practice, that means one product can feed several transforms at once:
 
 ```python
 product = first_name + last_name
@@ -165,18 +235,18 @@ initials = product >> (lambda first, last: f"{first[0]}.{last[0]}.")
 display = product >> (lambda first, last: f"{last}, {first}")
 ```
 
-All three computations need both names. The universal property tells us that using a shared product is semantically valid: there is one canonical current pair of first and last name. FynX makes this concrete for ordered products: while a product node is live, repeating the same ordered source list reuses that node.
+All three computations need both names, and at any moment there's exactly one current `(first, last)` pair - so sharing a single product across all three is valid. FynX takes advantage of that directly: while a product node is live, repeating the same ordered source list reuses that node instead of building a new one.
 
 ### Symmetry and Associativity
 
-Products have nice algebraic properties. They're symmetric—order doesn't affect the structure:
+Products are symmetric - order doesn't affect the structure:
 
 ```python
 ab = first_name + last_name    # Observable[tuple[str, str]]
 ba = last_name + first_name    # Observable[tuple[str, str]]
 ```
 
-These are isomorphic. Same information, different tuple order. The structure is preserved.
+These are isomorphic: same information, different tuple order.
 
 They're also associative—grouping doesn't matter:
 
@@ -187,9 +257,11 @@ left = (first_name + last_name) + city
 right = first_name + (last_name + city)
 ```
 
-In FynX these groupings flatten to the same ordered source list, so both values are `(first, last, city)`. Changes to any source are reflected in the next read and delivered to subscribers.
+In FynX these groupings flatten to the same ordered source list, so both values are `(first, last, city)`. Because they collapse to the same list underneath, changes to any source are reflected identically in the next read, regardless of which grouping you happened to write.
 
-These properties aren't just mathematical curiosities. They let the runtime share products by construction instead of rediscovering the same pair over and over.
+Associativity is what lets differently grouped products normalize to the same flattened ordered source sequence. Symmetry says `a + b` and `b + a` contain equivalent information up to swapping positions, but they are not the same ordered product in FynX because tuple order is observable. The implementation therefore uses the narrower, concrete rule: products with the same flattened ordered source sequence may share a live node.
+
+Functors and products both describe how values get computed. Neither one says anything about whether a value should be visible at all - that's what the next structure is for.
 
 ---
 
@@ -213,7 +285,8 @@ is_stable = (sensor_reading + previous_reading) >> (
 )
 
 # Only show readings that pass all quality checks
-valid_reading = sensor_reading & is_in_range & is_stable & has_signal
+quality_ok = is_in_range & is_stable & has_signal
+valid_reading = sensor_reading @ quality_ok
 ```
 
 The `valid_reading` observable only has a value when all three conditions are satisfied. Set `sensor_reading` to 42.5, and if all checks pass, `valid_reading` emits 42.5. Set it to 150, and `valid_reading` goes silent—it's no longer active because the range check fails.
@@ -223,8 +296,6 @@ This pattern appears everywhere in reactive systems:
 - ETL pipelines that only process records matching data quality rules
 - Real-time dashboards that filter out anomalous data points
 - Shopping carts that only apply discounts when eligibility conditions are met
-
-Let's understand what's happening here through an analogy, then see the mathematical structure underneath.
 
 ### The Airport Security Analogy
 
@@ -244,9 +315,9 @@ Passenger Data
   Flight (valid_reading)
 ```
 
-Only passengers who pass *all* checkpoints make it to the gate. If you fail at any checkpoint, you don't continue. The gate only opens when all checkpoints have been cleared.
+Only passengers who clear every checkpoint reach the gate - fail any one, and you don't continue.
 
-When you write `data & condition1 & condition2`, you're building this chain of checkpoints. The conditional observable is the gate at the end—it only opens when all conditions are satisfied.
+Back in code, that's `data @ (condition1 & condition2)`: `&` builds the boolean condition, and `@` builds the gate that opens once it's `True`.
 
 ```python
 sensor_reading.set(42.5)  # All conditions pass → gate opens
@@ -290,7 +361,7 @@ filtered_products = (
 display(filtered_products)
 ```
 
-As users move sliders or toggle checkboxes, `filtered_products` reactively updates—showing only items that pass all active filters. The dependencies are visible in the expression itself, which keeps the graph easy to inspect and optimize.
+As users move sliders or toggle checkboxes, `filtered_products` reactively updates - showing only items that pass all active filters, because every one of those filters is named right there in the expression, not hidden behind a callback that happens to run later.
 
 **Example 2: ETL Pipeline with Data Quality Gates**
 
@@ -307,13 +378,14 @@ value_in_bounds = raw_record >> (lambda r: -1000 <= r['value'] <= 1000)
 no_duplicates = (raw_record + processed_ids) >> (lambda r, seen: r['id'] not in seen)
 
 # Only process records that pass quality gates
-processable_record = raw_record & has_required_fields & timestamp_valid & value_in_bounds & no_duplicates
+quality_ok = has_required_fields & timestamp_valid & value_in_bounds & no_duplicates
+processable_record = raw_record @ quality_ok
 
 # Transform only valid records
 transformed = processable_record >> transform_logic
 ```
 
-The ETL pipeline automatically filters out malformed, duplicate, or out-of-bounds records. Each record either passes all quality gates and gets processed, or fails at least one gate.
+The ETL pipeline automatically filters out malformed, duplicate, or out-of-bounds records.
 
 **Example 3: Form Validation State Machine**
 
@@ -332,17 +404,18 @@ password_strong = password >> (lambda p: len(p) >= 8 and any(c.isupper() for c i
 age_appropriate = age >> (lambda a: 13 <= a <= 120)
 
 # Form only submittable when all validations pass
-can_submit = form_state & username_valid & email_valid & password_strong & age_appropriate
+can_submit = username_valid & email_valid & password_strong & age_appropriate
+valid_form = form_state @ can_submit
 
 # Button state automatically reflects validation
-submit_button.enabled = can_submit.is_active
+submit_button.enabled = can_submit.value
 ```
 
-The form exists in one of two states: submittable (all validations pass) or not submittable (at least one validation fails). The conditional observable tracks this state automatically, and UI components bind directly to it.
+The form is submittable exactly when every validation passes. The conditional observable tracks that automatically, and UI components bind directly to it.
 
 ### The Categorical Structure
 
-Now let's see the mathematical structure that makes this work. The pattern we've been using corresponds to what category theorists call a pullback.
+The pattern we've been using is best understood as a pullback-like gate, or a fiber over `True`.
 
 In general, a pullback is the limit of a cospan diagram. Given two morphisms pointing to a common object:
 
@@ -362,7 +435,9 @@ The pullback is a new object (often written $X \times_Z Y$) along with projectio
 
 The pullback consists of pairs $(x, y)$ where $f(x) = g(y)$—elements that "agree" when mapped to the common codomain.
 
-FynX applies this construction in a specialized, state-like way. A condition may be a boolean observable derived from the same source, or from a product of several sources. The key requirement is that at any moment it has a current truth value.
+For an ordinary predicate $p : X \to \mathbb{B}$, the subset of values where $p$ is true can be represented as the pullback of $p$ along the inclusion $\{\text{True}\} \hookrightarrow \mathbb{B}$. That is the precise categorical idea FynX borrows.
+
+FynX applies it in a specialized, state-like runtime. A condition may be a boolean observable derived from the gated source, or from a product of several sources. A conditional observable also carries temporal state: it can be active now, inactive now, or never active so far. Those runtime details are more than the simple set-theoretic pullback; operationally, `@` creates a partial current-value observable that exposes the source value only while the guard's current value is truthy.
 
 ```
 Source Observable ---c_i--→ Observable[Bool]
@@ -378,35 +453,35 @@ We're interested in values where all conditions map to `True`. Visually, for a s
     Source Observable ---c--→ Observable[Bool]
 ```
 
-This is a pullback-like fiber over `True`: the conditional observable exposes the source value only while the condition is true.
+This is the pullback intuition specialized to FynX's current-value semantics: the conditional observable exposes the source value only while the condition is true.
 
-For multiple conditions over one shared state, we're taking the intersection of multiple such fibers:
+For multiple pure conditions over one shared state, we're taking the intersection of multiple such fibers:
 
 $$\text{ConditionalObservable}(s, c_1, \ldots, c_n) \cong \{ x \in s \mid c_1(x) \wedge c_2(x) \wedge \cdots \wedge c_n(x) \}$$
 
-When conditions come from several observables, you can think of the shared state as the product of those inputs first, then the conditions select the part of that state where every check is true. That keeps the model honest: a password check, a confirmation check, and a terms checkbox are not all predicates on an email string. They are predicates on the form state as a whole.
+When conditions come from several observables, the clean mathematical picture first builds the shared product state, then treats the conditions as predicates on that product. A password check, a confirmation check, and a terms checkbox, for example, are predicates on the form state as a whole, not on any single field. FynX lets you write the ergonomic expression directly, while the explicit product-and-guard interpretation is the one to keep in mind when reasoning about the laws.
 
 ### Special Properties
 
-Here's something interesting. General pullbacks in category theory don't necessarily commute or associate. FynX's boolean guard sets have a narrower, useful property under the public semantics described above, and there's a specific reason why.
+General pullbacks in category theory don't necessarily commute or associate, but FynX separates the commutative Boolean part from the asymmetric gate.
 
-All our conditions map to the same codomain ($\mathbb{B}$). They all filter to the same fiber (`True`). And logical AND is both commutative and associative. These structural properties of Boolean algebra transfer to our pullback construction:
+The Boolean part is the easy one: all our conditions map to the same codomain ($\mathbb{B}$), and logical AND is both commutative and associative. These structural properties live directly in `&` / `.all()`:
 
-**Guard-order commutativity**: for a fixed source, the order of independent pure guards does not affect the resulting conditional observable:
-$$G(G(\text{data}, c_1), c_2) \equiv G(G(\text{data}, c_2), c_1)$$
+$$c_1 \& c_2 \equiv c_2 \& c_1$$
 
-This does **not** mean `&` is globally commutative. `data & is_ready` means "expose `data` while `is_ready` is true"; `is_ready & data` would expose the boolean readiness value while `data` is truthy. The source and guard roles are intentionally asymmetric.
+The gate, by contrast, remains intentionally asymmetric:
 
-**Guard-chain associativity**: grouping a sequence of guards does not change the resulting gate:
-$$G(G(G(\text{data}, c_1), c_2), c_3) \equiv G(\text{data}, c_1, c_2, c_3)$$
+$$\text{data} @ c$$
 
-This is specific to FynX's Boolean filtering contract. In the general category-theoretic setting, these properties don't always hold. In FynX, pure boolean conditions can be combined because `and` over truth values is associative and commutative, and the conditional observable exposes the source only when all conditions are active.
+means "expose `data` while `c` is true." Since Boolean conditions are ordinary observables, you can build the guard first and then apply the gate:
+
+$$\text{data} @ (c_1 \& c_2 \& c_3)$$
 
 ### States and Transitions
 
 A conditional observable exists in one of three states. It might have never been active—conditions have never been satisfied. It might be currently active—all conditions are satisfied right now. Or it might be inactive—conditions were satisfied before, but aren't currently.
 
-The implementation respects these states precisely:
+The implementation represents these states explicitly:
 
 ```python
 @property
@@ -419,17 +494,15 @@ def value(self):
         raise ConditionalNeverMet("Conditions never satisfied")
 ```
 
-You can only access the value when you're in the fiber—when all conditions hold. The distinction between "never active" and "inactive after being active" is extra temporal bookkeeping layered on top of the basic fiber idea. It gives better runtime errors without changing the simple rule: no active condition, no exposed value.
+You can only access the value when all conditions hold. Distinguishing "never active" from "inactive after being active" is extra temporal bookkeeping on top of the fiber-over-`True` intuition, added because it produces better runtime error messages and clearer behavior when a gate has not produced a value yet.
 
 ### Optimization Through Structure
 
-Because pure boolean conditions compose with `and`, FynX can fuse compatible conditional chains:
+Because pure boolean conditions compose with `&`, FynX can represent compatible conditional chains through one combined guard:
 
-$$\text{obs} \& c_1 \& c_2 \& c_3 \equiv \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
+$$\text{obs} @ c_1 @ c_2 @ c_3 \equiv \text{obs} @ (c_1 \& c_2 \& c_3)$$
 
 Instead of three separate conditional observables checking conditions in sequence, compatible conditions can be represented as one conditional with a combined predicate. This preserves public behavior when the conditions are pure, synchronous, and no one observes the intermediate conditional nodes as separate values.
-
-The mathematics doesn't make every filter optimization automatically valid. It tells us the assumptions under which the optimization is valid.
 
 ---
 
@@ -437,7 +510,7 @@ The mathematics doesn't make every filter optimization automatically valid. It t
 
 ### Combining the Pieces
 
-The real power emerges when you compose these structures together. Consider form validation—a common pattern where correctness matters:
+Composing these structures together looks like this, for a form validation example:
 
 ```python
 email = observable("")
@@ -456,7 +529,8 @@ is_strong_password = password >> (lambda p: len(p) >= 8)
 passwords_match = (password + confirmation) >> (lambda p, c: p == c)
 
 # Pullback-like gate: expose form_state only when all conditions hold
-valid_form = form_state & is_valid_email & is_strong_password & passwords_match & terms_accepted
+form_ready = is_valid_email & is_strong_password & passwords_match & terms_accepted
+valid_form = form_state @ form_ready
 
 # Functor: create submission payload when valid
 submission = valid_form >> (lambda state: {
@@ -467,21 +541,23 @@ submission = valid_form >> (lambda state: {
 
 This pipeline has multiple source observables, derived validations, a product representing the form state, a pullback-like gate filtering to valid states, and a final transformation. Each piece uses one of the structures we've discussed.
 
-The composition works because each structure has a clear contract. Functors transform explicit values. Products combine current values in a well-defined tuple. Gates expose a value only while their boolean conditions are true. You do not need to know the category-theory names to use these patterns, but the names help explain why the pieces fit together.
+The composition works because each structure has a clear contract. Functors transform explicit values. Products combine current values in a well-defined tuple. Gates expose a value only while their boolean conditions are true. You could describe all three contracts without ever saying "functor" or "pullback" - the names aren't required to use these patterns. They're only there to explain why the pieces click together instead of just happening to work.
 
 ### The Categorical View
 
-When you write complex reactive graphs like this, you're relying on a small set of rules rather than a pile of special cases. Functoriality explains why pure transformations compose without surprises. Products explain why related current values can be bundled and reused. Pullback-like gates explain why conditional values are available only when their conditions hold.
+Naming them earns its keep at the system level, though. Writing reactive graphs this way means relying on three general rules instead of accumulating a special case for every new combination of transform, merge, and filter - that's the actual payoff.
 
-This is what mathematical foundations provide here: not a machine-checked proof of every line of Python, but a disciplined model that constrains the API, guides the implementation, and gives tests clear laws to check.
+This model constrains the API, guides the implementation, and gives the test suite concrete laws to check against - at the level of the algebra, not line-by-line proofs of the Python.
 
 ---
 
 ## Runtime Representation: Algebra as Architecture
 
-FynX achieves strong performance in fixed-size synchronous benchmarks while preserving the algebraic semantics described above. The benchmark suite reports concrete graph operations—source updates, chain propagation, fan-out notification, diamond convergence, and dynamic condition switching—rather than translating lightweight dependents into UI claims.
+Back in [What We Mean by "Same"](#what-we-mean-by-same), FynX's practical assumptions - purity, explicit inputs, effects only at the boundary - were stated as a contract. This is what keeping that contract buys: pure transform chains fuse as they're built, repeated products reuse the same node instead of rebuilding it, derived values stay lazy until something actually reads them, and a node only pays for eager delivery once something subscribes to it. The next four sections walk through each of those in turn.
 
-There is no separate optimizer module in the normal runtime. The important algebraic choices are represented directly by the observable nodes themselves. That keeps the system easier to inspect: the fast representation is the ordinary representation.
+That absence of ceremony is itself part of the design: there is no separate optimizer module doing this work after the fact. The important algebraic choices are represented directly by the observable nodes themselves, so the fast representation is the ordinary representation.
+
+None of that is worth much without measurement, though. FynX achieves strong performance in fixed-size synchronous benchmarks while preserving the algebraic semantics described above. The benchmark suite reports concrete graph operations - source updates, chain propagation, fan-out notification, diamond convergence, dynamic condition switching - and stops there. It makes no claim about what any of that means for a rendered UI.
 
 ### Functor Composition Fusion
 
@@ -491,7 +567,7 @@ $$\text{obs} \gg f \gg g \gg h \rightarrow \text{obs} \gg (h \circ g \circ f)$$
 
 Instead of forcing every `>>` in a chain to behave like a separately notified runtime node, FynX represents compatible chains as composed functions over the original source. This is why deep chains stay efficient: arbitrary functions still run in order, but the reactive graph does less bookkeeping.
 
-The functor laws explain why this is semantics-preserving for pure transforms when intermediate nodes are not being observed as distinct effect boundaries. If a node is observed, that subscriber becomes an effect boundary and FynX maintains enough eager state to deliver the promised notification.
+The functor laws explain why this is semantics-preserving: fusing `f` and `g` into one step changes nothing about the pure math. It only changes whether anything can observe `f`'s intermediate result on its own. Call a node that's actually observed like that an **effect boundary**. Up to that point, the chain is just math waiting to be composed; past it, FynX has to actually keep state around to deliver a real notification. Fusion is only valid between two nodes when neither one is an effect boundary.
 
 ### Canonical Products
 
@@ -503,45 +579,47 @@ result2 = (a + b) >> g
 result3 = (a + b) >> h
 ```
 
-Because repeated products with the same ordered sources have equivalent current-value semantics, FynX canonicalizes them while live. The product interpretation supports that sharing, and the ordered source list gives the runtime a simple, concrete key for recognizing it. This is not a separate rewrite pass; it is how `+` / `.alongside()` constructs products.
+Because repeated products with the same ordered sources have equivalent current-value semantics, FynX canonicalizes them while live: the ordered source list works as a concrete key, and `+` / `.alongside()` check it at construction time. There's no separate rewrite pass that comes along afterward and deduplicates things.
 
-Unobserved products remain lazy. They store a cached tuple and a version signature for their sources; if a source changes, the product refreshes on the next read. Subscribed products attach to their sources so they can notify observers immediately when the current tuple changes.
+Unobserved products remain lazy. They store a cached tuple and a version signature for their sources; if a source changes, the product refreshes on the next read. Subscribed products, by contrast, attach to their sources directly, so they can notify observers immediately when the current tuple changes.
 
 ### Version-Based Invalidation
 
-Every observable has a version. Derived values remember the versions of their inputs. A read checks that signature; if an input version changed, the derived value recomputes once and updates its own version if the public value changed.
+Every observable has a version, and derived values go a step further: they remember the versions of their inputs too. A read checks that signature; if an input version changed, the derived value recomputes once and updates its own version if the public value changed.
 
-This gives FynX lazy caching without a mode switch. Unobserved values do not subscribe upstream just to stay warm. They become fresh when you ask for them.
+This gives FynX lazy caching without a mode switch. In practice, that means unobserved values don't subscribe upstream just to stay warm - they become fresh only when you ask for them.
 
-### Subscriber Frontier
+### The Effect Boundary in Practice
 
-Subscribers are the effect boundary. If a derived observable has subscribers, FynX activates the dependencies needed to deliver notifications. If it has no subscribers, it can return to lazy, version-checked behavior.
+A derived observable becomes an effect boundary the moment it gets a subscriber: FynX then activates whatever dependencies it needs to keep delivering notifications. Drop to zero subscribers, and it returns to lazy, version-checked behavior instead.
 
-This is the materialization boundary in the current design. It is not a global min-cut optimizer, and it does not claim global optimality. It is a simple rule that follows actual demand: observed nodes are maintained for effects; unobserved nodes are cached and recomputed on read.
+That's the whole rule: maintain what's observed, cache and recompute on read what isn't. It's driven by actual demand, not by a search for some theoretically optimal set of nodes to keep warm.
 
 ### Boolean Gates
 
-The guard-order commutativity and guard-chain associativity of FynX's boolean gates explain why sequential filters compose predictably:
+The Boolean algebra of FynX's conditions is why guards compose predictably:
 
-$$\text{obs} \& c_1 \& c_2 \& c_3 \equiv \text{obs} \& (c_1 \wedge c_2 \wedge c_3)$$
+$$\text{obs} @ c_1 @ c_2 @ c_3 \equiv \text{obs} @ (c_1 \& c_2 \& c_3)$$
 
-FynX still represents conditions as explicit gates rather than hiding them in an optimizer pass. The algebraic structure explains why stacking pure boolean conditions preserves public behavior.
+That predictability comes directly from the representation: FynX represents conditions as explicit gates in the graph itself, so stacking pure boolean conditions preserves public behavior without needing an optimizer pass to prove it after the fact.
 
 ### Why This Is Sound
 
-These aren't benchmark tricks discovered through profiling. The representation choices come from the algebraic structure and are guarded by FynX's public semantics. Composition collapse follows from functor laws. Product sharing follows from product semantics. Boolean gate composition follows from Boolean algebra. Version invalidation preserves the current-value contract while avoiding unnecessary work.
+Each of these representation choices comes from the algebraic structure above, not from profiling: transform fusion follows from functor laws, product sharing from product semantics, boolean gate composition from Boolean algebra, and version invalidation from the current-value contract.
+
+Fusion, product sharing, gating, and invalidation are all operations on nodes and edges. It's worth making that structure explicit.
 
 ---
 
 ## Dependency Graphs and Update Order
 
-### The Hidden DAG
+### The Derivation DAG
 
-Behind every FynX program is a directed acyclic graph. Nodes are observables. Edges represent dependencies—if B depends on A, there's an edge from A to B.
+Behind FynX's derived values is a directed acyclic graph. Nodes are observables. Edges represent derivation dependencies - if B depends on A, there's an edge from A to B.
 
-This graph structure is fundamental to how reactivity works. When A changes, everything reachable from A through outgoing edges needs to update. The acyclic property is crucial—if the graph had cycles, you'd have circular dependencies, and the system couldn't compute a stable state.
+When A changes, everything reachable from A through outgoing edges needs to update. If the graph had cycles, that update would have no defined stopping point - A's change would eventually feed back into A again.
 
-FynX guards against the cycles that can arise during reactive execution, especially when a computation or reaction tries to mutate something it currently depends on:
+That's exactly what FynX guards against in the derivation graph: transforms may not mutate reactive state, and circular dependency checks catch cases where reactive execution tries to feed directly back into what it currently depends on.
 
 ```python
 if transform_is_running:
@@ -551,11 +629,18 @@ if current_context and observable in current_context.dependencies:
     raise RuntimeError("Circular dependency detected")
 ```
 
-In everyday use, the most important rule is simple: derived values should derive; effects and mutations belong at the edge of the system.
+The complete application-level **effect graph** is a different thing. A subscription is allowed to perform effects, and effects may attempt to write observable state:
+
+```python
+a.subscribe(lambda value: b.set(value + 1))
+b.subscribe(lambda value: a.set(value - 1))
+```
+
+That kind of feedback is not a pure derivation anymore. It lives at the effect boundary, where the runtime must reject circular updates, stabilize them, or leave the responsibility with the application. FynX's purity boundary makes the split visible: derived values are meant to form a DAG; effects are where feedback can enter and where runtime safeguards matter.
 
 ### Topological Order
 
-When multiple observables change, the update order matters profoundly. Consider:
+When multiple observables change, the update order matters. Consider:
 
 ```python
 a = observable(1)
@@ -584,7 +669,17 @@ def order_notifications(pending):
     return ordered
 ```
 
-This ensures that when an observable evaluates, all its dependencies have already been updated. It's not an optimization—it's a correctness requirement.
+This is what guarantees no pending dependent is processed before its pending dependency.
+
+That is not the same as promising one global total order for independent effects. If two sibling reactions both depend on the same source but not on each other, a topological order may legally run either sibling first:
+
+```text
+      source
+      /    \
+effect A  effect B
+```
+
+FynX's contract is dependency order, not arbitrary sibling order. If one effect must happen before another, represent that relationship explicitly in the graph or sequence it outside the reactive callback.
 
 ### Batched Processing
 
@@ -599,11 +694,13 @@ def schedule_notification(observable):
         process_notifications()
 ```
 
-This is not the same as a user-visible transaction block where arbitrary sequential `set()` calls are delayed until later. Separate top-level `set()` calls usually propagate synchronously. The batching boundary is the current stabilization pass: changes that arise while propagation is already happening are collected, ordered by dependency edges, and drained together.
+This is not the same as a user-visible transaction block where arbitrary sequential `set()` calls are delayed until later - separate top-level `set()` calls usually propagate synchronously, each in its own pass. The batching only kicks in for changes that arise while a propagation is already underway: those are collected, ordered by dependency edges, and drained together within that same stabilization pass.
 
 ---
 
 ## Performance in Practice
+
+Fusion, canonical products, lazy invalidation, and ordered batching all make a performance claim on top of the correctness one. Here's what that claim measures out to in practice.
 
 ### The Numbers
 
@@ -622,7 +719,7 @@ The FynX-only rows additionally report construction memory, update latency perce
 
 ### Scaling Properties
 
-The algebraic structure suggests specific scaling goals, and the implementation is tuned around those goals:
+Those numbers are one snapshot, taken on one machine. What should hold more generally follows from the same algebraic structure discussed earlier, and the implementation is tuned to hit these targets:
 
 **Linear in dependencies**: Each dependency adds constant cost, as it must.
 
@@ -642,18 +739,14 @@ Treat the benchmark results as measurements of exactly the structures named in t
 
 ## Related Work and Context
 
-FynX builds on established concepts in functional reactive programming and category theory. Functors appear prominently in languages like Haskell and libraries like Scala Cats. Product types are fundamental to type theory. Pullbacks have been applied to constraint systems and relational databases.
+The numbers above come from a specific set of structural choices - functors, products, and pullback-like fibers - and FynX didn't invent any of them: functors appear prominently in languages like Haskell and libraries like Scala Cats, product types are fundamental to type theory, and pullbacks have been applied to constraint systems and relational databases.
 
-FynX's contribution is applying these structures specifically to reactive observables in Python, with automatic optimization guided by categorical properties. The mathematical foundation isn't novel, but its application to this domain and language is distinctive.
+What FynX does with that existing mathematics - applying it to state-like reactive observables in Python, and using it to guide automatic runtime representation choices - is the specific contribution here.
 
 ---
 
 ## Conclusion
 
-We've explored how category theory provides a useful foundation for reactive programming—not as abstract theory, but as practical structure. Functors explain why pure transformations compose predictably. Products explain how current values combine. Pullback-like fibers explain conditional observables. And these same structures reveal optimization opportunities.
+That contribution comes down to three things: functors explain why pure transformations compose predictably, products explain how current values combine, and pullback-like fibers explain conditional observables. Each of these also justifies a specific runtime optimization: transform fusion, product sharing, and conditional-chain fusion respectively.
 
-The mathematical foundations serve three purposes: they give users a simple mental model, they show where optimizations should preserve semantics, and they give the implementation concrete laws to test.
-
-Understanding these foundations isn't required to use FynX effectively. The `>>`, `+`, `&`, `|`, and `~` operators work intuitively without knowing category theory. But the mathematics explains why the library behaves as it does, why certain design decisions were made, and why some optimizations are valid under FynX's public contract.
-
-Category theory transforms reactive programming from a collection of patterns into a structured system with explicit laws. The elegance is that complexity becomes composability. Theory becomes tool. And mathematics guides engineering toward correctness without forcing users to become mathematicians first.
+You don't need any of this to use FynX: `>>`, `+`, `&`, `|`, `~`, and `@` work intuitively on their own. It's here for the times you want to know why a particular optimization is safe, or why a design decision landed the way it did. The test suite then checks these laws over concrete, constrained cases, which is the honest complement to the mathematical model rather than a machine-checked proof of the whole implementation.

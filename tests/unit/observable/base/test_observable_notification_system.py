@@ -509,7 +509,7 @@ def test_observable_notifications_processed_in_topological_order():
     is_even = source >> (lambda x: x % 2 == 0)
 
     # Conditional observable that depends on computed conditions
-    filtered = source & is_positive & is_even
+    filtered = source @ is_positive @ is_even
 
     # Track notification order
     notification_order = []
@@ -564,7 +564,7 @@ def test_conditional_observable_throws_error_when_conditions_unmet():
     data = Observable("data", 42)
     is_positive = data >> (lambda x: x > 0)
     is_even = data >> (lambda x: x % 2 == 0)
-    filtered = data & is_positive & is_even
+    filtered = data @ is_positive @ is_even
 
     # Verify initial state: 42 is positive and even
     assert data.value == 42

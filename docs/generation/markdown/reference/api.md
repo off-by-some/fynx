@@ -1,16 +1,12 @@
 # API Reference
 
-This reference provides comprehensive documentation of FynX's public API. FynX is a reactive programming library that makes your application state respond automatically to changes—think of it as a spreadsheet for your code, where updating one cell automatically recalculates all the formulas that depend on it.
+This is the public API reference for FynX, a reactive programming library. Values are observables; when one changes, everything computed from it recalculates on its own, the way a spreadsheet cell updates every formula that references it.
 
-## A Mental Model for FynX
+## Imperative vs. Declarative
 
-Before diving into the API details, it helps to understand FynX's core philosophy:
+**Traditional (imperative)**: you write the code that updates the UI, recalculates a value, and writes it back, every time a variable changes, and you're responsible for remembering every place that needs updating.
 
-**Traditional programming is imperative**: You tell your code exactly when to update things. Change a variable here, update the UI there, recalculate this value over there. You're responsible for remembering all the connections.
-
-**FynX is declarative**: You describe *relationships* between values, and FynX handles the updates automatically. Change a value once, and everything that depends on it updates correctly, in the right order, every time.
-
-This mental shift—from managing updates to declaring relationships—is what makes thinking reactively so powerful.
+**FynX (declarative)**: you describe the relationship between values once. Change a value, and everything that depends on it updates in the right order.
 
 ## Your Learning Path
 
@@ -35,23 +31,23 @@ Observables are containers for values that change over time. Unlike regular vari
 
 **[MergedObservable](merged-observable.md)** — Combine multiple observables into a single reactive tuple using the `+` operator: `position = x + y + z`. When any source changes, subscribers receive all values as a tuple. This is the foundation for reactive relationships that depend on multiple values.
 
-**[ConditionalObservable](conditional-observable.md)** — Observables that emit when conditions are satisfied. Create them with the `&` operator: `valid_submission = form_data & is_valid`. This enables sophisticated reactive logic without cluttering your code with conditional checks.
+**[ConditionalObservable](conditional-observable.md)** — Observables that emit when conditions are satisfied. Create them with the `@` operator or `.requiring()`: `valid_submission = form_data @ is_valid`. This enables sophisticated reactive logic without cluttering your code with conditional checks.
 
 **[Observable Descriptors](observable-descriptors.md)** — The mechanism behind Store class attributes. When you write `name = observable("Alice")` in a Store class, you're creating a descriptor that provides clean property access without `.value` or `.set()`.
 
-**[Observable Operators](observable-operators.md)** — The operators (`>>`, `+`, `&`, `|`, `~`) and methods (`.then()`, `.alongside()`, `.requiring()`, `.either()`, `.negate()`) that let you compose observables into reactive pipelines. The `>>` operator transforms observables through pure functions, while the other operators make multiple inputs and conditions explicit. Understanding these operators unlocks FynX's full expressive power.
+**[Observable Operators](observable-operators.md)** — The operators (`>>`, `+`, `&`, `|`, `~`, `@`) and methods (`.then()`, `.alongside()`, `.all()`, `.either()`, `.negate()`, `.requiring()`) that let you compose observables into reactive pipelines. `>>` transforms observables through pure functions; the rest make multiple inputs and conditions explicit.
 
 ### Stores: Organizing State
 
 While standalone observables are useful for small scripts, real applications need structure. Stores group related observables and computed values into cohesive units.
 
-**[Store & @observable](store.md)** — Create Store classes that encapsulate related state. Use `@observable` to make class attributes reactive, or use `observable()` as a class attribute descriptor. This gives you clean property access: `UserStore.name = "Alice"` instead of `user_name.set("Alice")`. Stores are where FynX really shines in application development.
+**[Store & @observable](store.md)** — Create Store classes that encapsulate related state. Use `@observable` to make class attributes reactive, or use `observable()` as a class attribute descriptor. This gives you clean property access: `UserStore.name = "Alice"` instead of `user_name.set("Alice")`.
 
 ### Decorators: Declarative Reactions
 
 Decorators let you declare what should happen when observables change, without manually managing subscriptions.
 
-**[@reactive](reactive-decorator.md)** — Run functions automatically when dependencies change. This is how you implement side effects—logging, UI updates, API calls—that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes. Use with conditional observables for event-driven reactions: `@reactive(condition & other_condition)`.
+**[@reactive](reactive-decorator.md)** — Run functions automatically when dependencies change: logging, UI updates, API calls, anything that should happen in response to state changes. The function runs immediately and again whenever any observable it reads changes. Use with conditional observables for event-driven reactions: `@reactive(payload @ ready)`.
 
 ## API Quick Reference
 
@@ -125,8 +121,11 @@ doubled = count >> (lambda c: c * 2)
 # Or use .then() method
 doubled = count.then(lambda c: c * 2)
 
-# Filter conditionally
+# Build boolean conditions
 should_save = has_changes & is_valid
+
+# Gate values conditionally
+valid_payload = payload @ should_save
 
 # Negate conditions
 is_idle = ~is_busy
@@ -158,7 +157,7 @@ total = (subtotal + discount_amount) >> (
     lambda sub, disc: sub - disc
 )
 
-# Conditional observable for checkout eligibility
+# Boolean observable for checkout eligibility
 has_items = ShoppingCartStore.items >> (lambda i: len(i) > 0)
 total_positive = total >> (lambda t: t > 0)
 can_checkout = has_items & total_positive
@@ -209,7 +208,7 @@ Focus on: [Store](store.md), [Observable Operators](observable-operators.md) (es
 
 ### Need complex state logic?
 
-Dive into: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@reactive](reactive-decorator.md)
+See: [Observable Operators](observable-operators.md), [ConditionalObservable](conditional-observable.md), [@reactive](reactive-decorator.md)
 
 ### Performance optimization?
 

@@ -64,8 +64,20 @@ else
     exit 1
 fi
 
-# Step 3: Deploy to GitHub Pages
-print_status "Step 3: Deploying to GitHub Pages..."
+# Step 3: Confirm before deploying
+echo ""
+echo -en "${YELLOW}Deploy the built documentation to GitHub Pages? [y/N]: ${NC}"
+read -r REPLY
+case "$REPLY" in
+    [yY]|[yY][eE][sS]) ;;
+    *)
+        print_warning "Deployment cancelled."
+        exit 1
+        ;;
+esac
+
+# Step 4: Deploy to GitHub Pages
+print_status "Step 4: Deploying to GitHub Pages..."
 if poetry run mkdocs gh-deploy --force; then
     print_success "Documentation deployed to GitHub Pages successfully!"
     echo ""

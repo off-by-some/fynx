@@ -35,7 +35,6 @@ if [[ "$FIX_MODE" == true ]]; then
     echo "✅ Auto-fix completed"
     echo
     echo "🎉 Code has been automatically formatted and imports sorted!"
-    echo "   (Skipping checks in fix mode - the fixes are applied)"
     echo
 else
     # Run Black (code formatting)
@@ -55,8 +54,13 @@ else
     echo "✅ Import sorting check passed"
 fi
 
-# Skip mypy (type checking) - disabled per project requirements
-echo "⏭️  Skipping type checking (mypy disabled)"
+# Run mypy (type checking)
+echo "🔎 Checking types with mypy..."
+if ! poetry run mypy fynx examples; then
+    echo "❌ Type checking failed."
+    exit 1
+fi
+echo "✅ Type checking passed"
 
 echo ""
 echo "🎉 All code quality checks passed!"

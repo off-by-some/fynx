@@ -469,7 +469,7 @@ def fynx_dynamic(size: int, samples: int, gc_mode: str) -> WorkerResult:
         recomputes["predicate"] += 1
         return value < (left_limit.value if use_left.value else right_limit.value)
 
-    selected = source & under_active_limit
+    selected = source @ under_active_limit
     sink = CounterSink()
     selected.subscribe(sink)
 

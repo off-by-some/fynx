@@ -3,13 +3,12 @@ FynX Operators - observable operator implementations and mixins
 ===================================================================
 
 FynX overloads Python operators so reactive code reads like an expression
-rather than a method chain: instead of `obs.map(f).filter(g)`, you write
-`obs >> f & g`. The operators handle dependency tracking and updates behind
-the scenes.
+rather than a method chain. The operators handle dependency tracking and
+updates behind the scenes.
 
 Three mixins provide this:
 
-- `OperatorMixin` gives every observable type the core operators (`+`, `>>`, `&`, `~`, `|`).
+- `OperatorMixin` gives every observable type the core operators (`+`, `>>`, `&`, `@`, `~`, `|`).
 - `TupleMixin` adds tuple-like behavior to merged observables - iteration, indexing, length.
 - `ValueMixin` gives ObservableValue transparent value access, so reactive
   attributes behave like regular values while keeping reactive capabilities.
@@ -26,11 +25,19 @@ doubled = counter >> (lambda x: x * 2)
 print(doubled.value)  # 10
 ```
 
-**Filter (`&`)**: Only emit values when conditions are met
+**Boolean AND (`&`)**: Combine boolean conditions
+```python
+authenticated = observable(True)
+connected = observable(True)
+loading = observable(False)
+ready = authenticated & connected & ~loading
+```
+
+**Gate (`@`)**: Only emit values when conditions are met
 ```python
 data = Observable("data", "hello")
 is_ready = Observable("ready", False)
-filtered = data & is_ready  # Only emits when is_ready is True
+filtered = data @ is_ready  # Only emits when is_ready is True
 ```
 
 **Combine (`+`)**: Merge multiple observables into tuples
@@ -44,7 +51,7 @@ print(coordinates.value)  # (1, 2, 3)
 
 These operators compose to create complex reactive pipelines:
 ```python
-result = (x + y) >> (lambda a, b: a + b) & (total >> (lambda t: t > 10))
+result = ((x + y) >> (lambda a, b: a + b)) @ (total >> (lambda t: t > 10))
 ```
 
 Implementation Architecture
@@ -86,7 +93,8 @@ print(processed.value)  # 3.0
 ```python
 user_input = observable("")
 is_valid = user_input >> (lambda s: len(s) >= 3)
-show_error = user_input & ~is_valid  # Show error when input is invalid but not empty
+has_input = user_input >> bool
+show_error = user_input @ (has_input & ~is_valid)  # Show error once invalid input exists
 ```
 
 **Reactive Calculations**:
@@ -125,14 +133,15 @@ See Also
 
 - `fynx.observable`: Core observable classes that use these operators and mixins
 - `fynx.observable.computed`: Computed observables created by the `>>` operator
-- `fynx.observable.conditional`: Conditional observables created by the `&` operator
+- `fynx.observable.conditional`: Conditional observables created by the `@` operator
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, overload
 
-from ..types import ConditionOperand, ObservableOperand
+from ..equality import values_equal
+from ..types import BooleanOperand, ConditionOperand, ObservableOperand
 from .operands import is_observable_operand, unwrap_condition, unwrap_observable
 from .operations import OperationsMixin
 
@@ -156,13 +165,14 @@ class OperatorMixin(OperationsMixin[T], Generic[T]):
     Mixin class providing common reactive operators for observable classes.
 
     Consolidates the operator overloading logic (`__add__`, `__rshift__`,
-    `__and__`, `__invert__`) that would otherwise be duplicated across every
-    observable class.
+    `__and__`, `__matmul__`, `__or__`, `__invert__`) that would otherwise be
+    duplicated across every observable class.
 
     Classes inheriting from this mixin get automatic support for:
     - Merging with `+` operator
     - Transformation with `>>` operator
-    - Conditional filtering with `&` operator
+    - Boolean AND with `&` operator
+    - Conditional gating with `@` operator
     - Boolean negation with `~` operator
 
     This mixin should be used by classes that represent reactive values and
@@ -234,19 +244,33 @@ class OperatorMixin(OperationsMixin[T], Generic[T]):
         """
         return self.then(func)
 
-    def __and__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
+    def __and__(self, other: BooleanOperand) -> "Observable[bool]":
         """
-        Create a conditional observable using the & operator for filtered reactivity.
+        Create a total boolean AND observable using the & operator.
 
-        Creates a ConditionalObservable that only emits values when every
-        condition is True - a pullback that filters the reactive stream
-        through boolean conditions.
+        This creates a computed boolean observable that is True when both
+        operands are truthy and False otherwise.
+
+        Args:
+            other: Another observable-like boolean value
+
+        Returns:
+            A computed Observable[bool] containing the AND result.
+        """
+        return self.all(other)  # type: ignore
+
+    def __matmul__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
+        """
+        Gate this observable using the @ operator for conditional reactivity.
+
+        Creates a ConditionalObservable that only emits this observable's
+        values while every condition is True.
 
         Args:
             condition: A boolean Observable, callable, or compound condition
 
         Returns:
-            A ConditionalObservable that filters values based on the condition
+            A ConditionalObservable that gates values based on the condition.
         """
         return self.requiring(condition)  # type: ignore
 
@@ -329,7 +353,7 @@ class ValueMixin(Generic[T]):
 
     Classes inheriting from this mixin get automatic support for:
     - Value-like behavior (equality, string conversion, etc.)
-    - Reactive operators (__add__, __and__, __invert__, __rshift__)
+    - Reactive operators (__add__, __and__, __matmul__, __or__, __invert__, __rshift__)
     - Transparent access to the wrapped observable
     """
 
@@ -341,7 +365,7 @@ class ValueMixin(Generic[T]):
 
     def __eq__(self, other) -> bool:
         self._raise_if_transform_reads()
-        return self._current_value == other  # type: ignore
+        return values_equal(self._current_value, other)  # type: ignore
 
     def __str__(self) -> str:
         self._raise_if_transform_reads()
@@ -441,24 +465,13 @@ class ValueMixin(Generic[T]):
             unwrap_observable(other), self._observable
         )
 
-    def __and__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
-        """Support conditional observables with & operator."""
-        unwrapped_condition = unwrap_condition(condition)
+    def __and__(self, other: BooleanOperand) -> "Observable[bool]":
+        """Support boolean AND with & operator."""
+        return self._observable.all(other)
 
-        # Handle callable conditions by creating computed observables
-        if callable(unwrapped_condition):
-            # Create a computed observable that evaluates the condition
-            bool_condition = self._observable.then(
-                lambda x: x is not None and bool(unwrapped_condition(x))
-            )
-            from .conditional import ConditionalObservable
-
-            return ConditionalObservable(self._observable, bool_condition)
-        else:
-            # Boolean observable
-            from .conditional import ConditionalObservable
-
-            return ConditionalObservable(self._observable, unwrapped_condition)
+    def __matmul__(self, condition: ConditionOperand[T]) -> "ConditionalObservable[T]":
+        """Support conditional gating with @ operator."""
+        return self._observable.requiring(condition)
 
     def __invert__(self) -> "Observable[bool]":
         """Support negating conditions with ~ operator."""
@@ -492,6 +505,10 @@ class ValueMixin(Generic[T]):
     def either(self, other: ObservableOperand[Any]) -> "Observable[bool]":
         """Combine this observable value with another condition using OR."""
         return self | other
+
+    def all(self, *others: BooleanOperand) -> "Observable[bool]":
+        """Combine this observable value with conditions using AND."""
+        return self._observable.all(*others)
 
 
 def rshift_operator(obs: "Observable[T]", func: Callable[[T], U]) -> "Observable[U]":
@@ -547,60 +564,24 @@ def rshift_operator(obs: "Observable[T]", func: Callable[[T], U]) -> "Observable
     return obs._create_computed(func, obs)
 
 
-def and_operator(
-    obs: "Observable[T]", condition: ConditionOperand[T]
-) -> "ConditionalObservable[T]":
+def and_operator(obs: "Observable[Any]", other: BooleanOperand) -> "Observable[bool]":
     """
-    Implement the `&` operator for creating conditional observables.
-
-    Creates a conditional observable that only emits values when its boolean
-    condition is satisfied, filtering out updates and recomputation while the
-    condition is unmet.
+    Implement the `&` operator for total boolean AND observables.
 
     Args:
-        obs: The source observable whose values will be conditionally emitted.
-        condition: A boolean observable that acts as a gate. Values from `obs`
-                  are only emitted when this condition is True.
+        obs: The first boolean-like observable.
+        other: Another boolean-like observable.
 
     Returns:
-        A new ConditionalObservable that only emits values when the condition is met.
-        The observable starts with None if the condition is initially False.
-
-    Examples:
-        ```python
-        from fynx.observable import Observable
-
-        # Basic conditional filtering
-        data = Observable("data", "hello")
-        is_ready = Observable("ready", False)
-
-        filtered = data & is_ready  # Only emits when is_ready is True
-
-        filtered.subscribe(lambda x: print(f"Received: {x}"))
-        data.set("world")      # No output (is_ready is False)
-        is_ready.set(True)     # Prints: "Received: world"
-
-        # Multiple conditions (chained)
-        user_present = Observable("present", True)
-        smart_data = data & is_ready & user_present  # All must be True
-
-        # Practical example: temperature monitoring
-        temperature = Observable("temp", 20)
-        alarm_enabled = Observable("alarm", True)
-        is_critical = Observable("critical", False)
-
-        alarm_trigger = temperature & alarm_enabled & is_critical
-        alarm_trigger.subscribe(lambda t: print(f"Alarm: {t}°C"))
-        ```
-
-    Note:
-        Multiple conditions can be chained: `obs & cond1 & cond2 & cond3`.
-        All conditions must be True for values to be emitted.
-
-    See Also:
-        ConditionalObservable: The class that implements conditional behavior
-        Observable.__and__: The magic method that calls this operator
+        A computed Observable[bool] that updates whenever either input changes.
     """
+    return obs.all(other)
+
+
+def matmul_operator(
+    obs: "Observable[T]", condition: ConditionOperand[T]
+) -> "ConditionalObservable[T]":
+    """Implement the `@` operator for gated conditional observables."""
     from .conditional import ConditionalObservable
 
     condition = unwrap_condition(condition)

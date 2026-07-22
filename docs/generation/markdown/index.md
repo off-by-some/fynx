@@ -53,13 +53,13 @@ FynX has no required dependencies and works with Python 3.9 and above.
 
 **Automatic Dependency Tracking**: FynX observables track their dependents automatically during execution. You never manually register or unregister dependencies; the framework infers them from how your code actually runs.
 
-**Lazy Evaluation with Memoization**: Computed values only recalculate when their dependencies change, and only when accessed. Subscribers create the eager boundary for notifications, so unobserved work stays lazy while observed effects still run automatically.
+**Lazy Evaluation with Memoization**: Computed values only recalculate when their dependencies change, and only when accessed. Subscribers create the effect boundary for notifications, so unobserved work stays lazy while observed effects still run automatically.
 
 **Composable Architecture**: Observables, computed values, and reactions compose naturally. You can nest stores, chain computed values, and combine reactions to build complex reactive systems from simple, reusable pieces.
 
-**Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`, `|`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
+**Expressive Operators**: FynX provides intuitive operators (`+`, `>>`, `&`, `~`, `|`, `@`) that let you compose reactive logic clearly and concisely, making your data flow explicit and easy to understand.
 
-**Typed Composition**: FynX ships a `py.typed` marker and inline annotations for its operator algebra. Store fields such as `total = observable(0)` appear as `ObservableValue[int]`, standalone observables appear as `Observable[int]`, chained products stay flat, `>>` preserves the transform return type, `&` preserves the gated source type, and `|` / `~` produce `Observable[bool]`.
+**Typed Composition**: FynX ships a `py.typed` marker and inline annotations for its operator algebra. Store fields such as `total = observable(0)` appear as `ObservableValue[int]`, standalone observables appear as `Observable[int]`, chained products stay flat, `>>` preserves the transform return type, `&` / `|` / `~` produce `Observable[bool]`, and `@` preserves the gated source type.
 
 
 ## Understanding Reactive Programming
@@ -148,9 +148,9 @@ As you work with FynX, you'll find these patterns emerge naturally:
 
 **Side Effects**: Attach reactions to observables for any effect that should happen in response to state changes: updating a UI, sending analytics, making API calls, or writing to a database.
 
-**Conditional Logic**: Use `&` / `.requiring()`, `|` / `.either()`, and `~` / `.negate()` to implement state machines, validation rules, or event filtering. This keeps conditional logic declarative and colocated with the relevant state.
+**Conditional Logic**: Use `&` / `.all()`, `|` / `.either()`, and `~` / `.negate()` to build boolean conditions, then `@` / `.requiring()` to gate values. This keeps conditional logic declarative and colocated with the relevant state.
 
-**Data Flow Composition**: Use FynX's operators (`>>` for transforming, `+` for combining inputs, `&` for filtering, `|` for logical OR, and `~` for negation) to build clear, expressive data transformation pipelines.
+**Data Flow Composition**: Use FynX's operators (`>>` for transforming, `+` for combining inputs, `&` for logical AND, `|` for logical OR, `~` for negation, and `@` for gating) to build clear, expressive data transformation pipelines.
 
 ## Documentation
 

@@ -52,7 +52,10 @@ def test_operator_type_inference_is_flat_and_source_preserving():
         label_subscription = label.subscribe(on_label)
         reveal_type(label_subscription)
 
-        filtered = a & c
+        all_condition = a & c
+        reveal_type(all_condition)
+
+        filtered = a @ c
         reveal_type(filtered)
 
         choice = c | (a >> (lambda i: i > 0))
@@ -88,7 +91,7 @@ def test_operator_type_inference_is_flat_and_source_preserving():
         reveal_type(Cart.optional_age)
         reveal_type(is_adult)
 
-        eligible_age = Cart.optional_age & is_adult
+        eligible_age = Cart.optional_age @ is_adult
         reveal_type(eligible_age)
 
         tag_label = Cart.tags.then(lambda tags: ", ".join(tags))
@@ -103,10 +106,13 @@ def test_operator_type_inference_is_flat_and_source_preserving():
         store_then = Cart.total.then(lambda value: reveal_type(value) or value + 1)
         reveal_type(store_then)
 
-        store_filtered = Cart.total & Cart.logged_in
+        store_ready = Cart.logged_in & (Cart.total >> (lambda total: total > 0))
+        reveal_type(store_ready)
+
+        store_filtered = Cart.total @ Cart.logged_in
         reveal_type(store_filtered)
 
-        raw_store_filtered = a & Cart.logged_in
+        raw_store_filtered = a @ Cart.logged_in
         reveal_type(raw_store_filtered)
 
         store_choice = Cart.logged_in | (Cart.total >> (lambda total: total > 0))

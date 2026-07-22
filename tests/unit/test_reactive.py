@@ -286,7 +286,7 @@ def test_reactive_decorator_skips_inactive_conditional_observables():
 
     source = observable(5)
     condition = observable(False)  # Condition is false
-    conditional = source & condition
+    conditional = source @ condition
 
     execution_log = []
 
@@ -315,7 +315,7 @@ def test_reactive_decorator_skips_inactive_store_conditional_values():
 
         has_items = items >> (lambda current_items: len(current_items) > 0)
         has_address = address >> bool
-        can_checkout = has_items & has_address
+        can_checkout = has_items @ has_address
         checkout_label = can_checkout >> (lambda _: "Checkout")
 
     labels = []
@@ -415,7 +415,7 @@ def test_reactive_wrapper_setup_subscriptions_conditional_inactive():
     from fynx.reactive import ReactiveWrapper
 
     obs = observable(5)
-    conditional = obs & (lambda x: x > 10)  # Will be inactive initially
+    conditional = obs @ (lambda x: x > 10)  # Will be inactive initially
 
     def test_func(value):
         return value * 2

@@ -16,16 +16,15 @@ Formally: ConditionalObservable(source, c1, c2, ..., cn) represents the set $\{s
 
 ## How conditions chain
 
-When you write `data & condition1 & condition2`, we build a chain:
-`((data & condition1) & condition2)`. Each `&` adds another guard. The final
+When you write `data @ condition1 @ condition2`, we build a chain:
+`((data @ condition1) @ condition2)`. Each `@` adds another guard. The final
 gate opens only when condition1(value) is True and condition2(value) is True
 and so on.
 
-The `&` operator is asymmetric: the left side supplies the value and the right
-side supplies a guard. `data & is_ready` is not the same operation as
-`is_ready & data`. For a fixed source, however, independent pure guards can be
-ordered freely: `(data & c1) & c2` has the same public value behavior as
-`(data & c2) & c1` when the guards have no observable side effects.
+The `@` operator is asymmetric: the left side supplies the value and the right
+side supplies a guard. `data @ is_ready` exposes `data` while `is_ready` is
+true. Use `&` for ordinary boolean AND when you want a reusable condition:
+`ready = authenticated & connected & ~loading`.
 
 ## Practical Usage
 
@@ -35,7 +34,7 @@ Example:
 
     # Create a conditional observable that only emits when value > 10
     data = observable(5)
-    filtered = data & (lambda x: x > 10)
+    filtered = data @ (lambda x: x > 10)
 
     # The filtered observable will only emit when data > 10
     data.set(15)  # filtered will emit 15
@@ -45,9 +44,9 @@ Example:
 ## Key Properties
 
 - **Pullback Semantics**: Only notifies when conditions are satisfied AND value changes
-- **Asymmetric Gate**: `source & condition` preserves the source value type
-- **Guard-Order Commutative**: `(data & c1) & c2` ≡ `(data & c2) & c1` for pure guards over the same source
-- **Guard-Chain Associative**: `((data & c1) & c2) & c3` ≡ `(data & c1) & c2 & c3`
+- **Asymmetric Gate**: `source @ condition` preserves the source value type
+- **Guard-Order Commutative**: `data @ c1 @ c2` ≡ `data @ c2 @ c1` for pure guards over the same source
+- **Guard-Chain Associative**: `(data @ c1) @ c2` ≡ `data @ (c1 & c2)`
 """
 
 from __future__ import annotations
@@ -75,7 +74,7 @@ class ConditionalNeverMet(Exception):
 
     Example:
         ```python
-        filtered = data & (lambda x: x > 0)
+        filtered = data @ (lambda x: x > 0)
         if filtered.is_active:
             value = filtered.value  # Safe to access
         else:
@@ -93,7 +92,7 @@ class ConditionalNotMet(Exception):
 
     Example:
         ```python
-        filtered = data & (lambda x: x > 0)
+        filtered = data @ (lambda x: x > 0)
         try:
             value = filtered.value
         except ConditionalNotMet:
@@ -124,9 +123,9 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
     ## Key Properties
 
     - **Gate Behavior**: Only notifies when conditions are satisfied AND value changes
-    - **Asymmetric Gate**: `source & condition` preserves the source value type
-    - **Guard-Order Commutative**: `(data & c1) & c2` ≡ `(data & c2) & c1` for pure guards over the same source
-    - **Guard-Chain Associative**: `((data & c1) & c2) & c3` ≡ `(data & c1) & c2 & c3`
+    - **Asymmetric Gate**: `source @ condition` preserves the source value type
+    - **Guard-Order Commutative**: `data @ c1 @ c2` ≡ `data @ c2 @ c1` for pure guards over the same source
+    - **Guard-Chain Associative**: `(data @ c1) @ c2` ≡ `data @ (c1 & c2)`
 
     ## Behavior States
 
@@ -160,7 +159,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         from fynx import observable
 
         data = observable(42)
-        filtered = data & (lambda x: x > 10)  # Only values > 10 get through
+        filtered = data @ (lambda x: x > 10)  # Only values > 10 get through
 
         data.set(15)  # filtered emits 15 (passes the check)
         data.set(5)   # filtered becomes inactive (fails the check)
@@ -171,15 +170,15 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         is_positive = observable(True)
         is_even = lambda x: x % 2 == 0
 
-        filtered = data & is_positive & is_even
+        filtered = data @ (is_positive & is_even)
         # Only emits when data > 0 AND data is even
         ```
 
     Chaining conditionals:
         ```python
-        step1 = data & (lambda x: x > 0)      # First gate
-        step2 = step1 & (lambda x: x < 100)   # Second gate
-        # Equivalent to: data & (lambda x: x > 0) & (lambda x: x < 100)
+        step1 = data @ (lambda x: x > 0)      # First gate
+        step2 = step1 @ (lambda x: x < 100)   # Second gate
+        # Equivalent to: data @ (lambda x: x > 0) @ (lambda x: x < 100)
         ```
     """
 
@@ -212,18 +211,18 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
 
             # Single predicate condition (one guard)
             data = observable(42)
-            positive = data & (lambda x: x > 0)
+            positive = data @ (lambda x: x > 0)
 
             # Multiple conditions (multiple guards)
-            filtered = data & (lambda x: x > 0) & (lambda x: x < 100)
+            filtered = data @ (lambda x: x > 0) @ (lambda x: x < 100)
 
             # Mixed condition types
             is_ready = observable(True)
-            valid_data = data & is_ready & (lambda x: x % 2 == 0)
+            valid_data = data @ is_ready @ (lambda x: x % 2 == 0)
 
             # Nested conditionals
-            step1 = data & (lambda x: x > 0)
-            step2 = step1 & (lambda x: x < 100)
+            step1 = data @ (lambda x: x > 0)
+            step2 = step1 @ (lambda x: x < 100)
 
             # Empty conditions (always open gate)
             always_open = ConditionalObservable(data)  # Just passes through
@@ -558,7 +557,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         if self._conditions_met:
             # For nested conditionals, source might be inactive - get root source value
             current_source_value = self._get_root_source_value()
-            if self._value != current_source_value:
+            if _base.value_changed(self._value, current_source_value):
                 self._value = current_source_value
                 self._version = getattr(self, "_version", 0) + 1
                 self._has_ever_had_valid_value = True
@@ -621,7 +620,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         Example:
             ```python
             data = observable(5)
-            filtered = data & (lambda x: x > 10)  # Gate checks: "Is value > 10?"
+            filtered = data @ (lambda x: x > 10)  # Gate checks: "Is value > 10?"
 
             try:
                 value = filtered.value  # Raises ConditionalNeverMet (gate never opened)
@@ -665,7 +664,7 @@ class ConditionalObservable(ComputedObservable[T], Conditional[T], OperatorMixin
         Example:
             ```python
             data = observable(5)
-            filtered = data & (lambda x: x > 10)  # Gate checks: "Is value > 10?"
+            filtered = data @ (lambda x: x > 10)  # Gate checks: "Is value > 10?"
 
             print(filtered.is_active)  # False (5 <= 10, gate is closed)
 
@@ -808,7 +807,10 @@ class MappedConditionalObservable(ConditionalObservable[U], Generic[T, U]):
         new_value = self._apply_conditional_transform(
             self._mapped_source_observable.value
         )
-        if self._value != new_value or not self._has_ever_had_valid_value:
+        if (
+            _base.value_changed(self._value, new_value)
+            or not self._has_ever_had_valid_value
+        ):
             self._value = new_value
             self._version += 1
             self._has_ever_had_valid_value = True

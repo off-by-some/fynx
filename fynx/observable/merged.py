@@ -218,7 +218,7 @@ class MergedObservable(
         self._cached_tuple = new_value
         self._source_signature = self._current_source_signature()
         self._is_dirty = False
-        if self._value != new_value:
+        if _base.value_changed(self._value, new_value):
             self._value = new_value
             self._version += 1
             return True
@@ -433,12 +433,7 @@ class MergedObservable(
             values = self.value
             func(*values)
 
-        existing_observer = self._direct_observers.pop(func, None)
-        if existing_observer is not None:
-            self.remove_observer(existing_observer)
-
-        self._direct_observers[func] = direct_reaction
-        self.add_observer(direct_reaction)
+        self._subscribe_direct_callback(func, direct_reaction)
 
         return self
 
@@ -479,9 +474,7 @@ class MergedObservable(
         See Also:
             subscribe: Add a subscription
         """
-        direct_observer = self._direct_observers.pop(func, None)
-        if direct_observer is not None:
-            self.remove_observer(direct_observer)
+        self._unsubscribe_direct_callback(func)
 
         if func in _func_to_contexts:
             # Filter contexts that are subscribed to this observable

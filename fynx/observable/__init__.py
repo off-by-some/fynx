@@ -20,9 +20,10 @@ of dependent values and side effects.
 Core Classes
 -------------
 
-**Observable**: The foundation of reactivity - a value that automatically notifies
-subscribers when it changes. Observables behave like regular values but provide
-reactive capabilities.
+**Observable**: The foundation of reactivity - a graph node that wraps a value
+and automatically notifies subscribers when that value changes. Observables
+format and coerce through their wrapped values, but compare by identity so they
+remain safe as dependency keys.
 
 **ReactiveContext**: Manages the execution context for reactive functions, handling
 automatic dependency tracking and coordinating updates when dependencies change.
@@ -31,8 +32,8 @@ automatic dependency tracking and coordinating updates when dependencies change.
 the `+` operator. Useful for coordinating related values and passing them as a group
 to computed functions.
 
-**ConditionalObservable**: Filters reactive streams based on boolean conditions using
-the `&` operator. Only emits values when all specified conditions are met.
+**ConditionalObservable**: Gates reactive streams based on boolean conditions using
+the `@` operator. Only emits values when all specified conditions are met.
 
 **ComputedObservable**: A read-only observable that derives its value from other
 observables. Computed values automatically recalculate when their dependencies change.
@@ -60,9 +61,14 @@ doubled = counter >> (lambda x: x * 2)  # Computed value
 Transform functions use only their argument values. Combine extra reactive inputs
 first with `+` / `.alongside()` instead of reading `.value` inside the function.
 
-**Filter (`&`)**: Creates conditional observables that only emit when conditions are met:
+**Boolean AND (`&`)**: Creates total boolean conditions:
 ```python
-valid_data = data & is_valid  # Only emits when is_valid is True
+ready = authenticated & connected & ~loading
+```
+
+**Gate (`@`)**: Creates conditional observables that only emit when conditions are met:
+```python
+valid_data = data @ is_valid  # Only emits when is_valid is True
 ```
 
 **Negate (`~`)**: Creates boolean observables with inverted logic:
@@ -76,8 +82,8 @@ Key Concepts
 **Dependency Tracking**: Observables automatically track which reactive contexts
 depend on them during execution, enabling precise and efficient updates.
 
-**Transparent Behavior**: Reactive classes behave like their underlying values in
-most contexts, making them easy to integrate into existing code.
+**Transparent Behavior**: Store attributes expose value-like formatting,
+iteration, and comparison while still offering observable methods.
 
 **Lazy Evaluation**: Computed values only recalculate when accessed and dependencies
 have changed, improving performance.
@@ -131,7 +137,7 @@ temperature = Observable("temp", 20)
 is_heating_on = Observable("heating", False)
 
 # Only emit temperature when heating is on
-heating_temp = temperature & is_heating_on
+heating_temp = temperature @ is_heating_on
 
 def activate_heating(temp):
     print(f"Maintaining temperature at {temp}°C")
@@ -194,6 +200,7 @@ from .operators import (
     TupleMixin,
     ValueMixin,
     and_operator,
+    matmul_operator,
     rshift_operator,
 )
 
@@ -209,6 +216,7 @@ __all__ = [
     "SubscriptableDescriptor",
     "rshift_operator",
     "and_operator",
+    "matmul_operator",
     # Protocols
     "ObservableInterface",
     "Mergeable",

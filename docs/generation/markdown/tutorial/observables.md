@@ -1,6 +1,6 @@
 # Observables: The Foundation of Reactivity
 
-An observable is a value that changes over time and tells you when it changes. That's it. Everything else in FynX—every operator, every decorator, every pattern—builds on this simple idea.
+An observable is a value that changes over time and tells you when it changes. That's it. Every operator, decorator, and pattern in FynX builds on that one idea.
 
 Think of a regular Python variable:
 
@@ -133,7 +133,7 @@ counter.unsubscribe(logger)
 counter.set(2)  # No output - logger no longer subscribed
 ```
 
-You must pass the exact same function reference to `unsubscribe()` that you passed to `subscribe()`. This is why lambda functions can be tricky—you can't easily unsubscribe them later. For cleanup-critical code, use named functions.
+You must pass the exact same function reference to `unsubscribe()` that you passed to `subscribe()`, so a lambda passed inline can't be unsubscribed later - there's no reference to it. Use named functions for anything you'll need to clean up.
 
 ## Observables vs. Regular Variables
 
@@ -161,7 +161,10 @@ Here's the same thing with observables:
 ```python
 # Reactive approach
 items = observable([])
-total = items >> (lambda item_list: sum(item['price'] for item in item_list))
+total = items.then(lambda item_list: sum(item['price'] for item in item_list))
+
+# Or, to use fynx's syntactic sugar:
+# total = items >> (lambda item_list: sum(item['price'] for item in item_list))
 
 items.subscribe(update_ui)
 items.subscribe(save_to_storage)
@@ -173,7 +176,7 @@ items.set(items.value + [{'name': 'Widget', 'price': 10}])
 # total recalculates automatically
 ```
 
-You declare the relationships once. Changes propagate automatically. There's no way to forget a synchronization step because there are no synchronization steps—just state changes.
+You declare the relationships once, and changes propagate automatically - there's no separate synchronization step to remember, because there isn't one.
 
 ## What Observables Enable
 
@@ -186,7 +189,10 @@ base_price = observable(100)
 quantity = observable(2)
 
 # This creates a computed observable (we'll explore these deeply in the next section)
-total = (base_price + quantity) >> (lambda price, qty: price * qty)
+total = base_price.alongside(quantity).then(lambda price, qty: price * qty)
+
+# Or, to use fynx's syntactic sugar:
+# total = (base_price + quantity) >> (lambda price, qty: price * qty)
 
 total.subscribe(lambda t: print(f"Total: ${t}"))
 
@@ -194,9 +200,7 @@ base_price.set(150)  # Prints: "Total: $300"
 quantity.set(3)      # Prints: "Total: $450"
 ```
 
-Notice what didn't happen: you never manually recalculated `total`. You never explicitly called the subscriber. The reactive graph did all that work for you. You just changed the base values and watched the effects cascade.
-
-This is what observables enable: **declarative state management**. You describe what relationships should exist, and FynX ensures they hold.
+`total` was never manually recalculated, and the subscriber was never explicitly called - both happened because `base_price` and `quantity` changed.
 
 ## When to Use Observables
 
@@ -211,15 +215,13 @@ Observables add overhead compared to plain variables. For simple scripts or one-
 
 ## What's Next
 
-Observables are more than containers—they're nodes in a reactive graph. But standalone observables are just the beginning. The real power emerges when you learn to:
+Standalone observables are the starting point. From here you'll learn to:
 
-* **Transform observables** using the `>>` operator to create derived values that update automatically
-* **Combine observables** using the `+` operator to work with multiple sources of data
-* **Filter observables** using the `&` operator to apply conditional logic and control when data flows
-* **Create logical OR conditions** using the `|` operator to combine boolean observables
-* **Organize observables** into Stores for cleaner application architecture
-* **Automate reactions** with decorators that eliminate subscription boilerplate
+* **[Transform observables](derived-observables.md)** using the `>>` operator to create derived values that update automatically
+* **[Combine observables](derived-observables.md)** using the `+` operator to work with multiple sources of data
+* **[Build boolean conditions](conditionals.md)** using the `&`, `|`, and `~` operators
+* **[Gate observables](conditionals.md)** using the `@` operator to control when data flows
+* **[Organize observables](stores.md)** into Stores for cleaner application architecture
+* **[Automate reactions](using-reactive.md)** with decorators that eliminate subscription boilerplate
 
-Each of these builds on the foundation you've just learned. Observables are simple, but their composition creates sophisticated reactive systems.
-
-The insight to carry forward: **observables aren't just containers—they're nodes in a reactive graph**. When you change one node, effects ripple through the entire structure automatically. That's the power FynX gives you.
+Each of these builds on what's here: an observable holds a value and notifies whoever's listening when it changes. Everything else in FynX is built out of that.

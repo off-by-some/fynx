@@ -10,11 +10,11 @@ from fynx.observable.conditional import ConditionalObservable
 @pytest.mark.observable
 @pytest.mark.operators
 def test_conditional_observable_inherits_from_conditional_observable_class():
-    """& operator creates ConditionalObservable instances"""
+    """@ operator creates ConditionalObservable instances"""
     source = Observable("source", "data")
     condition = Observable("condition", True)
 
-    conditional = source & condition
+    conditional = source @ condition
 
     assert isinstance(conditional, ConditionalObservable)
 
@@ -27,7 +27,7 @@ def test_conditional_observable_stores_source_observable_reference():
     source = Observable("source", "data")
     condition = Observable("condition", True)
 
-    conditional = source & condition
+    conditional = source @ condition
 
     # Implementation detail: stores source reference
     assert conditional._source_observable is source
@@ -42,7 +42,7 @@ def test_conditional_observable_stores_conditions():
     cond1 = Observable("cond1", True)
     cond2 = Observable("cond2", False)
 
-    conditional = source & cond1 & cond2
+    conditional = source @ cond1 @ cond2
 
     # Check that all conditions are present in the structure
     all_conditions = []
@@ -68,7 +68,7 @@ def test_conditional_observable_tracks_condition_satisfaction_state():
     cond1 = Observable("cond1", True)  # Always true for inner conditional
     cond2 = Observable("cond2", False)  # Controls outer conditional
 
-    conditional = source & cond1 & cond2
+    conditional = source @ cond1 @ cond2
 
     # Outer conditional (cond2) initially not satisfied
     assert conditional._conditions_met is False
@@ -90,14 +90,14 @@ def test_conditional_observable_initial_value_based_on_conditions():
     # Conditions initially met
     source1 = Observable("source1", "data")
     condition1 = Observable("condition1", True)
-    conditional1 = source1 & condition1
+    conditional1 = source1 @ condition1
 
     assert conditional1.value == "data"
 
     # Conditions initially not met
     source2 = Observable("source2", "data")
     condition2 = Observable("condition2", False)
-    conditional2 = source2 & condition2
+    conditional2 = source2 @ condition2
 
     # Accessing value when conditions never met raises ConditionalNeverMet
     from fynx.observable.conditional import ConditionalNeverMet
@@ -113,9 +113,9 @@ def test_conditional_observable_with_no_additional_conditions():
     """ConditionalObservable works with single source (no additional conditions)"""
     source = Observable("source", "data")
 
-    # Using & with only the source should still work
+    # Using @ with an always-true condition should pass through the source.
     always_true = Observable("always_true", True)
-    conditional = source & always_true
+    conditional = source @ always_true
 
     # Should be active and pass through the source value
     assert conditional.is_active is True
@@ -130,12 +130,12 @@ def test_conditional_observable_with_no_additional_conditions():
 @pytest.mark.observable
 @pytest.mark.operators
 def test_conditional_observable_operator_creates_flat_structure():
-    """& operator chaining creates flat ConditionalObservable structure"""
+    """@ operator chaining creates flat ConditionalObservable structure"""
     source = Observable("source", "data")
     cond1 = Observable("cond1", True)
     cond2 = Observable("cond2", True)
 
-    conditional = source & cond1 & cond2
+    conditional = source @ cond1 @ cond2
 
     # The result should be a ConditionalObservable
     assert isinstance(conditional, ConditionalObservable)
@@ -172,7 +172,7 @@ def test_conditional_raises_never_met_before_any_valid_value():
     """Accessing .value before any condition was satisfied raises ConditionalNeverMet."""
     # Arrange
     data = Observable("d", 0)
-    cond = data & (lambda x: x > 0)
+    cond = data @ (lambda x: x > 0)
     # Assert
     assert cond.is_active is False
     with pytest.raises(ConditionalNeverMet):
@@ -185,7 +185,7 @@ def test_conditional_raises_not_met_after_becoming_inactive():
     """After being active once, becoming inactive raises ConditionalNotMet on .value."""
     # Arrange
     data = Observable("d", 0)
-    cond = data & (lambda x: x > 0)
+    cond = data @ (lambda x: x > 0)
     # Act: become active
     data.set(5)
     assert cond.is_active is True
@@ -217,7 +217,7 @@ def test_conditional_with_empty_conditions_is_always_active():
 def test_inactive_conditional_transform_constructs_without_reading_missing_value():
     """Mapping an inactive gate preserves inactivity instead of reading .value."""
     source = Observable("source", 0)
-    gate = source & (lambda value: value > 0)
+    gate = source @ (lambda value: value > 0)
 
     mapped = gate >> (lambda value: value * 10)
 
@@ -231,7 +231,7 @@ def test_inactive_conditional_transform_constructs_without_reading_missing_value
 def test_conditional_transform_emits_mapped_value_when_gate_opens():
     """Mapped conditionals transform only values that pass through the source gate."""
     source = Observable("source", 0)
-    mapped = (source & (lambda value: value > 0)) >> (lambda value: value * 10)
+    mapped = (source @ (lambda value: value > 0)) >> (lambda value: value * 10)
     received = []
 
     mapped.subscribe(received.append)
@@ -246,7 +246,7 @@ def test_conditional_transform_emits_mapped_value_when_gate_opens():
 def test_conditional_transform_becomes_inactive_when_source_gate_closes():
     """Mapped conditionals close when their source gate closes."""
     source = Observable("source", 1)
-    mapped = (source & (lambda value: value > 0)) >> (lambda value: value * 10)
+    mapped = (source @ (lambda value: value > 0)) >> (lambda value: value * 10)
 
     source.set(0)
 
@@ -263,7 +263,7 @@ def test_conditional_transform_rejects_hidden_observable_reads():
     hidden = Observable("hidden", 2)
 
     with pytest.raises(TransformPurityError, match="inside a transform"):
-        (source & (lambda value: value > 0)) >> (lambda value: value + hidden.value)
+        (source @ (lambda value: value > 0)) >> (lambda value: value + hidden.value)
 
 
 @pytest.mark.unit
@@ -273,7 +273,7 @@ def test_conditional_get_debug_info_reports_condition_states():
     # Arrange
     src = Observable("s", 2)
     flag = Observable("flag", True)
-    cond = src & flag & (lambda x: x % 2 == 0)
+    cond = src @ flag @ (lambda x: x % 2 == 0)
     # Act
     info = cond.get_debug_info()
     # Assert
@@ -359,7 +359,7 @@ def test_conditional_observable_with_callable_condition_filters_tuple_values():
     def check_sum(a, b):
         return a + b > 2
 
-    conditional = merged & check_sum
+    conditional = merged @ check_sum
 
     # Should be active because 1 + 2 = 3 > 2
     assert conditional.is_active is True
@@ -386,7 +386,7 @@ def test_conditional_observable_with_callable_condition_filters_single_values():
     def check_value(x):
         return x > 3
 
-    conditional = source & check_value
+    conditional = source @ check_value
 
     # Should be active because 5 > 3
     assert conditional.is_active is True
@@ -472,7 +472,7 @@ def test_conditional_observable_handles_transition_to_inactive():
     """ConditionalObservable handles transition from active to inactive without notification."""
     source = Observable("source", 5)
     condition = Observable("condition", True)
-    conditional = source & condition
+    conditional = source @ condition
 
     # Make it active first
     source.set(5)
@@ -497,10 +497,10 @@ def test_conditional_observable_handles_transition_to_inactive():
 @pytest.mark.parametrize(
     "conditional_factory",
     [
-        lambda: Observable("source", 5) & (lambda value: value > 3),
+        lambda: Observable("source", 5) @ (lambda value: value > 3),
         lambda: (
             (Observable("left", 1) + Observable("right", 2))
-            & (lambda left, right: left + right > 2)
+            @ (lambda left, right: left + right > 2)
         ),
     ],
 )
@@ -527,10 +527,10 @@ def test_conditional_observable_evaluate_single_condition_conditional():
     source = Observable("source", 5)
 
     # Create a nested conditional
-    inner_conditional = source & (lambda x: x > 3)
+    inner_conditional = source @ (lambda x: x > 3)
 
     # Create outer conditional that depends on inner conditional
-    outer_conditional = source & inner_conditional
+    outer_conditional = source @ inner_conditional
 
     # The inner conditional should be active (5 > 3)
     assert inner_conditional.is_active
@@ -575,7 +575,7 @@ def test_conditional_observable_works_with_observable_value_from_stores():
 
     # Create conditional observable using computed observables from store
     # These are ObservableValue objects, not raw observables
-    filtered = TestStore.value & TestStore.is_positive & TestStore.is_even
+    filtered = TestStore.value @ TestStore.is_positive @ TestStore.is_even
 
     # Should work correctly
     assert isinstance(filtered, ConditionalObservable)
@@ -606,7 +606,7 @@ def test_conditional_observable_validation_accepts_observable_value():
         condition = value >> (lambda x: x > 3)
 
     # This should not raise a TypeError
-    conditional = TestStore.value & TestStore.condition
+    conditional = TestStore.value @ TestStore.condition
 
     assert isinstance(conditional, ConditionalObservable)
     assert conditional.is_active is True

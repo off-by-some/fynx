@@ -1,6 +1,6 @@
 # Transforming Data with `.then()` and `>>`
 
-Observables hold reactive values, and conditionals filter them. But what truly unlocks FynX's power is transformation—the ability to derive new values from existing ones automatically.
+Observables hold reactive values. What truly unlocks FynX's power is transformation—the ability to derive new values from existing ones automatically.
 
 FynX provides two ways to create derived observables: the `.then()` method and the `>>` operator. Both create computed observables that automatically stay in sync with their sources. When the source changes, the transformation function runs, and the derived observable updates.
 
@@ -48,7 +48,7 @@ Every time state changes, you have to remember to update all the derived values.
 
 ## The Solution: Declarative Derivation
 
-With FynX's `.then()` method and `>>` operator, you declare the relationships once:
+With FynX's `.then()` method, you declare the relationships once:
 
 ```python
 from fynx import observable
@@ -70,11 +70,11 @@ def calculate_shipping(subtotal, threshold):
 def calculate_total(subtotal, tax, shipping):
     return subtotal + tax + shipping
 
-# Declarative transformations using .then()
+# Declarative transformations using .then() and .alongside()
 subtotal = cart_items.then(calculate_subtotal)
-tax = (subtotal + tax_rate).then(calculate_tax)
-shipping = (subtotal + shipping_threshold).then(calculate_shipping)
-total = (subtotal + tax + shipping).then(calculate_total)
+tax = subtotal.alongside(tax_rate).then(calculate_tax)
+shipping = subtotal.alongside(shipping_threshold).then(calculate_shipping)
+total = subtotal.alongside(tax).alongside(shipping).then(calculate_total)
 
 # Subscribe to see results
 def print_subtotal(s):
@@ -103,7 +103,7 @@ You declare what each value means in terms of others. Changes propagate automati
 
 ## How `.then()` and `>>` Work: Function Application
 
-Both `.then()` and `>>` create computed observables, but with slightly different syntax:
+`.then()` has a shorthand: the `>>` operator does exactly the same thing.
 
 * **`.then()`**: `source_observable.then(transformation_function)` - Method syntax
 * **`>>`**: `source_observable >> transformation_function` - Operator syntax
@@ -121,42 +121,19 @@ numbers = observable([1, 2, 3])
 def sum_numbers(nums):
     return sum(nums)
 
-# Both approaches work identically
-total_method = numbers.then(sum_numbers)  # Using .then()
-total_operator = numbers >> sum_numbers    # Using >>
+total = numbers.then(sum_numbers)
 
-# Both total_method.value and total_operator.value are 6
+# Or, to use fynx's syntactic sugar:
+# total = numbers >> sum_numbers
+
+print(total.value)  # 6
 
 # Transformation re-runs when source changes
-numbers.set([4, 5, 6])  # Both become 15
-```
-
-### Chaining and Multiple Transformations
-
-Since both `.then()` and `>>` return new observables, you can chain transformations:
-
-```python
-numbers = observable([1, 2, 3])
-
-def sum_numbers(nums):
-    return sum(nums)
-
-def format_total(total):
-    return f"Total: {total}"
-
-# Chain using .then()
-total_method = numbers.then(sum_numbers)
-description_method = total_method.then(format_total)
-
-# Chain using >> (more concise)
-description_operator = numbers >> sum_numbers >> format_total
-
-description_method.subscribe(print)
-description_operator.subscribe(print)
-
 numbers.set([4, 5, 6])
-# Both print: "Total: 15"
+print(total.value)  # 15
 ```
+
+The rest of this page uses `.then()` throughout, but reach for `>>` any time you'd rather read the pipeline left to right.
 
 ### Function Signatures
 
@@ -169,18 +146,16 @@ name = observable("alice")
 def create_greeting(n):
     return f"Hello, {n.title()}!"
 
-greeting_method = name.then(create_greeting)
-greeting_operator = name >> create_greeting
+greeting = name.then(create_greeting)
 
-# Multiple observables (using + first)
+# Multiple observables (combine first)
 first = observable("John")
 last = observable("Doe")
 
 def combine_names(first_name, last_name):
     return f"{first_name} {last_name}"
 
-full_name_method = (first + last).then(combine_names)
-full_name_operator = (first + last) >> combine_names
+full_name = first.alongside(last).then(combine_names)
 ```
 
 ### Return Values
@@ -211,7 +186,7 @@ user_count_obs = data.then(create_count_observable)
 
 ## Chaining Transformations
 
-Since both `.then()` and `>>` return new observables, you can chain transformations:
+Since `.then()` returns a new observable, you can chain calls to build a pipeline:
 
 ```python
 raw_data = observable([1, 2, 3, None, 4, None])
@@ -228,32 +203,23 @@ def sum_values(filtered):
 def format_result(total):
     return f"Total: {total}"
 
-# Chain using .then() - explicit and readable
-result_method = (raw_data
+result = (raw_data
     .then(filter_none)      # Filter out None
     .then(filter_positive)  # Filter positive
     .then(sum_values)       # Sum
     .then(format_result))   # Format
 
-# Chain using >> - more concise
-result_operator = (raw_data
-    >> filter_none
-    >> filter_positive
-    >> sum_values
-    >> format_result)
-
-result_method.subscribe(print)
-result_operator.subscribe(print)
+result.subscribe(print)
 
 raw_data.set([5, None, -1, 10])
-# Both print: "Total: 15"
+# Prints: "Total: 15"
 ```
 
 Each step in the chain is reactive. Change the input and the entire pipeline recalculates automatically.
 
 ## Combining with Other Operators
 
-Both `.then()` and `>>` work beautifully with FynX's other operators:
+Chaining builds a pipeline from one source. Real transformations often need more than one source combined first, and `.then()` combines naturally with `.alongside()` for that:
 
 ```python
 prices = observable([10, 20, 30])
@@ -271,25 +237,24 @@ def is_expensive(total):
 def format_expensive_message(total, is_exp):
     return f"High-value order: ${total:.2f}"
 
-# Use + to combine, then transform
-discounted_total_method = (prices + discount_rate).then(calculate_discounted_total)
-discounted_total_operator = (prices + discount_rate) >> calculate_discounted_total
+# Combine, then transform
+discounted_total = prices.alongside(discount_rate).then(calculate_discounted_total)
 
 # Derive a boolean, then format
-is_expensive_method = discounted_total_method.then(is_expensive)
-is_expensive_operator = discounted_total_method >> is_expensive
+is_expensive_order = discounted_total.then(is_expensive)
 
-expensive_message_method = (discounted_total_method + is_expensive_method).then(format_expensive_message)
-expensive_message_operator = (discounted_total_method + is_expensive_operator) >> format_expensive_message
+expensive_message = discounted_total.alongside(is_expensive_order).then(format_expensive_message)
 ```
+
+Each derived value here still only recalculates when its own sources change - `is_expensive_order` doesn't recompute just because `prices` changed, if the discounted total it depends on didn't move.
 
 ## Performance Characteristics
 
-Derived observables are lazy and efficient:
+That selectivity isn't incidental - it's the main reason derived observables stay cheap at scale:
 
 * **Memoization**: Results are cached until source values change
 * **Selective Updates**: Unobserved values recalculate only when read after dependencies actually change
-* **Demand-Driven Notifications**: Subscribers create the eager boundary needed to deliver updates automatically
+* **Demand-Driven Notifications**: Subscribers create the effect boundary needed to deliver updates automatically
 * **No Redundant Work**: If a transformation result hasn't changed, downstream observers don't re-run
 
 ```python
@@ -299,8 +264,7 @@ def slow_computation(data):
     return data * 2
 
 # This transformation only runs when expensive_data changes
-expensive_result_method = expensive_data.then(slow_computation)
-expensive_result_operator = expensive_data >> slow_computation
+expensive_result = expensive_data.then(slow_computation)
 
 # If expensive_data stays the same, slow_computation doesn't re-run
 expensive_data.set(same_value)  # No recalculation
@@ -316,9 +280,8 @@ data = observable({'value': 42})
 def access_missing_key(d):
     return d['missing_key'] * 2  # KeyError here!
 
-# This will throw a KeyError immediately when the transformation is created
-result_method = data.then(access_missing_key)  # KeyError!
-result_operator = data >> access_missing_key   # KeyError!
+# This raises a KeyError immediately, when the transformation is created
+result = data.then(access_missing_key)  # KeyError!
 ```
 
 Handle errors by ensuring your data is in the expected format before creating transformations, or by transforming the data to a safe format first.
@@ -356,8 +319,7 @@ total = items.value.reduce(sum)  # Just a number, won't update
 def sum_items(item_list):
     return sum(item_list)
 
-total_method = items.then(sum_items)  # Updates when items changes
-total_operator = items >> sum_items   # Updates when items changes
+total = items.then(sum_items)  # Updates when items changes
 ```
 
 The moment you call `.value`, you extract the data and break the reactive chain. If you're building something that should update automatically when the source changes, work with the observable itself, not its value.
@@ -369,13 +331,12 @@ The moment you call `.value`, you extract the data and break the reactive chain.
 def double_count(c):
     return c * 2
 
-derived_method = count.then(double_count)  # Pass count, not count.value
-derived_operator = count >> double_count   # Pass count, not count.value
-merged = first_name + last_name            # Pass observables, not .value
-filtered = items & is_valid                # Pass observables, not .value
+derived = count.then(double_count)          # Pass count, not count.value
+merged = first_name.alongside(last_name)    # Pass observables, not .value
+filtered = items @ is_valid                 # Pass observables, not .value
 ```
 
-The operators (`.then()`, `>>`, `+`, `&`, `~`) are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream.
+These operators are designed to work with observables and maintain reactivity. When you pass `.value` to them, you're passing a static snapshot instead of a reactive stream. (`@` is the gate operator - [Conditionals](conditionals.md) covers it in depth.)
 
 **Inside transforms, use the arguments FynX gives you:**
 
@@ -384,13 +345,13 @@ price = observable(100.0)
 discount = observable(0.1)
 
 # Bad: discount.value is hidden inside the transform
-discounted = price >> (lambda p: p * (1 - discount.value))
+discounted = price.then(lambda p: p * (1 - discount.value))
 
 # Good: combine inputs first, then transform plain values
-discounted = (price + discount) >> (lambda p, d: p * (1 - d))
+discounted = price.alongside(discount).then(lambda p, d: p * (1 - d))
 ```
 
-If a transform reads `.value` or calls `.set()` on any observable, FynX raises `TransformPurityError` and points you toward an explicit `+` / `.alongside()` form. This keeps transforms easy to reason about: everything they depend on appears on the left side of `>>`.
+If a transform reads `.value` or calls `.set()` on any observable, FynX raises `TransformPurityError` and points you toward an explicit `.alongside()` form. This keeps transforms easy to reason about: everything they depend on appears as an argument.
 
 **Inside subscribers and reactive functions, `.value` is fine:**
 
@@ -412,11 +373,11 @@ counter.subscribe(print_double_count_and_age)
 
 Inside subscribers and reactive functions, using `.value` to read another observable is allowed. With `subscribe()`, the subscription still runs when its subscribed observable changes. With `@reactive`, observables read during the function become tracked dependencies.
 
-**Rule of thumb:** In `>>` / `.then()` transforms, use only the arguments FynX passes in. In `@reactive` functions and subscription callbacks, `.value` is for reading current state at the application's effect boundary.
+**Rule of thumb:** In `.then()` transforms, use only the arguments FynX passes in. In `@reactive` functions and subscription callbacks, `.value` is for reading current state at the application's effect boundary.
 
 ## Observable Mutation Detection
 
-FynX can't automatically detect changes to the contents of observables:
+FynX can't automatically detect changes to the contents of observables—only to the reference stored in them:
 
 ```python
 items = observable([1, 2, 3])
@@ -428,7 +389,7 @@ items.value.append(4)
 items.set(items.value + [4])  # This DOES trigger subscribers
 ```
 
-FynX can't detect mutations to the objects inside observables. When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call `.set()` with the updated value—even if it's the same object reference—to trigger reactivity.
+When you modify a list, dictionary, or custom object in place, subscribers won't know. You must call `.set()` with the updated value—even if it's the same object reference—to trigger reactivity. Stores follow the same rule; see [Stores: Immutable Updates](stores.md#a-critical-pattern-immutable-updates) for the Store-specific version of this.
 
 ## External State in Transforms
 
@@ -443,8 +404,7 @@ def multiply_by_external(c):
     return c * external_multiplier
 
 # This depends on external_multiplier, which is not an observable
-doubled_method = counter.then(multiply_by_external)
-doubled_operator = counter >> multiply_by_external
+doubled = counter.then(multiply_by_external)
 
 external_multiplier = 3
 counter.set(5)  # Uses current multiplier value (3), result = 15
@@ -455,225 +415,14 @@ If the extra value should be reactive, make it an observable and combine it expl
 ```python
 multiplier = observable(2)
 
-scaled = (counter + multiplier) >> (lambda count, factor: count * factor)
+scaled = counter.alongside(multiplier).then(lambda count, factor: count * factor)
 ```
 
-Transforms may not read `.value` from observables or call `.set()` on observables. FynX raises `TransformPurityError` for those cases and suggests the explicit `+` / `.alongside()` form or a reaction for side effects.
-
-## Best Practices for Transformations
-
-### 1. Keep Transformations Pure
-
-```python
-# Good - Pure function, same input always gives same output
-def to_uppercase(n):
-    return n.upper()
-
-uppercase_method = name.then(to_uppercase)
-uppercase_operator = name >> to_uppercase
-
-# Avoid - Impure function, depends on external state
-import random
-
-def random_case(n):
-    return n.upper() if random.random() > 0.5 else n.lower()
-
-random_case_method = name.then(random_case)  # Unpredictable
-random_case_operator = name >> random_case   # Unpredictable
-```
-
-Pure functions make your reactive system predictable and testable.
-
-### 2. Handle Edge Cases
-
-```python
-# Good - Handles empty lists gracefully
-def safe_average(nums):
-    return sum(nums) / len(nums) if nums else 0
-
-average_method = numbers.then(safe_average)
-average_operator = numbers >> safe_average
-
-# Avoid - Will crash on empty list
-def unsafe_average(nums):
-    return sum(nums) / len(nums)
-
-unsafe_method = numbers.then(unsafe_average)  # Crashes on empty list
-unsafe_operator = numbers >> unsafe_average   # Crashes on empty list
-```
-
-Defensive programming prevents runtime errors in your reactive pipelines.
-
-### 3. Name Your Transformations
-
-```python
-# Clear intent
-def calculate_age(date):
-    return (datetime.now() - date).days // 365
-
-def is_adult(age):
-    return age >= 18
-
-user_age_method = birth_date.then(calculate_age)
-user_age_operator = birth_date >> calculate_age
-
-is_adult_method = user_age_method.then(is_adult)
-is_adult_operator = user_age_operator >> is_adult
-
-eligible_for_voting = is_adult_method & has_citizenship
-
-# Unclear intent
-def transform(d):
-    return calculate_age(d)
-
-def filter_age(age):
-    return age >= 18
-
-transformed_method = birth_date.then(transform)
-filtered_method = transformed_method.then(filter_age)
-```
-
-Descriptive names make your reactive graphs self-documenting.
-
-### 4. Avoid Deep Nesting
-
-```python
-# Good - Break complex transformations into steps
-def extract_user_data(response):
-    return response['user']
-
-def extract_user_age(user_data):
-    return user_data['age']
-
-def is_adult(age):
-    return age >= 18
-
-# Each of these are identical
-user_data_method = api_response.then(extract_user_data)
-user_data_operator = api_response >> extract_user_data
-
-user_age_method = user_data_method.then(extract_user_age)
-user_age_operator = user_data_operator >> extract_user_age
-
-is_adult_method = user_age_method.then(is_adult)
-is_adult_operator = user_age_operator >> is_adult
-
-# Avoid - Hard to debug and modify
-def complex_extraction(response):
-    return response['user']['age'] >= 18
-
-complex_method = api_response.then(complex_extraction)
-complex_operator = api_response >> complex_extraction
-```
-
-Small, focused transformations are easier to test and maintain.
-
-### 5. Consider Performance
-
-```python
-# Good - Efficient for large lists
-def sum_list(lst):
-    return sum(lst)
-
-summed_method = large_list.then(sum_list)
-summed_operator = large_list >> sum_list
-
-# Better - Lazy evaluation with generator
-def sum_generator(lst):
-    return sum(x for x in lst)
-
-summed_lazy_method = large_list.then(sum_generator)
-summed_lazy_operator = large_list >> sum_generator
-```
-
-Be mindful of performance, especially with large data structures.
-
-## Common Transformation Patterns
-
-### Data Validation
-
-```python
-email = observable("user@")
-
-def validate_email(e):
-    return "@" in e and "." in e.split("@")[1]
-
-def email_feedback(valid):
-    return "Valid" if valid else "Invalid"
-
-is_valid_email_method = email.then(validate_email)
-is_valid_email_operator = email >> validate_email
-
-email_feedback_method = is_valid_email_method.then(email_feedback)
-email_feedback_operator = is_valid_email_operator >> email_feedback
-```
-
-### Data Formatting
-
-```python
-price = observable(29.99)
-
-def format_price(p):
-    return f"${p:.2f}"
-
-formatted_price_method = price.then(format_price)
-formatted_price_operator = price >> format_price
-```
-
-### Collection Operations
-
-```python
-items = observable([1, 2, 3, 4, 5])
-
-def filter_evens(lst):
-    return [x for x in lst if x % 2 == 0]
-
-def double_items(lst):
-    return [x * 2 for x in lst]
-
-def sum_items(lst):
-    return sum(lst)
-
-# Filter
-evens_method = items.then(filter_evens)
-evens_operator = items >> filter_evens
-
-# Map
-doubled_method = items.then(double_items)
-doubled_operator = items >> double_items
-
-# Reduce
-total_method = items.then(sum_items)
-total_operator = items >> sum_items
-```
-
-### State Derivation
-
-```python
-app_state = observable("loading")
-
-def is_loading_state(s):
-    return s == "loading"
-
-def is_error_state(s):
-    return s == "error"
-
-def is_ready_state(s):
-    return s == "ready"
-
-is_loading_method = app_state.then(is_loading_state)
-is_loading_operator = app_state >> is_loading_state
-
-is_error_method = app_state.then(is_error_state)
-is_error_operator = app_state >> is_error_state
-
-is_ready_method = app_state.then(is_ready_state)
-is_ready_operator = app_state >> is_ready_state
-```
+Transforms may not read `.value` from observables or call `.set()` on observables—the same `TransformPurityError` from earlier applies here too.
 
 ## The Big Picture
 
-Both `.then()` and `>>` transform FynX from a simple notification system into a powerful data transformation engine. You stop writing imperative update code and start declaring relationships:
+`.then()` (and its `>>` shorthand) transform FynX from a simple notification system into a powerful data transformation engine. You stop writing imperative update code and start declaring relationships:
 
 * **From**: "When X changes, update Y, then update Z"
 * **To**: "Y is a transformation of X, Z is a transformation of Y"
@@ -684,6 +433,6 @@ This declarative approach eliminates entire categories of bugs:
 * **No forgotten updates**: The reactive graph handles all propagation
 * **No manual synchronization**: Relationships are maintained automatically
 
-Combined with conditionals (`&`) and merging (`+`), derived observables give you a complete toolkit for building reactive data pipelines. You describe what your data should look like, and FynX ensures it stays that way.
+Combined with [gates](conditionals.md) (`.requiring()` / `@`) and products (`.alongside()` / `+`), derived observables give you a complete toolkit for building reactive data pipelines. You describe what your data should look like, and FynX ensures it stays that way.
 
-The next step is organizing these reactive pieces into reusable units called **Stores**—the architectural pattern that brings everything together.
+For practical guidance on naming, edge cases, and common transformation patterns, see the [Best Practices](best-practices.md) page. The next step is organizing these reactive pieces into reusable units called [Stores](stores.md)—the architectural pattern that brings everything together.
