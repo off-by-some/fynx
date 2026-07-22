@@ -332,7 +332,7 @@ bmi = bmi_data >> calculate_bmi
 
 The annotations follow the runtime closely. Products remain flat and arrive as unpacked arguments, `&`, `|`, and `~` produce `Observable[bool]`, and `@` keeps the type of the value passing through it. Store fields are [typed descriptors](https://off-by-some.github.io/fynx/reference/observable-descriptors/) as well, so `total = observable(0)` appears as `ObservableValue[int]` on class access while the same call outside a store produces `Observable[int]`.
 
-The same explicit structure allows FynX to make internal changes without changing the public result. Pure transform chains can be fused, repeated ordered products can reuse a live product node, and unobserved derived values can stay lazy until they are read. The mathematical account uses functors, products, Boolean algebra, and pullback-like gates; the everyday consequence is that expressions such as `obs >> f >> g` have rules strong enough for the runtime to optimize them rather than merely hoping two forms behave alike.
+The same explicit structure allows FynX to make internal changes without changing the public result. Pure transform chains can be fused, repeated ordered products can reuse a live product node, and unobserved derived values can stay lazy until they are read. FynX is designed around explicit algebraic laws and tested against them: functors, products, Boolean algebra, and pullback-like gates supply the blueprint, while the implementation and tests are what keep the mutable Python runtime honest.
 
 For transforms, the relevant laws are:
 

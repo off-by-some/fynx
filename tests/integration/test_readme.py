@@ -300,7 +300,7 @@ class TestReadmeExamples:
         assert total.value == 300.0  # 100 * 3
         assert discounted.value == 270.0  # 300 * (1 - 0.1)
 
-        quantity.set(5)  # Everything updates correctly by mathematical necessity
+        quantity.set(5)  # Explicit dependencies keep the graph synchronized
 
         assert total.value == 500.0  # 100 * 5
         assert discounted.value == 450.0  # 500 * (1 - 0.1)

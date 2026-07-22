@@ -210,6 +210,13 @@ def test_operator_type_inference_is_flat_and_source_preserving():
     )
 
     assert result.returncode == 0, result.stdout + result.stderr
+
+    def assert_revealed(*renderings: str) -> None:
+        assert any(
+            f'Revealed type is "{rendering}"' in result.stdout
+            for rendering in renderings
+        ), result.stdout
+
     assert (
         'Revealed type is "fynx.observable.merged.MergedObservable'
         '[builtins.float, builtins.float]"'
@@ -224,20 +231,20 @@ def test_operator_type_inference_is_flat_and_source_preserving():
         >= 1
     )
     assert result.stdout.count('Revealed type is "builtins.list[builtins.int]"') >= 1
-    assert (
-        'Revealed type is "fynx.observable.descriptors.ObservableValue'
-        '[builtins.int | None]"'
-    ) in result.stdout
+    assert_revealed(
+        "fynx.observable.descriptors.ObservableValue[builtins.int | None]",
+        "fynx.observable.descriptors.ObservableValue[Union[builtins.int, None]]",
+    )
     assert (
         result.stdout.count(
             'Revealed type is "fynx.observable.base.Observable[builtins.bool]"'
         )
         >= 6
     )
-    assert (
-        "Revealed type is "
-        '"fynx.observable.conditional.ConditionalObservable[builtins.int | None]"'
-    ) in result.stdout
+    assert_revealed(
+        "fynx.observable.conditional.ConditionalObservable[builtins.int | None]",
+        "fynx.observable.conditional.ConditionalObservable[Union[builtins.int, None]]",
+    )
     assert (
         'Revealed type is "fynx.observable.base.Observable[builtins.str]"'
     ) in result.stdout
@@ -245,10 +252,10 @@ def test_operator_type_inference_is_flat_and_source_preserving():
         'Revealed type is "def (func: def (builtins.str) -> builtins.object) -> '
         'fynx.observable.base.Observable[builtins.str]"'
     ) in result.stdout
-    assert (
-        'Revealed type is "fynx.observable.base.Observable'
-        "[Literal['light'] | Literal['dark']]\""
-    ) in result.stdout
+    assert_revealed(
+        "fynx.observable.base.Observable[Literal['light'] | Literal['dark']]",
+        "fynx.observable.base.Observable" "[Union[Literal['light'], Literal['dark']]]",
+    )
     assert (
         'Revealed type is "fynx.observable.merged.MergedObservable'
         '[builtins.int, builtins.str, builtins.bool]"'

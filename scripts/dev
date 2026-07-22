@@ -93,11 +93,23 @@ cmd_lint() {
 
 cmd_test() {
     print_header "Test"
-    if [ "$#" -eq 0 ]; then
-        run poetry run pytest -q
-    else
-        run poetry run pytest "$@"
-    fi
+    case "${1:-}" in
+        --local)
+            shift
+            if [ "$#" -eq 0 ]; then
+                run poetry run pytest -q
+            else
+                run poetry run pytest "$@"
+            fi
+            ;;
+        --docker)
+            shift
+            run "$PROJECT_ROOT/scripts/docker/test-matrix.sh" "$@"
+            ;;
+        *)
+            run "$PROJECT_ROOT/scripts/docker/test-matrix.sh" "$@"
+            ;;
+    esac
 }
 
 cmd_deploy_pypi() {
@@ -159,7 +171,8 @@ ${BOLD}Commands:${NC}
   ${GREEN}docs${NC}                    Build docs and serve them locally at http://localhost:8000
   ${GREEN}deploy-docs${NC}             Build docs, confirm, then deploy to GitHub Pages
   ${GREEN}lint${NC} [--fix]            Run formatting/import checks (--fix to auto-format)
-  ${GREEN}test${NC} [pytest-args]      Run the test suite (defaults to -q)
+  ${GREEN}test${NC} [pytest-args]      Run the Docker Python matrix in parallel
+  ${GREEN}test --local${NC} [args]     Run tests on the current Poetry interpreter
   ${GREEN}deploy-pypi${NC} [version]   Bump version (optional), lint, confirm, publish, verify on TestPyPI
   ${GREEN}deploy${NC} [version]        Run deploy-pypi then deploy-docs (each with its own confirmation)
   ${GREEN}help${NC}                    Show this help message
@@ -167,7 +180,8 @@ ${BOLD}Commands:${NC}
 ${BOLD}Examples:${NC}
   ./scripts/dev docs
   ./scripts/dev lint --fix
-  ./scripts/dev test -k observable
+  ./scripts/dev test
+  ./scripts/dev test --local -k observable
   ./scripts/dev deploy-pypi 0.2.0
   ./scripts/dev deploy 0.2.0
 
